@@ -4,8 +4,8 @@
   var SUPPORTED = ["en", "pt", "es", "zh"];
   var HTML_LANG = { en: "en", pt: "pt-BR", es: "es", zh: "zh-CN" };
   // Address that receives the quote requests from the contact form.
-  var CONTACT_EMAIL = "contact@michent.com";
-  var STORAGE_KEY = "michent-lang";
+  var CONTACT_EMAIL = "contact@micheng.com";
+  var STORAGE_KEY = "micheng-lang";
   var current = "en";
 
   function storageGet() {
