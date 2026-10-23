@@ -75,14 +75,14 @@ p { margin: 0; }
 .header .container { max-width: 1320px; }
 .header__inner { display: flex; align-items: center; gap: 28px; height: 76px; }
 
-.logo { display: flex; flex-direction: column; line-height: 1; flex: none; }
-.logo__mark {
-  font-weight: 800; font-size: 32px; letter-spacing: .02em; color: var(--navy);
-  position: relative;
-}
-.logo__mark::first-letter { color: var(--navy); }
-.logo__mark--light { color: #fff; font-size: 26px; }
-.logo__sub { font-size: 10.5px; color: var(--navy); margin-top: 4px; letter-spacing: .01em; }
+.logo { display: flex; align-items: center; gap: 12px; line-height: 1; flex: none; color: var(--navy); }
+.logo__icon { width: 50px; height: 50px; flex: none; fill: currentColor; transition: transform .3s; }
+.logo:hover .logo__icon { transform: rotate(-4deg) scale(1.04); }
+.logo__text { display: flex; flex-direction: column; padding-left: 12px; border-left: 2px solid currentColor; }
+.logo__mark { font-weight: 800; font-size: 27px; letter-spacing: .12em; color: currentColor; }
+.logo__sub { font-size: 10px; margin-top: 5px; letter-spacing: .02em; opacity: .85; }
+.logo--light { color: #fff; }
+.logo--light .logo__icon { width: 58px; height: 58px; }
 
 .nav { display: flex; gap: 26px; margin-left: auto; }
 .nav__link { white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--text); padding: 26px 0; position: relative; transition: color .2s; }
@@ -121,7 +121,14 @@ p { margin: 0; }
     url("../img/hero-shanghai.jpg") center 60% / cover no-repeat;
   min-height: 520px; display: flex; align-items: center;
 }
-.hero__content { padding-top: 64px; padding-bottom: 72px; }
+.hero { overflow: hidden; }
+.hero__mark {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: min(620px, 52vw); height: min(620px, 52vw);
+  right: 6%; top: 50%; transform: translateY(-50%);
+  fill: #fff; opacity: .16;
+}
+.hero__content { position: relative; z-index: 1; padding-top: 64px; padding-bottom: 72px; }
 .hero__title { color: #fff; font-size: clamp(42px, 6.4vw, 76px); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin: 18px 0 22px; }
 .hero__text { max-width: 470px; font-size: 18px; color: rgba(255,255,255,.92); }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
@@ -198,6 +205,12 @@ p { margin: 0; }
   font-size: 40px; color: #fff; opacity: .92; transform: rotate(-8deg);
   text-shadow: 0 2px 10px rgba(0,0,0,.25);
 }
+.about__badge {
+  position: absolute; top: 18px; left: 18px; z-index: 1;
+  width: 64px; height: 64px; border-radius: 6px; background: #fff;
+  display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}
+.about__badge svg { width: 44px; height: 44px; fill: var(--navy); }
 .about__photo figcaption {
   position: absolute; left: 18px; bottom: 16px; z-index: 1;
   display: flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; font-weight: 600;
@@ -218,7 +231,12 @@ p { margin: 0; }
     linear-gradient(90deg, rgba(6, 30, 66, .95) 0%, rgba(8, 38, 80, .82) 45%, rgba(8, 38, 80, .25) 100%),
     url("../img/cta-port.jpg") center / cover no-repeat;
 }
-.cta__content { padding-top: 64px; padding-bottom: 64px; }
+.cta { position: relative; overflow: hidden; }
+.cta__mark {
+  position: absolute; pointer-events: none; fill: #fff; opacity: .18;
+  width: 380px; height: 380px; right: 8%; top: 50%; transform: translateY(-50%);
+}
+.cta__content { position: relative; padding-top: 64px; padding-bottom: 64px; }
 .cta .eyebrow { font-size: 13px; }
 .cta__title { color: #fff; font-size: clamp(26px, 3vw, 34px); font-weight: 700; margin: 14px 0 12px; }
 .cta__text { max-width: 520px; color: rgba(255,255,255,.9); margin-bottom: 28px; }
@@ -250,7 +268,7 @@ p { margin: 0; }
 /* ---------- Footer ---------- */
 .footer { background: var(--navy); color: rgba(255,255,255,.75); font-size: 14px; }
 .footer__inner { display: grid; grid-template-columns: auto 1fr; gap: 16px 40px; padding-top: 44px; padding-bottom: 32px; align-items: center; }
-.footer__inner p { margin-top: 6px; }
+.footer__inner p { margin-top: 14px; }
 .footer__nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 24px; }
 .footer__nav a:hover { color: #fff; }
 .footer__copy { grid-column: 1 / -1; border-top: 1px solid rgba(255,255,255,.12); padding-top: 22px; margin-top: 12px; font-size: 13px; }
@@ -269,7 +287,7 @@ p { margin: 0; }
   .nav { gap: 18px; }
   .lang__btn img { display: none; }
 }
-@media (max-width: 1160px) {
+@media (max-width: 1240px) {
   .header__cta { display: none; }
 }
 
@@ -302,8 +320,13 @@ p { margin: 0; }
   .container { padding-left: 16px; padding-right: 16px; }
   .header__inner { height: 66px; gap: 10px; }
   .nav { top: 66px; }
-  .logo__mark { font-size: 24px; }
-  .logo__sub { display: none; }
+  .logo { gap: 8px; }
+  .logo__icon { width: 38px; height: 38px; }
+  .logo__text { padding-left: 8px; }
+  .logo__mark { font-size: 19px; letter-spacing: .08em; }
+  .header .logo__sub { display: none; }
+  .hero__mark { width: 340px; height: 340px; right: -60px; top: auto; bottom: -40px; transform: none; opacity: .1; }
+  .cta__mark { width: 240px; height: 240px; right: -50px; opacity: .08; }
   .lang__btn { padding: 6px 5px; font-size: 12px; gap: 4px; }
   .lang__btn img { display: none; }
 
