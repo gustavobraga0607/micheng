@@ -204,6 +204,7 @@
     form.elements.id.value = p.id;
     form.elements.name.value = p.source.name;
     form.elements.description.value = p.source.description || "";
+    form.elements.category.value = p.category || "";
     showPreview(p.image);
     trFields("name").forEach(function (el) { el.value = p.name[el.dataset.lang] || ""; });
     trFields("description").forEach(function (el) { el.value = (p.description || {})[el.dataset.lang] || ""; });
@@ -220,14 +221,17 @@
     e.preventDefault();
     var id = form.elements.id.value;
     var name = form.elements.name.value.trim();
+    var category = form.elements.category.value;
     var ok = true;
     form.elements.name.classList.toggle("is-invalid", !name);
-    if (!name) ok = false;
+    form.elements.category.classList.toggle("is-invalid", !category);
+    if (!name || !category) ok = false;
     if (!id && !pendingImage) { drop.classList.add("is-invalid"); ok = false; }
     if (!ok) return setStatus(T("status.required"), "error");
 
     var body = {
       name: name,
+      category: category,
       description: form.elements.description.value
     };
     if (pendingImage) body.image = pendingImage;
@@ -265,8 +269,10 @@
 
   function renderList() {
     var q = $("#search").value.trim().toLowerCase();
+    var cat = $("#cat-filter").value;
     var editing = form.elements.id.value;
     var shown = products.filter(function (p) {
+      if (cat && p.category !== cat) return false;
       if (!q) return true;
       return LANGS.some(function (l) { return String(p.name[l] || "").toLowerCase().indexOf(q) > -1; });
     });
@@ -279,7 +285,8 @@
       return '<li class="pitem' + (p.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(p.id) + '">' +
         '<img src="' + escapeHtml(p.image) + '" alt="" loading="lazy" />' +
         "<div><h3>" + escapeHtml(p.name[current] || p.source.name) + "</h3>" +
-        '<p class="pitem__lang">' + escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
+        '<p class="pitem__lang">' + (p.category ? '<span class="pitem__cat">' + escapeHtml(T("cat." + p.category)) + "</span> · " : "") +
+        escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
         '<div class="pitem__tr">' + chips + "</div>" +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
@@ -288,6 +295,7 @@
   }
 
   $("#search").addEventListener("input", renderList);
+  $("#cat-filter").addEventListener("change", renderList);
 
   listEl.addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-act]");

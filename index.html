@@ -116,28 +116,28 @@
         </div>
 
         <div class="cards">
-          <a href="#contact" class="card">
+          <a href="#contact" class="card" data-category="building">
             <div class="card__img"><img src="assets/img/cat-building.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.1.t">Building Materials</span> <span class="arrow">→</span></h3>
               <p data-i18n="prod.1.d">Marbles, granites, quartz, tiles and more.</p>
             </div>
           </a>
-          <a href="#contact" class="card">
+          <a href="#contact" class="card" data-category="sanitary">
             <div class="card__img"><img src="assets/img/cat-sanitary.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.2.t">Sanitary &amp; Hardware</span> <span class="arrow">→</span></h3>
               <p data-i18n="prod.2.d">Sanitary ware, faucets, bathroom accessories.</p>
             </div>
           </a>
-          <a href="#contact" class="card">
+          <a href="#contact" class="card" data-category="fitness">
             <div class="card__img"><img src="assets/img/cat-fitness.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
-              <h3><span data-i18n="prod.3.t">Fitness &amp; Sports</span> <span class="arrow">→</span></h3>
-              <p data-i18n="prod.3.d">Gym equipment, sports products and accessories.</p>
+              <h3><span data-i18n="prod.3.t">Fitness &amp; Recovery</span> <span class="arrow">→</span></h3>
+              <p data-i18n="prod.3.d">Gym equipment, recovery products and accessories.</p>
             </div>
           </a>
-          <a href="#contact" class="card">
+          <a href="#contact" class="card" data-category="general">
             <div class="card__img"><img src="assets/img/cat-general.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.4.t">General Products</span> <span class="arrow">→</span></h3>
@@ -159,6 +159,13 @@
             <p data-i18n="catalog.intro">A selection of products we supply. Ask us for prices, customization and minimum quantities.</p>
           </div>
         </div>
+        <div class="catalog__filters" id="catalog-filters" role="group" aria-label="Category">
+          <button type="button" class="chip is-active" data-filter="" data-i18n="catalog.all">All</button>
+          <button type="button" class="chip" data-filter="building" data-i18n="prod.1.t">Building Materials</button>
+          <button type="button" class="chip" data-filter="sanitary" data-i18n="prod.2.t">Sanitary &amp; Hardware</button>
+          <button type="button" class="chip" data-filter="fitness" data-i18n="prod.3.t">Fitness &amp; Recovery</button>
+          <button type="button" class="chip" data-filter="general" data-i18n="prod.4.t">General Products</button>
+        </div>
         <div class="catalog__grid" id="catalog-grid"></div>
         <div class="catalog__more">
           <button type="button" class="btn btn--outline btn--lg" id="catalog-more" hidden><span data-i18n="catalog.more">Show more products</span></button>
@@ -170,6 +177,7 @@
       <button type="button" class="pmodal__close" id="pmodal-close" aria-label="Close">×</button>
       <img class="pmodal__img" id="pmodal-img" alt="" />
       <div class="pmodal__body">
+        <span class="pmodal__cat" id="pmodal-cat"></span>
         <h3 id="pmodal-title"></h3>
         <p id="pmodal-desc"></p>
         <button type="button" class="btn btn--primary btn--lg" id="pmodal-quote"><span data-i18n="cta.quote">Get a Quote</span> <span class="arrow">→</span></button>
@@ -360,7 +368,7 @@
             <select name="category">
               <option data-i18n="prod.1.t">Building Materials</option>
               <option data-i18n="prod.2.t">Sanitary &amp; Hardware</option>
-              <option data-i18n="prod.3.t">Fitness &amp; Sports</option>
+              <option data-i18n="prod.3.t">Fitness &amp; Recovery</option>
               <option data-i18n="prod.4.t">General Products</option>
             </select>
           </label>

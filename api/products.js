@@ -7,6 +7,8 @@ import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_NAME = 120;
 const MAX_DESCRIPTION = 2000;
+// Same categories as the home page cards.
+const CATEGORIES = ["building", "sanitary", "fitness", "general"];
 
 function decodeImage(dataUrl) {
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
@@ -85,10 +87,11 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       const body = await readJson(req);
       if (!cleanText(body.name, MAX_NAME)) return fail(res, 400, "Name is required");
+      if (!CATEGORIES.includes(body.category)) return fail(res, 400, "Category is required");
       if (!body.image) return fail(res, 400, "Photo is required");
       const image = decodeImage(body.image);
       const now = new Date().toISOString();
-      const product = { id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+      const product = { id: crypto.randomUUID(), category: body.category, createdAt: now, updatedAt: now };
       await applyTexts(product, body, null);
       product.image = await saveImage(product.id, image.buffer, image.contentType);
       products.unshift(product);
@@ -102,8 +105,10 @@ export default async function handler(req, res) {
     if (req.method === "PUT") {
       const body = await readJson(req);
       if (!cleanText(body.name, MAX_NAME)) return fail(res, 400, "Name is required");
+      if (!CATEGORIES.includes(body.category)) return fail(res, 400, "Category is required");
       const existing = products[index];
       const product = JSON.parse(JSON.stringify(existing));
+      product.category = body.category;
       await applyTexts(product, body, existing);
       if (body.image) {
         const image = decodeImage(body.image);

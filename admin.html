@@ -62,6 +62,15 @@
           <label><span data-t="form.name">Nome do produto *</span>
             <input type="text" name="name" maxlength="120" required data-t-placeholder="form.namePh" />
           </label>
+          <label><span data-t="form.category">Categoria *</span>
+            <select name="category" required>
+              <option value="" data-t="form.categoryPh">Selecione a categoria</option>
+              <option value="building" data-t="cat.building">Materiais de Construção</option>
+              <option value="sanitary" data-t="cat.sanitary">Louças e Metais</option>
+              <option value="fitness" data-t="cat.fitness">Fitness e Recovery</option>
+              <option value="general" data-t="cat.general">Produtos Gerais</option>
+            </select>
+          </label>
           <label><span data-t="form.description">Descrição</span>
             <textarea name="description" rows="5" maxlength="2000" data-t-placeholder="form.descriptionPh"></textarea>
           </label>
@@ -98,7 +107,16 @@
       <section class="panel">
         <div class="list-head">
           <h2><span data-t="list.title">Produtos cadastrados</span> <span class="count" id="count">0</span></h2>
-          <input type="search" id="search" data-t-placeholder="list.search" />
+          <div class="list-tools">
+            <select id="cat-filter" aria-label="Category">
+              <option value="" data-t="list.allCategories">Todas as categorias</option>
+              <option value="building" data-t="cat.building">Materiais de Construção</option>
+              <option value="sanitary" data-t="cat.sanitary">Louças e Metais</option>
+              <option value="fitness" data-t="cat.fitness">Fitness e Recovery</option>
+              <option value="general" data-t="cat.general">Produtos Gerais</option>
+            </select>
+            <input type="search" id="search" data-t-placeholder="list.search" />
+          </div>
         </div>
         <ul class="plist" id="product-list"></ul>
         <p class="empty" id="empty" data-t="list.empty" hidden>Nenhum produto cadastrado ainda.</p>

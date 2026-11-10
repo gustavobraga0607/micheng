@@ -18,6 +18,7 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 - Endereço: `/admin` (há também um link "Área restrita" no rodapé).
 - O painel está em português, inglês, espanhol e chinês (seletor de idioma no topo; a escolha é compartilhada com o site).
 - O administrador cadastra **nome, descrição e foto**, em qualquer idioma. O idioma do cadastro é identificado automaticamente (a partir do nome e da descrição juntos; chinês é reconhecido pelos caracteres) e o produto é traduzido para português, inglês, espanhol e chinês. O painel mostra o idioma identificado, e as traduções podem ser corrigidas ao editar o produto.
+- Cada produto pertence a uma das 4 categorias da página inicial: Materiais de Construção, Louças e Metais, Fitness e Recovery e Produtos Gerais. No site, os produtos podem ser filtrados por categoria, e clicar numa categoria da página inicial mostra os produtos dela.
 - Dica: nomes de uma palavra que existem em vários idiomas (ex.: "Mesa") são ambíguos; uma descrição curta resolve.
 - Os produtos aparecem no site na seção **Nossos Produtos**, no idioma escolhido pelo visitante.
 - As fotos são reduzidas no navegador (até 1600 px) antes do envio.

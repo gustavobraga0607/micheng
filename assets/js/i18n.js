@@ -2,6 +2,7 @@
    Keys match the data-i18n attributes in index.html. */
 window.I18N = {
   en: {
+    "catalog.all": "All",
     "catalog.title": "Our Products",
     "catalog.intro": "A selection of products we supply. Ask us for prices, customization and minimum quantities.",
     "catalog.more": "Show more products",
@@ -36,8 +37,8 @@ window.I18N = {
     "prod.1.d": "Marbles, granites, quartz, tiles and more.",
     "prod.2.t": "Sanitary & Hardware",
     "prod.2.d": "Sanitary ware, faucets, bathroom accessories.",
-    "prod.3.t": "Fitness & Sports",
-    "prod.3.d": "Gym equipment, sports products and accessories.",
+    "prod.3.t": "Fitness & Recovery",
+    "prod.3.d": "Gym equipment, recovery products and accessories.",
     "prod.4.t": "General Products",
     "prod.4.d": "Consumer goods, packaging, industrial products and more.",
     "serv.title": "Our Services",
@@ -97,6 +98,7 @@ window.I18N = {
   },
 
   pt: {
+    "catalog.all": "Todos",
     "catalog.title": "Nossos Produtos",
     "catalog.intro": "Uma seleção dos produtos que fornecemos. Consulte preços, personalização e quantidades mínimas.",
     "catalog.more": "Ver mais produtos",
@@ -131,8 +133,8 @@ window.I18N = {
     "prod.1.d": "Mármores, granitos, quartzo, revestimentos e mais.",
     "prod.2.t": "Louças e Metais",
     "prod.2.d": "Louças sanitárias, torneiras e acessórios de banheiro.",
-    "prod.3.t": "Fitness e Esportes",
-    "prod.3.d": "Equipamentos de academia, artigos esportivos e acessórios.",
+    "prod.3.t": "Fitness e Recovery",
+    "prod.3.d": "Equipamentos de academia, produtos de recuperação e acessórios.",
     "prod.4.t": "Produtos Gerais",
     "prod.4.d": "Bens de consumo, embalagens, produtos industriais e mais.",
     "serv.title": "Nossos Serviços",
@@ -192,6 +194,7 @@ window.I18N = {
   },
 
   es: {
+    "catalog.all": "Todos",
     "catalog.title": "Nuestros Productos",
     "catalog.intro": "Una selección de los productos que suministramos. Consulte precios, personalización y cantidades mínimas.",
     "catalog.more": "Ver más productos",
@@ -226,8 +229,8 @@ window.I18N = {
     "prod.1.d": "Mármoles, granitos, cuarzo, revestimientos y más.",
     "prod.2.t": "Sanitarios y Grifería",
     "prod.2.d": "Sanitarios, grifos y accesorios de baño.",
-    "prod.3.t": "Fitness y Deportes",
-    "prod.3.d": "Equipos de gimnasio, artículos deportivos y accesorios.",
+    "prod.3.t": "Fitness y Recuperación",
+    "prod.3.d": "Equipos de gimnasio, productos de recuperación y accesorios.",
     "prod.4.t": "Productos Generales",
     "prod.4.d": "Bienes de consumo, embalajes, productos industriales y más.",
     "serv.title": "Nuestros Servicios",
@@ -287,6 +290,7 @@ window.I18N = {
   },
 
   zh: {
+    "catalog.all": "全部",
     "catalog.title": "我们的产品",
     "catalog.intro": "我们供应的部分产品。欢迎咨询价格、定制及起订量。",
     "catalog.more": "查看更多产品",
@@ -321,8 +325,8 @@ window.I18N = {
     "prod.1.d": "大理石、花岗岩、石英石、瓷砖等。",
     "prod.2.t": "卫浴五金",
     "prod.2.d": "卫生洁具、水龙头、浴室配件。",
-    "prod.3.t": "健身运动",
-    "prod.3.d": "健身器材、运动用品及配件。",
+    "prod.3.t": "健身与康复",
+    "prod.3.d": "健身器材、康复产品及配件。",
     "prod.4.t": "综合产品",
     "prod.4.d": "消费品、包装材料、工业产品等。",
     "serv.title": "我们的服务",
