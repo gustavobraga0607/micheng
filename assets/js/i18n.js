@@ -2,6 +2,11 @@
    Keys match the data-i18n attributes in index.html. */
 window.I18N = {
   en: {
+    "catalog.title": "Our Products",
+    "catalog.intro": "A selection of products we supply. Ask us for prices, customization and minimum quantities.",
+    "catalog.more": "Show more products",
+    "catalog.ask": "I would like a quote for: ",
+    "footer.admin": "Restricted area",
     "meta.title": "Micheng | Your Sourcing Partner in China",
     "meta.desc": "Shenzhen Micheng International Trading connects international importers with reliable suppliers in China.",
     "brand.sub": "Shenzhen Micheng International Trading",
@@ -92,6 +97,11 @@ window.I18N = {
   },
 
   pt: {
+    "catalog.title": "Nossos Produtos",
+    "catalog.intro": "Uma seleção dos produtos que fornecemos. Consulte preços, personalização e quantidades mínimas.",
+    "catalog.more": "Ver mais produtos",
+    "catalog.ask": "Gostaria de uma cotação para: ",
+    "footer.admin": "Área restrita",
     "meta.title": "Micheng | Sua Parceira de Sourcing na China",
     "meta.desc": "A Shenzhen Micheng International Trading conecta importadores de todo o mundo a fornecedores confiáveis na China.",
     "brand.sub": "Shenzhen Micheng International Trading",
@@ -182,6 +192,11 @@ window.I18N = {
   },
 
   es: {
+    "catalog.title": "Nuestros Productos",
+    "catalog.intro": "Una selección de los productos que suministramos. Consulte precios, personalización y cantidades mínimas.",
+    "catalog.more": "Ver más productos",
+    "catalog.ask": "Me gustaría una cotización para: ",
+    "footer.admin": "Área restringida",
     "meta.title": "Micheng | Su Socio de Abastecimiento en China",
     "meta.desc": "Shenzhen Micheng International Trading conecta a importadores de todo el mundo con proveedores confiables en China.",
     "brand.sub": "Shenzhen Micheng International Trading",
@@ -272,6 +287,11 @@ window.I18N = {
   },
 
   zh: {
+    "catalog.title": "我们的产品",
+    "catalog.intro": "我们供应的部分产品。欢迎咨询价格、定制及起订量。",
+    "catalog.more": "查看更多产品",
+    "catalog.ask": "我想咨询以下产品的报价：",
+    "footer.admin": "管理员登录",
     "meta.title": "Micheng | 您在中国的采购合作伙伴",
     "meta.desc": "深圳 Micheng 国际贸易为全球进口商对接可靠的中国供应商。",
     "brand.sub": "深圳 Micheng 国际贸易",

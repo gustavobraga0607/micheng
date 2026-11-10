@@ -31,6 +31,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 img { max-width: 100%; display: block; }
+[hidden] { display: none !important; }
 a { color: inherit; text-decoration: none; }
 h1, h2, h3 { margin: 0; color: var(--navy); line-height: 1.2; }
 p { margin: 0; }
@@ -54,7 +55,7 @@ p { margin: 0; }
 .btn--lg { padding: 14px 28px; font-size: 16px; }
 .btn--primary { background: var(--blue); color: #fff; }
 .btn--primary:hover { background: var(--blue-dark); }
-.btn--ghost { color: #fff; border-color: rgba(255,255,255,.85); }
+.btn--ghost { color: #fff; background: transparent; border-color: rgba(255,255,255,.85); }
 .btn--ghost:hover { background: #fff; color: var(--navy); }
 .btn--white { background: #fff; color: var(--navy); }
 .btn--white:hover { background: var(--bg-tint); }
@@ -162,6 +163,35 @@ p { margin: 0; }
 .card__body h3 .arrow { color: var(--navy); font-weight: 400; }
 .card:hover h3 .arrow { transform: translateX(4px); }
 .card__body p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+/* ---------- Catalog (admin-registered products) ---------- */
+.btn--outline { border-color: #cfd8e3; color: var(--navy); background: #fff; }
+.btn--outline:hover { border-color: var(--navy); }
+.catalog__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.pcard { font: inherit; text-align: left; padding: 0; cursor: pointer; width: 100%; display: flex; flex-direction: column; }
+.pcard .card__img { aspect-ratio: 4 / 3; background: var(--bg-soft); }
+.pcard .card__body p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pcard:focus-visible { outline: 3px solid rgba(26,111,216,.4); outline-offset: 2px; }
+.catalog__more { display: flex; justify-content: center; margin-top: 32px; }
+
+.pmodal {
+  width: min(880px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 0; border: 0;
+  border-radius: 8px; overflow: auto; box-shadow: 0 30px 80px rgba(0,0,0,.35);
+  display: none; grid-template-columns: 1.1fr 1fr;
+}
+.pmodal[open] { display: grid; }
+.pmodal::backdrop { background: rgba(6, 20, 40, .65); }
+.pmodal__img { width: 100%; height: 100%; min-height: 320px; object-fit: cover; background: var(--bg-soft); }
+.pmodal__body { padding: 40px 32px 32px; display: flex; flex-direction: column; gap: 16px; }
+.pmodal__body h3 { font-size: 24px; }
+.pmodal__body p { color: var(--muted); white-space: pre-line; flex: 1; }
+.pmodal__body .btn { align-self: flex-start; }
+.pmodal__close {
+  position: absolute; top: 10px; right: 12px; width: 38px; height: 38px; border-radius: 50%;
+  border: 0; background: rgba(255,255,255,.92); color: var(--navy); font-size: 26px; line-height: 1; cursor: pointer; z-index: 1;
+}
+.pmodal__close:hover { background: var(--bg-tint); }
+.footer__admin { opacity: .7; }
 
 /* ---------- Services ---------- */
 .services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -309,6 +339,7 @@ p { margin: 0; }
   .features__grid { grid-template-columns: repeat(2, 1fr); }
   .cards { grid-template-columns: repeat(2, 1fr); }
   .services { grid-template-columns: repeat(2, 1fr); }
+  .catalog__grid { grid-template-columns: repeat(3, 1fr); }
   .steps { grid-template-columns: repeat(2, 1fr); row-gap: 40px; }
   .step:nth-child(2)::after { display: none; }
   .about { grid-template-columns: 1fr 1fr; }
@@ -341,6 +372,13 @@ p { margin: 0; }
   .section__head { grid-template-columns: 1fr; gap: 18px; margin-bottom: 28px; }
   .section__intro .link { align-self: flex-start; }
   .features__grid, .cards, .services, .steps, .about, .form__row { grid-template-columns: 1fr; }
+  .catalog__grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .pcard .card__body { padding: 12px 12px 14px; }
+  .pcard .card__body h3 { font-size: 14.5px; }
+  .pcard .card__body p { font-size: 13px; }
+  .pmodal { grid-template-columns: 1fr; }
+  .pmodal__img { min-height: 0; max-height: 300px; }
+  .pmodal__body { padding: 24px 20px; }
   .steps .step::after { display: none; }
   .form { padding: 22px; }
   .footer__inner { grid-template-columns: 1fr; }

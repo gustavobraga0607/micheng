@@ -1,15 +1,37 @@
 # Micheng — site institucional
 
-Site estático (HTML + CSS + JavaScript, sem build) da **Shenzhen Micheng International Trading**, em 4 idiomas: português, inglês, espanhol e chinês.
+Site (HTML + CSS + JavaScript, sem build, com funções serverless da Vercel para a área restrita) da **Shenzhen Micheng International Trading**, em 4 idiomas: português, inglês, espanhol e chinês.
 
-## Como ver localmente
-
-Abra o `index.html` no navegador ou rode um servidor simples:
+## Como rodar localmente
 
 ```bash
-python3 -m http.server 8000
-# http://localhost:8000
+npm install
+ADMIN_PASSWORD=uma-senha npm run dev
+# site:  http://localhost:3000
+# admin: http://localhost:3000/admin  (usuário: admin)
 ```
+
+Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignorada pelo git).
+
+## Área restrita (cadastro de produtos)
+
+- Endereço: `/admin` (há também um link "Área restrita" no rodapé).
+- O administrador cadastra **nome, descrição e foto**. O nome e a descrição podem ser escritos em qualquer idioma: o site detecta o idioma e traduz automaticamente para português, inglês, espanhol e chinês. As traduções podem ser corrigidas ao editar o produto.
+- Os produtos aparecem no site na seção **Nossos Produtos**, no idioma escolhido pelo visitante.
+- As fotos são reduzidas no navegador (até 1600 px) antes do envio.
+
+### Variáveis de ambiente (Vercel → Settings → Environment Variables)
+
+| Variável | Para quê |
+| --- | --- |
+| `ADMIN_USER` | Usuário do login (padrão `admin`). |
+| `ADMIN_PASSWORD` | Senha do login. Para trocar: altere aqui e faça um novo deploy. |
+| `SESSION_SECRET` | Chave que assina a sessão de login (texto aleatório longo). |
+| `BLOB_READ_WRITE_TOKEN` | Criada automaticamente ao ligar o Vercel Blob (onde ficam produtos e fotos). |
+| `DEEPL_API_KEY` | Opcional: usa o DeepL para traduzir (melhor qualidade, 500 mil caracteres/mês grátis). |
+| `MYMEMORY_EMAIL` | Opcional: sem DeepL, a tradução usa o MyMemory gratuito (cerca de 5 mil caracteres/dia); um e-mail aqui aumenta o limite para 50 mil/dia. |
+
+Se a tradução automática falhar (limite diário, por exemplo), o produto é salvo mesmo assim com o texto original e marcado como "Tradução automática pendente" no painel; basta editá-lo depois e marcar "Traduzir tudo de novo".
 
 ## Idiomas
 
@@ -24,6 +46,6 @@ python3 -m http.server 8000
 
 ## Publicação
 
-Por ser estático, pode ser publicado direto em Vercel, Netlify, GitHub Pages ou qualquer hospedagem — basta apontar para a raiz do repositório.
+Publicado na Vercel (`vercel deploy --prod`). A área restrita depende das funções em `api/` e do Vercel Blob, por isso o site precisa ficar na Vercel.
 
 Fotos: [Unsplash](https://unsplash.com) (licença Unsplash).

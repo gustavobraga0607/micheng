@@ -61,7 +61,15 @@
     var url = new URL(location.href);
     url.searchParams.set("lang", lang);
     history.replaceState(null, "", url);
+
+    document.dispatchEvent(new CustomEvent("langchange", { detail: lang }));
   }
+
+  // Used by catalog.js to render products in the current language.
+  window.Site = {
+    lang: function () { return current; },
+    t: t
+  };
 
   /* ---------- Language buttons ---------- */
   document.querySelectorAll(".lang__btn").forEach(function (btn) {

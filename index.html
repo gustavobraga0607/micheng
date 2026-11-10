@@ -111,7 +111,7 @@
           </div>
           <div class="section__intro">
             <p data-i18n="prod.intro">Explore our main product categories. We can source a wide range of products according to your needs.</p>
-            <a href="#contact" class="link"><span data-i18n="prod.all">View all products</span> <span class="arrow">→</span></a>
+            <a href="#catalog" class="link"><span data-i18n="prod.all">View all products</span> <span class="arrow">→</span></a>
           </div>
         </div>
 
@@ -147,6 +147,34 @@
         </div>
       </div>
     </section>
+
+    <!-- ================= CATALOG (products registered in the admin area) ================= -->
+    <section class="section section--white catalog" id="catalog" hidden>
+      <div class="container">
+        <div class="section__head">
+          <div>
+            <h2 class="section__title" data-i18n="catalog.title">Our Products</h2>
+          </div>
+          <div class="section__intro">
+            <p data-i18n="catalog.intro">A selection of products we supply. Ask us for prices, customization and minimum quantities.</p>
+          </div>
+        </div>
+        <div class="catalog__grid" id="catalog-grid"></div>
+        <div class="catalog__more">
+          <button type="button" class="btn btn--outline btn--lg" id="catalog-more" hidden><span data-i18n="catalog.more">Show more products</span></button>
+        </div>
+      </div>
+    </section>
+
+    <dialog class="pmodal" id="product-modal" aria-labelledby="pmodal-title">
+      <button type="button" class="pmodal__close" id="pmodal-close" aria-label="Close">×</button>
+      <img class="pmodal__img" id="pmodal-img" alt="" />
+      <div class="pmodal__body">
+        <h3 id="pmodal-title"></h3>
+        <p id="pmodal-desc"></p>
+        <button type="button" class="btn btn--primary btn--lg" id="pmodal-quote"><span data-i18n="cta.quote">Get a Quote</span> <span class="arrow">→</span></button>
+      </div>
+    </dialog>
 
     <!-- ================= SERVICES ================= -->
     <section class="section section--white" id="services">
@@ -360,6 +388,7 @@
         <a href="#services" data-i18n="nav.services">Services</a>
         <a href="#how" data-i18n="nav.how">How We Work</a>
         <a href="#contact" data-i18n="nav.contact">Contact</a>
+        <a href="admin" class="footer__admin" data-i18n="footer.admin">Restricted area</a>
       </nav>
       <p class="footer__copy">© <span id="year"></span> Shenzhen Micheng International Trading Co., Ltd. <span data-i18n="footer.rights">All rights reserved.</span></p>
     </div>
@@ -367,5 +396,6 @@
 
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalog.js"></script>
 </body>
 </html>

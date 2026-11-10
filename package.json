@@ -1,0 +1,14 @@
+{
+  "name": "micheng-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vercel/blob": "2.8.2"
+  }
+}
