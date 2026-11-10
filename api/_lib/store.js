@@ -64,7 +64,7 @@ export async function saveProducts(products) {
    encrypted (AES-256-GCM) with PRIVATE_DATA_KEY before it is stored.
    Changing or losing PRIVATE_DATA_KEY makes the saved suppliers unreadable. */
 
-const EMPTY_PRIVATE = { suppliers: [], productSuppliers: {} };
+const EMPTY_PRIVATE = { suppliers: [], productSuppliers: {}, clients: [], settings: {} };
 
 function privateKey() {
   const secret = process.env.PRIVATE_DATA_KEY;

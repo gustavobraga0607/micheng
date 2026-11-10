@@ -57,7 +57,10 @@
     <nav class="tabs" role="tablist">
       <div class="tabs__inner">
         <button type="button" class="tab is-active" role="tab" data-tab="products" aria-selected="true"><span data-t="tab.products">Produtos</span> <span class="count" id="tab-count-products">0</span></button>
-        <button type="button" class="tab" role="tab" data-tab="suppliers" aria-selected="false"><span data-t="tab.suppliers">Fornecedores</span> <span class="count" id="tab-count-suppliers">0</span> <span class="lock" data-t="common.adminOnly">Só administradores</span></button>
+        <button type="button" class="tab" role="tab" data-tab="suppliers" aria-selected="false"><span data-t="tab.suppliers">Fornecedores</span> <span class="count" id="tab-count-suppliers">0</span></button>
+        <button type="button" class="tab" role="tab" data-tab="clients" aria-selected="false"><span data-t="tab.clients">Clientes</span> <span class="count" id="tab-count-clients">0</span></button>
+        <button type="button" class="tab" role="tab" data-tab="settings" aria-selected="false"><span data-t="tab.settings">Parâmetros</span></button>
+        <span class="lock tabs__lock" data-t="tab.privateNote">Fornecedores, clientes e parâmetros: só administradores</span>
       </div>
     </nav>
 
@@ -183,6 +186,75 @@
         </div>
         <ul class="plist" id="supplier-list"></ul>
         <p class="empty" id="supplier-empty" data-t="sup.empty" hidden>Nenhum fornecedor cadastrado ainda.</p>
+      </section>
+    </main>
+
+    <!-- ================= CLIENTS (admin only) ================= -->
+    <main class="dash" id="clients-view" hidden>
+      <section class="panel" id="client-panel">
+        <h2 id="client-title" data-t="cli.new">Novo cliente</h2>
+        <p class="hint hint--lock" data-t="cli.privateNote">Os dados dos clientes aparecem somente neste painel e ficam guardados criptografados.</p>
+        <form id="client-form" class="crud-form" novalidate>
+          <input type="hidden" name="id" />
+          <label><span data-t="cli.name">Nome *</span><input type="text" name="name" maxlength="160" required /></label>
+          <label><span data-t="cli.address">Endereço</span><textarea name="address" rows="3" maxlength="500"></textarea></label>
+          <div class="form-row">
+            <label><span data-t="cli.phone">Telefone</span><input type="text" name="phone" maxlength="60" /></label>
+            <label><span data-t="cli.taxId">Tax ID</span><input type="text" name="taxId" maxlength="80" data-t-placeholder="cli.taxIdPh" /></label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg" id="client-save" data-t="cli.save">Salvar cliente</button>
+            <button type="button" class="btn btn--outline" id="client-cancel" data-t="form.cancel" hidden>Cancelar edição</button>
+          </div>
+          <p class="status" id="client-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="list-head">
+          <h2><span data-t="cli.listTitle">Clientes cadastrados</span> <span class="count" id="client-count">0</span></h2>
+          <input type="search" id="client-search" data-t-placeholder="cli.search" />
+        </div>
+        <ul class="plist" id="client-list"></ul>
+        <p class="empty" id="client-empty" data-t="cli.empty" hidden>Nenhum cliente cadastrado ainda.</p>
+      </section>
+    </main>
+
+    <!-- ================= SETTINGS (admin only) ================= -->
+    <main class="dash dash--single" id="settings-view" hidden>
+      <section class="panel">
+        <h2 data-t="set.title">Parâmetros da empresa</h2>
+        <p class="hint hint--lock" data-t="set.hint">Dados da Shenzhen Micheng usados nas proformas. Ficam visíveis somente neste painel e guardados criptografados.</p>
+        <form id="settings-form" class="crud-form" novalidate>
+          <fieldset class="group">
+            <legend data-t="set.company">Empresa</legend>
+            <label><span data-t="set.companyName">Nome</span><input type="text" name="companyName" maxlength="160" placeholder="Shenzhen Micheng International Trading Co., Ltd." /></label>
+            <label><span data-t="set.address">Endereço</span><textarea name="address" rows="2" maxlength="500"></textarea></label>
+            <div class="form-row form-row--3">
+              <label><span data-t="set.phone">Telefone</span><input type="text" name="phone" maxlength="60" /></label>
+              <label><span data-t="set.email">E-mail</span><input type="text" name="email" maxlength="160" inputmode="email" /></label>
+              <label><span data-t="set.website">Site</span><input type="text" name="website" maxlength="200" inputmode="url" /></label>
+            </div>
+          </fieldset>
+          <fieldset class="group">
+            <legend data-t="set.bank">Conta bancária</legend>
+            <div class="form-row">
+              <label><span data-t="set.bankBeneficiary">Beneficiário</span><input type="text" name="bankBeneficiary" maxlength="160" /></label>
+              <label><span data-t="set.bankName">Banco</span><input type="text" name="bankName" maxlength="160" /></label>
+            </div>
+            <div class="form-row">
+              <label><span data-t="set.bankAccount">Número da conta</span><input type="text" name="bankAccount" maxlength="80" /></label>
+              <label><span data-t="set.bankSwift">SWIFT / BIC</span><input type="text" name="bankSwift" maxlength="40" /></label>
+            </div>
+            <label><span data-t="set.bankAddress">Endereço do banco</span><textarea name="bankAddress" rows="2" maxlength="500"></textarea></label>
+            <label><span data-t="set.bankNotes">Outras informações</span><textarea name="bankNotes" rows="2" maxlength="1000" data-t-placeholder="set.bankNotesPh"></textarea></label>
+          </fieldset>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg" id="settings-save" data-t="set.save">Salvar parâmetros</button>
+          </div>
+          <p class="status" id="settings-status" role="status" aria-live="polite"></p>
+          <p class="updated" id="settings-updated"></p>
+        </form>
       </section>
     </main>
   </div>

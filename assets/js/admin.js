@@ -63,8 +63,13 @@
     renderPicker();
     renderAttrs();
     renderSuppliers();
+    updateClientMode();
+    renderClients();
+    renderSettingsUpdated();
     setStatus("");
     setSupplierStatus("");
+    setClientStatus("");
+    setSettingsStatus("");
   }
 
   document.querySelectorAll(".lang__btn").forEach(function (btn) {
@@ -111,6 +116,8 @@
     appView.hidden = false;
     loadProducts();
     loadSuppliers();
+    loadClients();
+    loadSettings();
   }
 
   /* ---------- Tabs ---------- */
@@ -120,8 +127,9 @@
       tab.classList.toggle("is-active", active);
       tab.setAttribute("aria-selected", active ? "true" : "false");
     });
-    $("#products-view").hidden = name !== "products";
-    $("#suppliers-view").hidden = name !== "suppliers";
+    ["products", "suppliers", "clients", "settings"].forEach(function (view) {
+      $("#" + view + "-view").hidden = view !== name;
+    });
     window.scrollTo(0, 0);
   }
   document.querySelectorAll(".tab").forEach(function (tab) {
@@ -688,6 +696,157 @@
         setSupplierStatus(T("sup.deleted"), "ok");
       })
       .catch(function (e2) { btn.disabled = false; setSupplierStatus(e2.message, "error"); });
+  });
+
+  /* ---------- Clients tab ---------- */
+  var clients = [];
+  var cliForm = $("#client-form");
+  var CLI_FIELDS = ["name", "address", "phone", "taxId"];
+
+  function setClientStatus(msg, kind) {
+    var el = $("#client-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+
+  function loadClients() {
+    api("/api/clients").then(function (data) {
+      clients = data.clients || [];
+      renderClients();
+    }).catch(function (e) { setClientStatus(e.message, "error"); });
+  }
+
+  function updateClientMode() {
+    var editing = Boolean(cliForm.elements.id.value);
+    $("#client-title").textContent = T(editing ? "cli.edit" : "cli.new");
+    $("#client-save").textContent = T(editing ? "cli.saveChanges" : "cli.save");
+    $("#client-cancel").hidden = !editing;
+  }
+
+  function resetClientForm() {
+    cliForm.reset();
+    cliForm.elements.id.value = "";
+    cliForm.elements.name.classList.remove("is-invalid");
+    updateClientMode();
+    renderClients();
+  }
+
+  function renderClients() {
+    var q = $("#client-search").value.trim().toLowerCase();
+    var editing = cliForm.elements.id.value;
+    $("#client-count").textContent = clients.length;
+    $("#tab-count-clients").textContent = clients.length;
+    $("#client-empty").hidden = clients.length > 0;
+    var shown = clients.filter(function (c) {
+      return !q || CLI_FIELDS.some(function (f) { return String(c[f] || "").toLowerCase().indexOf(q) > -1; });
+    });
+    $("#client-list").innerHTML = shown.map(function (c) {
+      var details = [];
+      if (c.phone) details.push("☎ " + escapeHtml(c.phone));
+      if (c.taxId) details.push(escapeHtml(T("cli.taxId") + ": " + c.taxId));
+      return '<li class="pitem sitem' + (c.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(c.id) + '">' +
+        "<div><h3>" + escapeHtml(c.name) + "</h3>" +
+        (c.address ? '<p class="sitem__notes">' + escapeHtml(c.address) + "</p>" : "") +
+        (details.length ? '<p class="sitem__contact">' + details.join(" · ") + "</p>" : "") + "</div>" +
+        '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
+        '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
+    }).join("");
+  }
+
+  $("#client-search").addEventListener("input", renderClients);
+  $("#client-cancel").addEventListener("click", function () { resetClientForm(); setClientStatus(""); });
+
+  cliForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var id = cliForm.elements.id.value;
+    var body = {};
+    CLI_FIELDS.forEach(function (f) { body[f] = cliForm.elements[f].value; });
+    var ok = body.name.trim() !== "";
+    cliForm.elements.name.classList.toggle("is-invalid", !ok);
+    if (!ok) return setClientStatus(T("cli.required"), "error");
+    var btn = $("#client-save");
+    btn.disabled = true;
+    api(id ? "/api/clients?id=" + encodeURIComponent(id) : "/api/clients", { method: id ? "PUT" : "POST", body: body })
+      .then(function (data) {
+        if (id) clients = clients.map(function (x) { return x.id === id ? data.client : x; });
+        else clients.unshift(data.client);
+        resetClientForm();
+        setClientStatus(T("cli.saved"), "ok");
+      })
+      .catch(function (e2) { setClientStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  $("#client-list").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var id = btn.closest(".sitem").dataset.id;
+    var c = clients.filter(function (x) { return x.id === id; })[0];
+    if (!c) return;
+    if (btn.dataset.act === "edit") {
+      resetClientForm();
+      cliForm.elements.id.value = c.id;
+      CLI_FIELDS.forEach(function (f) { cliForm.elements[f].value = c[f] || ""; });
+      updateClientMode();
+      setClientStatus("");
+      renderClients();
+      $("#client-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!confirm(T("cli.confirmDelete", { name: c.name }))) return;
+    btn.disabled = true;
+    api("/api/clients?id=" + encodeURIComponent(id), { method: "DELETE" })
+      .then(function () {
+        clients = clients.filter(function (x) { return x.id !== id; });
+        if (cliForm.elements.id.value === id) resetClientForm();
+        renderClients();
+        setClientStatus(T("cli.deleted"), "ok");
+      })
+      .catch(function (e2) { btn.disabled = false; setClientStatus(e2.message, "error"); });
+  });
+
+  /* ---------- Settings tab (company details for proformas) ---------- */
+  var setForm = $("#settings-form");
+  var SET_FIELDS = ["companyName", "address", "phone", "email", "website",
+    "bankBeneficiary", "bankName", "bankAccount", "bankSwift", "bankAddress", "bankNotes"];
+  var settingsUpdatedAt = null;
+
+  function setSettingsStatus(msg, kind) {
+    var el = $("#settings-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+
+  function renderSettingsUpdated() {
+    $("#settings-updated").textContent = settingsUpdatedAt
+      ? T("set.updated", { date: new Date(settingsUpdatedAt).toLocaleString(HTML_LANG[current]) })
+      : "";
+  }
+
+  function fillSettings(settings) {
+    SET_FIELDS.forEach(function (f) { setForm.elements[f].value = (settings && settings[f]) || ""; });
+    settingsUpdatedAt = settings && settings.updatedAt;
+    renderSettingsUpdated();
+  }
+
+  function loadSettings() {
+    api("/api/settings").then(function (data) { fillSettings(data.settings); })
+      .catch(function (e) { setSettingsStatus(e.message, "error"); });
+  }
+
+  setForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var body = {};
+    SET_FIELDS.forEach(function (f) { body[f] = setForm.elements[f].value; });
+    var btn = $("#settings-save");
+    btn.disabled = true;
+    api("/api/settings", { method: "PUT", body: body })
+      .then(function (data) {
+        fillSettings(data.settings);
+        setSettingsStatus(T("set.saved"), "ok");
+      })
+      .catch(function (e2) { setSettingsStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
+      .then(function () { btn.disabled = false; });
   });
 
   /* ---------- Start ---------- */

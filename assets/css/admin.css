@@ -72,6 +72,16 @@
 .tab.is-active { color: var(--navy); border-bottom-color: var(--blue); }
 .tab .lock { font-weight: 500; }
 
+.tabs__inner { overflow-x: auto; align-items: center; }
+.tab { flex: none; }
+.tabs__lock { margin-left: auto; flex: none; }
+.dash.dash--single { grid-template-columns: minmax(0, 860px); justify-content: center; }
+.group { border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px 18px; margin: 0; display: grid; gap: 16px; }
+.group legend { font-weight: 700; color: var(--navy); padding: 0 6px; font-size: 14px; }
+.form-row.form-row--3 { grid-template-columns: 1fr 1fr 1fr; }
+.crud-form { display: grid; gap: 18px; }
+.updated { font-size: 12.5px; color: var(--muted); }
+
 /* "Admins only" badge with a padlock */
 .lock {
   display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: #8a5a00;
@@ -207,7 +217,8 @@
   .pitem img { width: 64px; height: 64px; }
   .pitem__actions { grid-column: 1 / -1; }
   .pitem.sitem { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
+  .form-row, .form-row.form-row--3 { grid-template-columns: 1fr; }
+  .tabs__lock { display: none; }
   .tabs__inner { padding: 0 8px; }
   .tab { padding: 14px 10px 12px; font-size: 14px; }
   .tab .lock { display: none; }
