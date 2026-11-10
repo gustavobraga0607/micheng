@@ -208,9 +208,16 @@ async function applyAttributes(product, body, existing) {
 
 // Supplier links are admin-only: they live in the encrypted private data,
 // never in the public product list.
-// Each link carries that supplier's purchase price (cost) for the product.
-// Accepts body.supplierLinks [{ supplierId, cost }] or the older body.supplierIds.
-async function saveSupplierLinks(productId, body) {
+function money(value) {
+  const n = value === "" || value == null ? null : Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 10000) / 10000 : null;
+}
+
+// Each link carries that supplier's purchase price (cost) for the product and,
+// optionally, a price per option combination (variantCosts), which must be one
+// of the product's current variants.
+// Accepts body.supplierLinks [{ supplierId, cost, variantCosts }] or the older body.supplierIds.
+async function saveSupplierLinks(productId, body, product) {
   const priv = await getPrivate();
   let raw = null;
   if (Array.isArray(body.supplierLinks)) raw = body.supplierLinks;
@@ -223,8 +230,13 @@ async function saveSupplierLinks(productId, body) {
     const id = String((l && l.supplierId) || "");
     if (!known.has(id) || seen.has(id)) continue;
     seen.add(id);
-    const cost = l.cost === "" || l.cost == null ? null : Number(l.cost);
-    links.push({ supplierId: id, cost: Number.isFinite(cost) && cost >= 0 ? Math.round(cost * 10000) / 10000 : null });
+    const variants = (product && product.variantSkus) || {};
+    const variantCosts = {};
+    for (const [key, value] of Object.entries((l && l.variantCosts) || {})) {
+      const c = money(value);
+      if (key in variants && c != null) variantCosts[key] = c;
+    }
+    links.push({ supplierId: id, cost: money(l.cost), variantCosts });
   }
   if (links.length) priv.productSuppliers[productId] = links;
   else delete priv.productSuppliers[productId];
@@ -280,7 +292,7 @@ export default async function handler(req, res) {
         : await copyImage(copyFrom.image, product.id);
       products.unshift(product);
       await saveWithSkus(products);
-      return send(res, 201, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
+      return send(res, 201, { product: withLinks(product, await saveSupplierLinks(product.id, body, product)) });
     }
 
     const index = products.findIndex((p) => p.id === id);
@@ -303,7 +315,7 @@ export default async function handler(req, res) {
       product.updatedAt = new Date().toISOString();
       products[index] = product;
       await saveWithSkus(products);
-      return send(res, 200, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
+      return send(res, 200, { product: withLinks(product, await saveSupplierLinks(product.id, body, product)) });
     }
 
     if (req.method === "DELETE") {

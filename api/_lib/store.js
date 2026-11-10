@@ -66,7 +66,7 @@ export async function saveProducts(products) {
 
 const EMPTY_PRIVATE = {
   suppliers: [],
-  productSuppliers: {}, // productId -> [{ supplierId, cost }]
+  productSuppliers: {}, // productId -> [{ supplierId, cost, variantCosts }]
   clients: [],
   settings: {},
   proformas: [],
@@ -76,9 +76,13 @@ const EMPTY_PRIVATE = {
 
 // Supplier links of a product, as [{ supplierId, cost }]. Links saved before
 // purchase prices existed were plain supplier ids.
+// variantCosts: purchase price per option combination ({ "optId,optId": cost }),
+// overriding the default cost for that configuration.
 export function productLinks(priv, productId) {
   return (priv.productSuppliers[productId] || []).map((l) =>
-    typeof l === "string" ? { supplierId: l, cost: null } : { supplierId: l.supplierId, cost: l.cost == null ? null : Number(l.cost) }
+    typeof l === "string"
+      ? { supplierId: l, cost: null, variantCosts: {} }
+      : { supplierId: l.supplierId, cost: l.cost == null ? null : Number(l.cost), variantCosts: l.variantCosts || {} }
   );
 }
 

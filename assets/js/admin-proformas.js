@@ -190,8 +190,9 @@
     html += links.map(function (l) {
       var s = supplierById(l.supplierId);
       if (!s) return "";
+      var c = linkCost(product, l, row);
       return '<option value="' + esc(s.id) + '"' + (row.supplierId === s.id ? " selected" : "") + ">" + esc(s.company) +
-        (l.cost != null ? " — " + esc(A.money(l.cost, A.defaultCurrency())) : "") + "</option>";
+        (c != null ? " — " + esc(A.money(c, A.defaultCurrency())) : "") + "</option>";
     }).join("");
     if (row.supplierId && !links.some(function (l) { return l.supplierId === row.supplierId; })) {
       var s = supplierById(row.supplierId);
@@ -361,19 +362,34 @@
   }
 
   // When the product, supplier or options change, fill cost and price automatically.
+  // Purchase price of a link for the row's configuration: the variant price
+  // when the supplier has one for it, otherwise the supplier's default price.
+  function linkCost(product, link, row) {
+    if (!link) return null;
+    var current = {};
+    ((product && product.attributes) || []).forEach(function (a) { a.options.forEach(function (o) { current[o.id] = true; }); });
+    var ids = Object.keys(row.options).map(function (k) { return row.options[k]; }).filter(function (id) { return id && current[id]; });
+    var key = ids.slice().sort().join(",");
+    var v = link.variantCosts && link.variantCosts[key];
+    return v != null ? v : link.cost;
+  }
+
   function applyDefaults(row, changed) {
     var product = productById(row.productId);
+    var links = (product && product.supplierLinks) || [];
     if (changed === "productId") {
       row.options = {};
-      var links = (product && product.supplierLinks) || [];
       row.supplierId = links.length ? links[0].supplierId : "";
-      row.cost = links.length ? links[0].cost : null;
+      row.costAuto = true;
       row.priceAuto = true;
       row.price = null;
     }
-    if (changed === "supplierId") {
-      var link = ((product && product.supplierLinks) || []).filter(function (l) { return l.supplierId === row.supplierId; })[0];
-      row.cost = link ? link.cost : null;
+    if (changed === "supplierId") row.costAuto = true;
+    // Product, supplier or options changed: take the price of that configuration
+    // (unless the cost was typed by hand).
+    if (row.costAuto !== false) {
+      var link = links.filter(function (l) { return l.supplierId === row.supplierId; })[0];
+      row.cost = linkCost(product, link, row);
     }
     if (row.priceAuto) {
       var memo = rememberedPrice(row);
@@ -406,6 +422,7 @@
     var row = rows[Number(el.dataset.row)];
     row[f] = toNum(e.target.value);
     if (f === "price") row.priceAuto = false; // typed by hand: keep it
+    if (f === "cost") row.costAuto = false;
     recalc();
   });
 

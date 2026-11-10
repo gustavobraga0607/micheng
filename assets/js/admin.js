@@ -12,7 +12,8 @@
   var listEl = $("#product-list");
   var products = [];
   var suppliers = [];
-  var selectedSuppliers = new Map(); // supplier id -> purchase price typed in the product form
+  // supplier id -> { cost, variants: { comboKey: cost }, open } typed in the product form
+  var selectedSuppliers = new Map();
   var defaultCurrency = "CNY"; // from the Settings tab; RMB unless changed there
 
   // Currencies offered on proformas. CNY is shown as "RMB".
@@ -322,7 +323,9 @@
     trFields("description").forEach(function (el) { el.value = (p.description || {})[el.dataset.lang] || ""; });
     $("#translations").hidden = false;
     selectedSuppliers = new Map((p.supplierLinks || []).map(function (l) {
-      return [l.supplierId, l.cost == null ? "" : String(l.cost)];
+      var variants = {};
+      Object.keys(l.variantCosts || {}).forEach(function (k) { variants[k] = String(l.variantCosts[k]); });
+      return [l.supplierId, { cost: l.cost == null ? "" : String(l.cost), variants: variants, open: Object.keys(variants).length > 0 }];
     }));
     renderPicker();
     // Characteristics are edited in the language they were written in.
@@ -351,7 +354,7 @@
     form.elements.category.value = p.category || "";
     showPreview(p.image);
     selectedSuppliers = new Map((p.supplierLinks || []).map(function (l) {
-      return [l.supplierId, l.cost == null ? "" : String(l.cost)];
+      return [l.supplierId, { cost: l.cost == null ? "" : String(l.cost), variants: {}, open: false }];
     }));
     renderPicker();
     // Without ids: the copy gets its own characteristics and options.
@@ -391,7 +394,9 @@
       name: name,
       category: category,
       description: form.elements.description.value,
-      supplierLinks: Array.from(selectedSuppliers, function (entry) { return { supplierId: entry[0], cost: entry[1] }; }),
+      supplierLinks: Array.from(selectedSuppliers, function (entry) {
+        return { supplierId: entry[0], cost: entry[1].cost, variantCosts: entry[1].variants };
+      }),
       attributes: attrState.filter(function (a) { return a.name.trim(); })
     };
     if (pendingImage) body.image = pendingImage;
@@ -498,7 +503,7 @@
         var o = a.options.filter(function (x) { return ids.indexOf(x.id) > -1; })[0];
         return o ? (o.label && o.label[current]) || o.source : "";
       }).filter(Boolean).join(" / ");
-      return { code: p.sku + "-" + map[key], label: label };
+      return { key: key, code: p.sku + "-" + map[key], label: label };
     });
   }
 
@@ -613,7 +618,11 @@
     var names = (links || []).map(function (l) {
       var s = supplierById(l.supplierId);
       if (!s) return null;
-      return s.company + (l.cost != null ? " (" + money(l.cost, defaultCurrency) + ")" : "");
+      var prices = [l.cost].concat(Object.keys(l.variantCosts || {}).map(function (k) { return l.variantCosts[k]; }))
+        .filter(function (v) { return v != null; });
+      if (!prices.length) return s.company;
+      var lo = Math.min.apply(null, prices), hi = Math.max.apply(null, prices);
+      return s.company + " (" + money(lo, defaultCurrency) + (hi > lo ? " – " + money(hi, defaultCurrency) : "") + ")";
     }).filter(Boolean);
     if (!names.length) return "";
     return '<p class="pitem__sup"><span class="lock" aria-hidden="true"></span>' +
@@ -632,23 +641,36 @@
     });
     // Ticked suppliers first, so the choice stays visible.
     shown.sort(function (a, b) { return selectedSuppliers.has(b.id) - selectedSuppliers.has(a.id); });
+    // Variants of the product as saved (new options get their code when the product is saved).
+    var editingProduct = form.elements.id.value && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
+    var variants = editingProduct ? variantCodes(editingProduct) : [];
     picker.innerHTML = shown.length ? shown.map(function (s) {
       var on = selectedSuppliers.has(s.id);
-      // A ticked supplier gets a field for its purchase price of this product.
-      var cost = on ? '<span class="picker__cost"><span>' + escapeHtml(T("form.cost")) + "</span>" +
+      var entry = selectedSuppliers.get(s.id);
+      var cur = escapeHtml((CURRENCIES[defaultCurrency] || CURRENCIES.CNY).label);
+      // A ticked supplier gets a field for its purchase price of this product…
+      var cost = on ? '<span class="picker__cost"><span>' + escapeHtml(T(variants.length ? "form.costDefault" : "form.cost")) + "</span>" +
         '<input type="number" min="0" step="0.01" inputmode="decimal" data-cost="' + escapeHtml(s.id) + '" value="' +
-        escapeHtml(selectedSuppliers.get(s.id)) + '" placeholder="0,00" />' +
-        "<em>" + escapeHtml((CURRENCIES[defaultCurrency] || CURRENCIES.CNY).label) + "</em></span>" : "";
+        escapeHtml(entry.cost) + '" placeholder="0,00" /><em>' + cur + "</em></span>" : "";
+      // …and, for a product with variants, a price per configuration.
+      var filled = on ? Object.keys(entry.variants).filter(function (k) { return entry.variants[k] !== ""; }).length : 0;
+      var toggle = on && (variants.length || attrState.length) ? '<button type="button" class="linkbtn picker__vtoggle" data-vtoggle="' + escapeHtml(s.id) + '">' +
+        escapeHtml(T("form.variantCosts")) + (filled ? " (" + filled + ")" : "") + (entry.open ? " ▴" : " ▾") + "</button>" : "";
+      var table = on && entry.open ? '<div class="vcosts">' + (variants.length ? variants.map(function (v) {
+        return '<label class="vcosts__row"><span class="vcosts__code">' + escapeHtml(v.code) + '</span><span class="vcosts__label">' + escapeHtml(v.label) + "</span>" +
+          '<input type="number" min="0" step="0.01" inputmode="decimal" data-vcost="' + escapeHtml(s.id) + '" data-key="' + escapeHtml(v.key) + '" value="' +
+          escapeHtml(entry.variants[v.key] || "") + '" placeholder="' + escapeHtml(entry.cost || "0,00") + '" /><em>' + cur + "</em></label>";
+      }).join("") : "") + '<p class="vcosts__hint">' + escapeHtml(T(variants.length ? "form.variantCostsHint" : "form.variantCostsSaveFirst")) + "</p></div>" : "";
       return '<div class="picker__item' + (on ? " is-on" : "") + '"><label><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
         (on ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + "</b>" +
-        (s.city ? "<small>" + escapeHtml(s.city) + "</small>" : "") + "</span></label>" + cost + "</div>";
+        (s.city ? "<small>" + escapeHtml(s.city) + "</small>" : "") + "</span></label>" + cost + toggle + table + "</div>";
     }).join("") : '<p class="picker__none">' + escapeHtml(T("form.noMatch")) + "</p>";
   }
 
   $("#supplier-picker").addEventListener("change", function (e) {
     if (e.target.type !== "checkbox") return;
     var id = e.target.value;
-    if (e.target.checked) selectedSuppliers.set(id, selectedSuppliers.get(id) || "");
+    if (e.target.checked) selectedSuppliers.set(id, selectedSuppliers.get(id) || { cost: "", variants: {}, open: false });
     else selectedSuppliers.delete(id);
     renderPicker();
     var costInput = $("#supplier-picker").querySelector('[data-cost="' + id + '"]');
@@ -656,7 +678,20 @@
   });
   $("#supplier-picker").addEventListener("input", function (e) {
     var id = e.target.getAttribute("data-cost");
-    if (id) selectedSuppliers.set(id, e.target.value);
+    if (id) {
+      selectedSuppliers.get(id).cost = e.target.value;
+      // Empty variant fields show the default price as their placeholder.
+      $("#supplier-picker").querySelectorAll('[data-vcost="' + id + '"]').forEach(function (el) { el.placeholder = e.target.value || "0,00"; });
+    }
+    var vid = e.target.getAttribute("data-vcost");
+    if (vid) selectedSuppliers.get(vid).variants[e.target.getAttribute("data-key")] = e.target.value;
+  });
+  $("#supplier-picker").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-vtoggle]");
+    if (!btn) return;
+    var entry = selectedSuppliers.get(btn.getAttribute("data-vtoggle"));
+    entry.open = !entry.open;
+    renderPicker();
   });
   $("#supplier-search").addEventListener("input", renderPicker);
 

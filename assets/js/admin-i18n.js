@@ -1,6 +1,10 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "form.costDefault": "Preço padrão",
+    "form.variantCosts": "Preço por variação",
+    "form.variantCostsHint": "Deixe em branco para usar o preço padrão.",
+    "form.variantCostsSaveFirst": "Salve o produto para que as variações recebam código; depois informe aqui o preço de cada uma.",
     "pf.noCost": "{n} item(ns) sem custo informado: ficam fora do cálculo de lucro e margem.",
     "list.duplicate": "Duplicar",
     "form.duplicateTitle": "Novo produto (cópia de “{name}”)",
@@ -203,6 +207,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "form.costDefault": "Default price",
+    "form.variantCosts": "Price per variant",
+    "form.variantCostsHint": "Leave blank to use the default price.",
+    "form.variantCostsSaveFirst": "Save the product so its variants get codes; then enter the price of each one here.",
     "pf.noCost": "{n} item(s) without cost: left out of the profit and margin calculation.",
     "list.duplicate": "Duplicate",
     "form.duplicateTitle": "New product (copy of “{name}”)",
@@ -405,6 +413,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "form.costDefault": "Precio predeterminado",
+    "form.variantCosts": "Precio por variación",
+    "form.variantCostsHint": "Deje en blanco para usar el precio predeterminado.",
+    "form.variantCostsSaveFirst": "Guarde el producto para que las variaciones reciban código; luego indique aquí el precio de cada una.",
     "pf.noCost": "{n} ítem(s) sin costo: quedan fuera del cálculo de ganancia y margen.",
     "list.duplicate": "Duplicar",
     "form.duplicateTitle": "Nuevo producto (copia de “{name}”)",
@@ -607,6 +619,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "form.costDefault": "默认价格",
+    "form.variantCosts": "按规格定价",
+    "form.variantCostsHint": "留空则使用默认价格。",
+    "form.variantCostsSaveFirst": "请先保存产品以生成规格编码，然后在此填写各规格价格。",
     "pf.noCost": "{n} 个项目未填写成本，不计入利润和利润率。",
     "list.duplicate": "复制",
     "form.duplicateTitle": "新产品（复制自“{name}”）",
