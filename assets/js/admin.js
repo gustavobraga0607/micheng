@@ -24,6 +24,20 @@
     BRL: { label: "BRL", symbol: "R$" }
   };
 
+  // Reads "15.9", "15,9", "1.234,56", "1,234.56" or "1.000" (thousand); null when empty or invalid.
+  function parseDecimal(value) {
+    if (value === "" || value == null) return null;
+    var s = String(value).trim().replace(/\s/g, "");
+    if (!s) return null;
+    var c = s.lastIndexOf(","), d = s.lastIndexOf(".");
+    if (c > -1 && d > -1) s = c > d ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+    else if (c > -1) s = s.match(/,/g).length > 1 ? s.replace(/,/g, "") : s.replace(",", ".");
+    else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, ""); // "1.000" = one thousand
+    if (!/^\d*\.?\d+$|^\d+\.$/.test(s)) return null;
+    var n = Number(s);
+    return isFinite(n) && n >= 0 ? n : null;
+  }
+
   function money(value, currency) {
     var c = CURRENCIES[currency] || CURRENCIES.CNY;
     var n = Number(value);
@@ -389,6 +403,13 @@
       return empty || (a.name.trim() && a.options.length);
     });
     if (!attrsOk) return setStatus(T("status.attrNoOptions"), "error");
+    var badPrice = null;
+    selectedSuppliers.forEach(function (entry) {
+      [entry.cost].concat(Object.keys(entry.variants).map(function (k) { return entry.variants[k]; })).forEach(function (v) {
+        if (String(v || "").trim() && parseDecimal(v) == null && badPrice == null) badPrice = v;
+      });
+    });
+    if (badPrice != null) return setStatus(T("status.badPrice", { value: badPrice }), "error");
 
     var body = {
       name: name,
@@ -414,10 +435,22 @@
     api(id ? "/api/products?id=" + encodeURIComponent(id) : "/api/products", { method: id ? "PUT" : "POST", body: body })
       .then(function (data) {
         var p = data.product;
+        var before = id && products.filter(function (x) { return x.id === id; })[0];
+        var newVariants = Object.keys(p.variantSkus || {}).filter(function (k) {
+          return !(before && before.variantSkus && k in before.variantSkus);
+        }).length;
         if (id) products = products.map(function (x) { return x.id === id ? p : x; });
         else products.unshift(p);
         resetForm();
         loadSuppliers(); // linked-product lists changed
+        if (newVariants) {
+          // The variants only now have codes: reopen so their prices and photos can be entered.
+          editProduct(p);
+          selectedSuppliers.forEach(function (entry) { entry.open = true; });
+          renderPicker();
+          setStatus(T("status.variantsCreated", { n: newVariants }), "ok");
+          return;
+        }
         setStatus(p.translationOk === false
           ? T("status.savedNoTr")
           : T("status.saved", { lang: langName(p.source.lang) }), p.translationOk === false ? "error" : "ok");
@@ -581,6 +614,7 @@
   // Re-renders the editor; `focus` = { attr: index, field: "name" | "option" } to keep typing there.
   function renderAttrs(focus) {
     renderVariantPhotos();
+    if (typeof suppliers !== "undefined") renderPicker();
     $("#attr-list").innerHTML = attrState.map(function (a, i) {
       var chips = a.options.map(function (o, j) {
         return '<span class="tag">' + escapeHtml(o.label) +
@@ -704,7 +738,7 @@
       var cur = escapeHtml((CURRENCIES[defaultCurrency] || CURRENCIES.CNY).label);
       // A ticked supplier gets a field for its purchase price of this product…
       var cost = on ? '<span class="picker__cost"><span>' + escapeHtml(T(variants.length ? "form.costDefault" : "form.cost")) + "</span>" +
-        '<input type="number" min="0" step="0.01" inputmode="decimal" data-cost="' + escapeHtml(s.id) + '" value="' +
+        '<input type="text" inputmode="decimal" autocomplete="off" data-cost="' + escapeHtml(s.id) + '" value="' +
         escapeHtml(entry.cost) + '" placeholder="0,00" /><em>' + cur + "</em></span>" : "";
       // …and, for a product with variants, a price per configuration.
       var filled = on ? Object.keys(entry.variants).filter(function (k) { return entry.variants[k] !== ""; }).length : 0;
@@ -712,7 +746,7 @@
         escapeHtml(T("form.variantCosts")) + (filled ? " (" + filled + ")" : "") + (entry.open ? " ▴" : " ▾") + "</button>" : "";
       var table = on && entry.open ? '<div class="vcosts">' + (variants.length ? variants.map(function (v) {
         return '<label class="vcosts__row"><span class="vcosts__code">' + escapeHtml(v.code) + '</span><span class="vcosts__label">' + escapeHtml(v.label) + "</span>" +
-          '<input type="number" min="0" step="0.01" inputmode="decimal" data-vcost="' + escapeHtml(s.id) + '" data-key="' + escapeHtml(v.key) + '" value="' +
+          '<input type="text" inputmode="decimal" autocomplete="off" data-vcost="' + escapeHtml(s.id) + '" data-key="' + escapeHtml(v.key) + '" value="' +
           escapeHtml(entry.variants[v.key] || "") + '" placeholder="' + escapeHtml(entry.cost || "0,00") + '" /><em>' + cur + "</em></label>";
       }).join("") : "") + '<p class="vcosts__hint">' + escapeHtml(T(variants.length ? "form.variantCostsHint" : "form.variantCostsSaveFirst")) + "</p></div>" : "";
       return '<div class="picker__item' + (on ? " is-on" : "") + '"><label><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
@@ -1062,6 +1096,7 @@
     settings: function () { return companySettings; },
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
+    parseDecimal: parseDecimal,
     showTab: showTab
   };
 

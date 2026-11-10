@@ -4,6 +4,7 @@ import { getSession } from "./_lib/auth.js";
 import { getProducts, saveProducts, saveImage, copyImage, deleteImage, getPrivate, savePrivate, productLinks } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus } from "./_lib/sku.js";
+import { parseDecimal } from "./_lib/decimal.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_NAME = 120;
@@ -208,10 +209,7 @@ async function applyAttributes(product, body, existing) {
 
 // Supplier links are admin-only: they live in the encrypted private data,
 // never in the public product list.
-function money(value) {
-  const n = value === "" || value == null ? null : Number(value);
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 10000) / 10000 : null;
-}
+const money = parseDecimal; // accepts "15,9" as well as "15.9"
 
 // Each link carries that supplier's purchase price (cost) for the product and,
 // optionally, a price per option combination (variantCosts), which must be one

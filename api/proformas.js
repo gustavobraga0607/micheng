@@ -8,16 +8,13 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import { getProducts, getPrivate, savePrivate } from "./_lib/store.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
+import { parseDecimal } from "./_lib/decimal.js";
 
 const CURRENCIES = ["CNY", "USD", "EUR", "BRL"];
 const DOC_LANGS = ["en", "pt", "es"];
 const MAX_ITEMS = 200;
 
-function num(value) {
-  if (value === "" || value == null) return null;
-  const n = Number(value);
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 10000) / 10000 : null;
-}
+const num = parseDecimal; // accepts "15,9" as well as "15.9"
 
 function text(value, max) {
   return String(value || "").replace(/\r\n/g, "\n").trim().slice(0, max);

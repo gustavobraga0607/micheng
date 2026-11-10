@@ -1,6 +1,8 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "status.badPrice": "Preço inválido: “{value}”. Use números, com vírgula ou ponto (ex.: 15,90).",
+    "status.variantsCreated": "Produto salvo. {n} variação(ões) receberam código: informe agora o preço de compra e a foto de cada uma e salve novamente.",
     "form.variantPhotos": "Fotos por variação",
     "form.variantPhotosHint": "Clique numa variação para escolher a foto dela (salva na hora). Sem foto própria, usa a foto principal.",
     "form.variantPhotosSaveFirst": "Salve o produto para que as variações recebam código; depois adicione aqui a foto de cada uma.",
@@ -214,6 +216,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "status.badPrice": "Invalid price: “{value}”. Use numbers, with a comma or dot (e.g. 15.90).",
+    "status.variantsCreated": "Product saved. {n} variant(s) got their codes: now enter each one's purchase price and photo, then save again.",
     "form.variantPhotos": "Photos per variant",
     "form.variantPhotosHint": "Click a variant to choose its photo (saved right away). Without its own photo, it uses the main photo.",
     "form.variantPhotosSaveFirst": "Save the product so its variants get codes; then add each variant's photo here.",
@@ -427,6 +431,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "status.badPrice": "Precio inválido: “{value}”. Use números, con coma o punto (ej.: 15,90).",
+    "status.variantsCreated": "Producto guardado. {n} variación(es) recibieron código: indique ahora el precio de compra y la foto de cada una y guarde de nuevo.",
     "form.variantPhotos": "Fotos por variación",
     "form.variantPhotosHint": "Haga clic en una variación para elegir su foto (se guarda al instante). Sin foto propia, usa la foto principal.",
     "form.variantPhotosSaveFirst": "Guarde el producto para que las variaciones reciban código; luego agregue aquí la foto de cada una.",
@@ -640,6 +646,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "status.badPrice": "价格无效：“{value}”。请输入数字，可用逗号或小数点（例如 15.90）。",
+    "status.variantsCreated": "产品已保存。{n} 个规格已生成编码：请填写各规格的采购价和图片，然后再次保存。",
     "form.variantPhotos": "规格图片",
     "form.variantPhotosHint": "点击某个规格选择其图片（立即保存）。没有单独图片时使用主图。",
     "form.variantPhotosSaveFirst": "请先保存产品以生成规格编码，然后在此为每个规格添加图片。",

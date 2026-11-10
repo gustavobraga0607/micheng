@@ -16,7 +16,7 @@
 
   /* ---------- Helpers ---------- */
   function round(n, d) { var k = Math.pow(10, d || 2); return Math.round(n * k) / k; }
-  function toNum(v) { var n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : null; }
+  function toNum(v) { return A.parseDecimal(v); } // "15,9" and "15.9"
   function productById(id) { return A.products().filter(function (p) { return p.id === id; })[0]; }
   function supplierById(id) { return A.suppliers().filter(function (s) { return s.id === id; })[0]; }
   function pname(p, lang) {
@@ -317,9 +317,9 @@
           "</div>" +
           (attrHtml ? '<div class="pf-item__opts">' + attrHtml + "</div>" : "") +
           '<div class="pf-item__nums">' +
-            '<label><span>' + esc(T("pf.qty")) + '</span><input type="number" min="0" step="1" inputmode="decimal" data-f="qty" value="' + esc(row.qty == null ? "" : row.qty) + '"' + dis + " /></label>" +
-            '<label class="internal"><span>' + esc(T("pf.cost")) + '</span><input type="number" min="0" step="0.01" inputmode="decimal" data-f="cost" value="' + esc(row.cost == null ? "" : row.cost) + '"' + dis + " /></label>" +
-            '<label><span>' + esc(T("pf.price")) + '</span><input type="number" min="0" step="0.01" inputmode="decimal" data-f="price" value="' + esc(row.price == null ? "" : row.price) + '"' + dis + " /></label>" +
+            '<label><span>' + esc(T("pf.qty")) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-f="qty" value="' + esc(row.qty == null ? "" : row.qty) + '"' + dis + " /></label>" +
+            '<label class="internal"><span>' + esc(T("pf.cost")) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-f="cost" value="' + esc(row.cost == null ? "" : row.cost) + '"' + dis + " /></label>" +
+            '<label><span>' + esc(T("pf.price")) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-f="price" value="' + esc(row.price == null ? "" : row.price) + '"' + dis + " /></label>" +
             '<div class="pf-calc"><span>' + esc(T("pf.lineTotal")) + '</span><b data-out="total"></b></div>' +
             '<div class="pf-calc internal"><span>' + esc(T("pf.margin")) + '</span><b data-out="margin"></b></div>' +
             '<div class="pf-calc internal"><span>' + esc(T("pf.lineProfit")) + '</span><b data-out="profit"></b></div>' +
