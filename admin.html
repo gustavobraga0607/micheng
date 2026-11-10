@@ -48,13 +48,20 @@
             <button type="button" class="lang__btn" data-lang="es">ES</button>
             <button type="button" class="lang__btn" data-lang="zh">中文</button>
           </div>
-          <a href="./#catalog" class="topbar__link" target="_blank" rel="noopener"><span data-t="top.site">Ver site</span> ↗</a>
+          <a href="products" class="topbar__link" target="_blank" rel="noopener"><span data-t="top.site">Ver site</span> ↗</a>
           <button class="btn btn--ghost" id="logout" data-t="top.logout">Sair</button>
         </div>
       </div>
     </header>
 
-    <main class="dash">
+    <nav class="tabs" role="tablist">
+      <div class="tabs__inner">
+        <button type="button" class="tab is-active" role="tab" data-tab="products" aria-selected="true"><span data-t="tab.products">Produtos</span> <span class="count" id="tab-count-products">0</span></button>
+        <button type="button" class="tab" role="tab" data-tab="suppliers" aria-selected="false"><span data-t="tab.suppliers">Fornecedores</span> <span class="count" id="tab-count-suppliers">0</span> <span class="lock" data-t="common.adminOnly">Só administradores</span></button>
+      </div>
+    </nav>
+
+    <main class="dash" id="products-view">
       <section class="panel" id="form-panel">
         <h2 id="form-title" data-t="form.new">Novo produto</h2>
         <form id="product-form" novalidate>
@@ -83,6 +90,20 @@
               <span class="photo__hint" id="photo-hint"><span data-t="form.photoHint">Clique para escolher ou arraste uma imagem</span><br /><small>JPG, PNG, WEBP · <span data-t="form.photoSquare">a foto é ajustada automaticamente para o formato quadrado</span></small></span>
               <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
             </label>
+          </div>
+
+          <div class="suppliers-field">
+            <div class="suppliers-field__head">
+              <span class="photo__label" data-t="form.suppliers">Fornecedores</span>
+              <span class="lock" data-t="common.adminOnly">Só administradores</span>
+              <span class="selected-count" id="supplier-selected"></span>
+            </div>
+            <input type="search" id="supplier-search" data-t-placeholder="form.suppliersSearch" />
+            <div class="picker" id="supplier-picker"></div>
+            <p class="picker-empty" id="supplier-picker-empty" hidden>
+              <span data-t="form.noSuppliers">Nenhum fornecedor cadastrado ainda.</span>
+              <button type="button" class="linkbtn" data-goto="suppliers" data-t="form.addSupplier">Cadastrar fornecedor</button>
+            </p>
           </div>
 
           <details class="translations" id="translations" hidden>
@@ -120,6 +141,41 @@
         </div>
         <ul class="plist" id="product-list"></ul>
         <p class="empty" id="empty" data-t="list.empty" hidden>Nenhum produto cadastrado ainda.</p>
+      </section>
+    </main>
+
+    <!-- ================= SUPPLIERS (admin only) ================= -->
+    <main class="dash" id="suppliers-view" hidden>
+      <section class="panel" id="supplier-panel">
+        <h2 id="supplier-title" data-t="sup.new">Novo fornecedor</h2>
+        <p class="hint hint--lock" data-t="sup.privateNote">Os dados dos fornecedores aparecem somente neste painel e ficam guardados criptografados. Visitantes do site não têm acesso.</p>
+        <form id="supplier-form" novalidate>
+          <input type="hidden" name="id" />
+          <label><span data-t="sup.company">Empresa *</span><input type="text" name="company" maxlength="120" required /></label>
+          <label><span data-t="sup.contact">Pessoa de contato</span><input type="text" name="contact" maxlength="120" /></label>
+          <div class="form-row">
+            <label><span data-t="sup.phone">Telefone / WhatsApp</span><input type="text" name="phone" maxlength="60" /></label>
+            <label><span data-t="sup.wechat">WeChat</span><input type="text" name="wechat" maxlength="60" /></label>
+          </div>
+          <label><span data-t="sup.email">E-mail</span><input type="text" name="email" maxlength="160" inputmode="email" /></label>
+          <label><span data-t="sup.city">Cidade / endereço</span><input type="text" name="city" maxlength="160" /></label>
+          <label><span data-t="sup.website">Site / loja online</span><input type="text" name="website" maxlength="200" inputmode="url" /></label>
+          <label><span data-t="sup.notes">Observações</span><textarea name="notes" rows="4" maxlength="2000" data-t-placeholder="sup.notesPh"></textarea></label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg" id="supplier-save" data-t="sup.save">Salvar fornecedor</button>
+            <button type="button" class="btn btn--outline" id="supplier-cancel" data-t="form.cancel" hidden>Cancelar edição</button>
+          </div>
+          <p class="status" id="supplier-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="list-head">
+          <h2><span data-t="sup.listTitle">Fornecedores cadastrados</span> <span class="count" id="supplier-count">0</span></h2>
+          <input type="search" id="supplier-list-search" data-t-placeholder="sup.search" />
+        </div>
+        <ul class="plist" id="supplier-list"></ul>
+        <p class="empty" id="supplier-empty" data-t="sup.empty" hidden>Nenhum fornecedor cadastrado ainda.</p>
       </section>
     </main>
   </div>

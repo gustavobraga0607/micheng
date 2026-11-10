@@ -11,6 +11,8 @@
   var statusEl = $("#form-status");
   var listEl = $("#product-list");
   var products = [];
+  var suppliers = [];
+  var selectedSuppliers = new Set(); // supplier ids ticked in the product form
   var pendingImage = null; // data URL of the resized photo
 
   /* ---------- Panel language (shares the site's saved choice) ---------- */
@@ -55,8 +57,12 @@
       btn.setAttribute("aria-pressed", active ? "true" : "false");
     });
     updateFormMode();
+    updateSupplierMode();
     renderList();
+    renderPicker();
+    renderSuppliers();
     setStatus("");
+    setSupplierStatus("");
   }
 
   document.querySelectorAll(".lang__btn").forEach(function (btn) {
@@ -102,7 +108,26 @@
     loginView.hidden = true;
     appView.hidden = false;
     loadProducts();
+    loadSuppliers();
   }
+
+  /* ---------- Tabs ---------- */
+  function showTab(name) {
+    document.querySelectorAll(".tab").forEach(function (tab) {
+      var active = tab.dataset.tab === name;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    $("#products-view").hidden = name !== "products";
+    $("#suppliers-view").hidden = name !== "suppliers";
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll(".tab").forEach(function (tab) {
+    tab.addEventListener("click", function () { showTab(tab.dataset.tab); });
+  });
+  document.querySelectorAll("[data-goto]").forEach(function (btn) {
+    btn.addEventListener("click", function () { showTab(btn.dataset.goto); });
+  });
 
   /* ---------- Login / logout ---------- */
   $("#login-form").addEventListener("submit", function (e) {
@@ -245,6 +270,9 @@
     $("#translations").hidden = true;
     $("#translations").open = false;
     form.querySelectorAll(".is-invalid").forEach(function (el) { el.classList.remove("is-invalid"); });
+    selectedSuppliers = new Set();
+    $("#supplier-search").value = "";
+    renderPicker();
     renderList();
   }
 
@@ -258,6 +286,8 @@
     trFields("name").forEach(function (el) { el.value = p.name[el.dataset.lang] || ""; });
     trFields("description").forEach(function (el) { el.value = (p.description || {})[el.dataset.lang] || ""; });
     $("#translations").hidden = false;
+    selectedSuppliers = new Set(p.supplierIds || []);
+    renderPicker();
     updateFormMode();
     setStatus("");
     renderList();
@@ -281,7 +311,8 @@
     var body = {
       name: name,
       category: category,
-      description: form.elements.description.value
+      description: form.elements.description.value,
+      supplierIds: Array.from(selectedSuppliers)
     };
     if (pendingImage) body.image = pendingImage;
     if (id) {
@@ -300,6 +331,7 @@
         if (id) products = products.map(function (x) { return x.id === id ? p : x; });
         else products.unshift(p);
         resetForm();
+        loadSuppliers(); // linked-product lists changed
         setStatus(p.translationOk === false
           ? T("status.savedNoTr")
           : T("status.saved", { lang: langName(p.source.lang) }), p.translationOk === false ? "error" : "ok");
@@ -326,6 +358,7 @@
       return LANGS.some(function (l) { return String(p.name[l] || "").toLowerCase().indexOf(q) > -1; });
     });
     $("#count").textContent = products.length;
+    $("#tab-count-products").textContent = products.length;
     $("#empty").hidden = products.length > 0;
     listEl.innerHTML = shown.map(function (p) {
       var chips = LANGS.map(function (l) {
@@ -337,6 +370,7 @@
         '<p class="pitem__lang">' + (p.category ? '<span class="pitem__cat">' + escapeHtml(T("cat." + p.category)) + "</span> · " : "") +
         escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
         '<div class="pitem__tr">' + chips + "</div>" +
+        supplierLine(p.supplierIds) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
         '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
@@ -360,9 +394,187 @@
         products = products.filter(function (x) { return x.id !== id; });
         if (form.elements.id.value === id) resetForm();
         renderList();
+        loadSuppliers();
         setStatus(T("status.deleted"), "ok");
       })
       .catch(function (e2) { btn.disabled = false; setStatus(e2.message, "error"); });
+  });
+
+  /* ---------- Supplier picker in the product form ---------- */
+  function supplierById(id) {
+    return suppliers.filter(function (s) { return s.id === id; })[0];
+  }
+
+  // "🔒 Suppliers: A, B" line under a product in the list (admin only).
+  function supplierLine(ids) {
+    var names = (ids || []).map(supplierById).filter(Boolean).map(function (s) { return s.company; });
+    if (!names.length) return "";
+    return '<p class="pitem__sup"><span class="lock" aria-hidden="true"></span>' +
+      escapeHtml(T("list.suppliers") + ": " + names.join(", ")) + "</p>";
+  }
+
+  function renderPicker() {
+    var picker = $("#supplier-picker");
+    var q = $("#supplier-search").value.trim().toLowerCase();
+    $("#supplier-picker-empty").hidden = suppliers.length > 0;
+    $("#supplier-search").hidden = suppliers.length === 0;
+    picker.hidden = suppliers.length === 0;
+    $("#supplier-selected").textContent = selectedSuppliers.size ? T("form.suppliersSelected", { n: selectedSuppliers.size }) : "";
+    var shown = suppliers.filter(function (s) {
+      return !q || (s.company + " " + s.city + " " + s.contact).toLowerCase().indexOf(q) > -1;
+    });
+    // Ticked suppliers first, so the choice stays visible.
+    shown.sort(function (a, b) { return selectedSuppliers.has(b.id) - selectedSuppliers.has(a.id); });
+    picker.innerHTML = shown.length ? shown.map(function (s) {
+      return '<label class="picker__item"><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
+        (selectedSuppliers.has(s.id) ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + "</b>" +
+        (s.city ? "<small>" + escapeHtml(s.city) + "</small>" : "") + "</span></label>";
+    }).join("") : '<p class="picker__none">' + escapeHtml(T("form.noMatch")) + "</p>";
+  }
+
+  $("#supplier-picker").addEventListener("change", function (e) {
+    if (e.target.type !== "checkbox") return;
+    if (e.target.checked) selectedSuppliers.add(e.target.value);
+    else selectedSuppliers.delete(e.target.value);
+    $("#supplier-selected").textContent = selectedSuppliers.size ? T("form.suppliersSelected", { n: selectedSuppliers.size }) : "";
+  });
+  $("#supplier-search").addEventListener("input", renderPicker);
+
+  /* ---------- Suppliers tab ---------- */
+  var supForm = $("#supplier-form");
+  var supStatus = $("#supplier-status");
+  var SUP_FIELDS = ["company", "contact", "phone", "wechat", "email", "city", "website", "notes"];
+
+  function setSupplierStatus(msg, kind) {
+    supStatus.textContent = msg || "";
+    supStatus.className = "status" + (kind ? " is-" + kind : "");
+  }
+
+  function loadSuppliers() {
+    api("/api/suppliers").then(function (data) {
+      suppliers = data.suppliers || [];
+      renderSuppliers();
+      renderPicker();
+      renderList();
+    }).catch(function (e) { setSupplierStatus(e.message, "error"); });
+  }
+
+  function updateSupplierMode() {
+    var editing = Boolean(supForm.elements.id.value);
+    $("#supplier-title").textContent = T(editing ? "sup.edit" : "sup.new");
+    $("#supplier-save").textContent = T(editing ? "sup.saveChanges" : "sup.save");
+    $("#supplier-cancel").hidden = !editing;
+  }
+
+  function resetSupplierForm() {
+    supForm.reset();
+    supForm.elements.id.value = "";
+    supForm.elements.company.classList.remove("is-invalid");
+    updateSupplierMode();
+    renderSuppliers();
+  }
+
+  function editSupplier(s) {
+    resetSupplierForm();
+    supForm.elements.id.value = s.id;
+    SUP_FIELDS.forEach(function (f) { supForm.elements[f].value = s[f] || ""; });
+    updateSupplierMode();
+    setSupplierStatus("");
+    renderSuppliers();
+    $("#supplier-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  $("#supplier-cancel").addEventListener("click", function () { resetSupplierForm(); setSupplierStatus(""); });
+
+  supForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var id = supForm.elements.id.value;
+    var body = {};
+    SUP_FIELDS.forEach(function (f) { body[f] = supForm.elements[f].value; });
+    var ok = body.company.trim() !== "";
+    supForm.elements.company.classList.toggle("is-invalid", !ok);
+    if (!ok) return setSupplierStatus(T("sup.required"), "error");
+    var btn = $("#supplier-save");
+    btn.disabled = true;
+    api(id ? "/api/suppliers?id=" + encodeURIComponent(id) : "/api/suppliers", { method: id ? "PUT" : "POST", body: body })
+      .then(function (data) {
+        if (id) suppliers = suppliers.map(function (x) { return x.id === id ? data.supplier : x; });
+        else suppliers.unshift(data.supplier);
+        resetSupplierForm();
+        renderPicker();
+        renderList();
+        setSupplierStatus(T("sup.saved"), "ok");
+      })
+      .catch(function (e2) { setSupplierStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  function productName(id) {
+    var p = products.filter(function (x) { return x.id === id; })[0];
+    return p ? p.name[current] || p.source.name : null;
+  }
+
+  function safeUrl(url) {
+    var u = String(url || "").trim();
+    if (!u) return "";
+    return /^https?:\/\//i.test(u) ? u : "https://" + u;
+  }
+
+  function renderSuppliers() {
+    var q = $("#supplier-list-search").value.trim().toLowerCase();
+    var editing = supForm.elements.id.value;
+    $("#supplier-count").textContent = suppliers.length;
+    $("#tab-count-suppliers").textContent = suppliers.length;
+    $("#supplier-empty").hidden = suppliers.length > 0;
+    var shown = suppliers.filter(function (s) {
+      return !q || SUP_FIELDS.some(function (f) { return String(s[f] || "").toLowerCase().indexOf(q) > -1; });
+    });
+    $("#supplier-list").innerHTML = shown.map(function (s) {
+      var contact = [];
+      if (s.contact) contact.push(escapeHtml(s.contact));
+      if (s.phone) contact.push("☎ " + escapeHtml(s.phone));
+      if (s.wechat) contact.push("WeChat: " + escapeHtml(s.wechat));
+      if (s.email) contact.push('<a href="mailto:' + escapeHtml(s.email) + '">' + escapeHtml(s.email) + "</a>");
+      if (s.website) contact.push('<a href="' + escapeHtml(safeUrl(s.website)) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(s.website) + "</a>");
+      var linked = (s.productIds || []).map(productName).filter(Boolean);
+      return '<li class="pitem sitem' + (s.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(s.id) + '">' +
+        "<div><h3>" + escapeHtml(s.company) + "</h3>" +
+        (s.city ? '<p class="pitem__lang">' + escapeHtml(s.city) + "</p>" : "") +
+        (contact.length ? '<p class="sitem__contact">' + contact.join(" · ") + "</p>" : "") +
+        (s.notes ? '<p class="sitem__notes">' + escapeHtml(s.notes) + "</p>" : "") +
+        '<div class="pitem__tr"><span class="sitem__label">' + escapeHtml(T("sup.products")) + "</span>" +
+        (linked.length ? linked.map(function (n) { return "<span>" + escapeHtml(n) + "</span>"; }).join("")
+          : '<span class="muted">' + escapeHtml(T("sup.noProducts")) + "</span>") + "</div></div>" +
+        '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
+        '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
+    }).join("");
+  }
+
+  $("#supplier-list-search").addEventListener("input", renderSuppliers);
+
+  $("#supplier-list").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var id = btn.closest(".sitem").dataset.id;
+    var s = supplierById(id);
+    if (!s) return;
+    if (btn.dataset.act === "edit") return editSupplier(s);
+    if (!confirm(T("sup.confirmDelete", { name: s.company }))) return;
+    btn.disabled = true;
+    api("/api/suppliers?id=" + encodeURIComponent(id), { method: "DELETE" })
+      .then(function () {
+        suppliers = suppliers.filter(function (x) { return x.id !== id; });
+        selectedSuppliers.delete(id);
+        products.forEach(function (p) {
+          p.supplierIds = (p.supplierIds || []).filter(function (sid) { return sid !== id; });
+        });
+        if (supForm.elements.id.value === id) resetSupplierForm();
+        renderSuppliers();
+        renderPicker();
+        renderList();
+        setSupplierStatus(T("sup.deleted"), "ok");
+      })
+      .catch(function (e2) { btn.disabled = false; setSupplierStatus(e2.message, "error"); });
   });
 
   /* ---------- Start ---------- */

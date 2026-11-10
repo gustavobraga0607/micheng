@@ -19,6 +19,7 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 - O painel está em português, inglês, espanhol e chinês (seletor de idioma no topo; a escolha é compartilhada com o site).
 - O administrador cadastra **nome, descrição e foto**, em qualquer idioma. O idioma do cadastro é identificado automaticamente (a partir do nome e da descrição juntos; chinês é reconhecido pelos caracteres) e o produto é traduzido para português, inglês, espanhol e chinês. O painel mostra o idioma identificado, e as traduções podem ser corrigidas ao editar o produto.
 - Cada produto pertence a uma das 4 categorias da página inicial: Materiais de Construção, Louças e Metais, Fitness e Recovery e Produtos Gerais. Na página de produtos há um filtro por categoria.
+- Aba **Fornecedores** (somente administradores): cadastro de fornecedores (empresa, contato, telefone/WhatsApp, WeChat, e-mail, cidade/endereço, site e observações). No cadastro do produto, é possível vincular **vários fornecedores** a um mesmo item. Fornecedores e vínculos nunca aparecem no site nem na API pública (`/api/products` só os inclui para quem está logado), e são guardados **criptografados** (AES-256-GCM).
 - Dica: nomes de uma palavra que existem em vários idiomas (ex.: "Mesa") são ambíguos; uma descrição curta resolve.
 - Os produtos aparecem na página **/products** (`products.html`), no idioma escolhido pelo visitante. Na página inicial, cada cartão de categoria leva a essa página já filtrada (ex.: `/products?category=fitness`). Ids das categorias: `building`, `sanitary`, `fitness`, `general`.
 - "Solicitar cotação" num produto leva ao formulário de contato da página inicial, já preenchido com o produto e a categoria.
@@ -31,6 +32,7 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 | `ADMIN_USER` | Usuário do login (padrão `admin`). |
 | `ADMIN_PASSWORD` | Senha do login. Para trocar: altere aqui e faça um novo deploy. |
 | `SESSION_SECRET` | Chave que assina a sessão de login (texto aleatório longo). |
+| `PRIVATE_DATA_KEY` | Chave que criptografa os dados de fornecedores. **Não altere nem apague**: sem ela, os fornecedores salvos não podem mais ser lidos. |
 | `BLOB_READ_WRITE_TOKEN` | Criada automaticamente ao ligar o Vercel Blob (onde ficam produtos e fotos). |
 | `DEEPL_API_KEY` | Opcional: usa o DeepL para traduzir (melhor qualidade, 500 mil caracteres/mês grátis). |
 | `MYMEMORY_EMAIL` | Opcional: sem DeepL, a tradução usa o MyMemory gratuito (cerca de 5 mil caracteres/dia); um e-mail aqui aumenta o limite para 50 mil/dia. |

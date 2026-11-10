@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveImage, deleteImage } from "./_lib/store.js";
+import { getProducts, saveProducts, saveImage, deleteImage, getPrivate, savePrivate } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -71,11 +71,27 @@ async function applyTexts(product, body, existing) {
   product.translationOk = translationOk;
 }
 
+// Supplier links are admin-only: they live in the encrypted private data,
+// never in the public product list.
+async function saveSupplierLinks(productId, supplierIds) {
+  if (!Array.isArray(supplierIds)) return [];
+  const priv = await getPrivate();
+  const known = new Set(priv.suppliers.map((s) => s.id));
+  const ids = [...new Set(supplierIds.map(String))].filter((id) => known.has(id));
+  if (ids.length) priv.productSuppliers[productId] = ids;
+  else delete priv.productSuppliers[productId];
+  await savePrivate(priv);
+  return ids;
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const products = await getProducts();
-      return send(res, 200, { products });
+      if (!getSession(req)) return send(res, 200, { products });
+      const priv = await getPrivate();
+      const withLinks = products.map((p) => ({ ...p, supplierIds: priv.productSuppliers[p.id] || [] }));
+      return send(res, 200, { products: withLinks });
     }
 
     if (!getSession(req)) return fail(res, 401, "Login required");
@@ -96,7 +112,8 @@ export default async function handler(req, res) {
       product.image = await saveImage(product.id, image.buffer, image.contentType);
       products.unshift(product);
       await saveProducts(products);
-      return send(res, 201, { product });
+      const supplierIds = await saveSupplierLinks(product.id, body.supplierIds);
+      return send(res, 201, { product: { ...product, supplierIds } });
     }
 
     const index = products.findIndex((p) => p.id === id);
@@ -118,12 +135,14 @@ export default async function handler(req, res) {
       product.updatedAt = new Date().toISOString();
       products[index] = product;
       await saveProducts(products);
-      return send(res, 200, { product });
+      const supplierIds = await saveSupplierLinks(product.id, body.supplierIds);
+      return send(res, 200, { product: { ...product, supplierIds } });
     }
 
     if (req.method === "DELETE") {
       const [removed] = products.splice(index, 1);
       await saveProducts(products);
+      await saveSupplierLinks(removed.id, []);
       await deleteImage(removed.image);
       return send(res, 200, { ok: true });
     }

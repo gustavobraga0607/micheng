@@ -24,7 +24,9 @@ http.createServer(async (req, res) => {
     if (file.endsWith("/")) file += "index.html";
     if (!path.extname(file)) file += ".html"; // like Vercel cleanUrls: /admin -> admin.html
     const full = path.join(root, file);
-    if (!full.startsWith(root) || full.includes("node_modules") || full.includes(path.sep + "api" + path.sep)) throw new Error("forbidden");
+    const insideData = full.includes(path.sep + ".data" + path.sep);
+    if (!full.startsWith(root) || full.includes("node_modules") || full.includes(path.sep + "api" + path.sep) ||
+        (insideData && !full.includes(path.sep + ".data" + path.sep + "uploads" + path.sep))) throw new Error("forbidden");
     const data = await fs.readFile(full);
     res.writeHead(200, { "Content-Type": types[path.extname(full)] || "application/octet-stream" });
     res.end(data);
