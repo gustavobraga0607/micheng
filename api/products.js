@@ -71,6 +71,119 @@ async function applyTexts(product, body, existing) {
   product.translationOk = translationOk;
 }
 
+/* ---------- Characteristics (e.g. "Coating": "PVC", "Silicone") ----------
+   Each characteristic and option keeps a stable id, so a future proforma can
+   record exactly which option was chosen even if its text is edited later.
+   Texts are written in the product's language and translated automatically;
+   unchanged texts keep their existing translations. */
+const MAX_ATTRIBUTES = 10;
+const MAX_OPTIONS = 20;
+const MAX_ATTR_TEXT = 60;
+
+// Runs async jobs with limited parallelism (keeps the translation API happy
+// while staying well inside the function time limit).
+async function runLimited(jobs, limit) {
+  const results = new Array(jobs.length);
+  let next = 0;
+  async function worker() {
+    while (next < jobs.length) {
+      const i = next++;
+      results[i] = await jobs[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker));
+  return results;
+}
+
+// Short words translate badly on their own ("Dourado" became "gold coin"), so a
+// characteristic is translated as one line, "Coating: PVC, Silicone", and split
+// back. If the split does not match, each text is translated separately.
+function splitAttributeLine(line, count) {
+  const clean = String(line || "").replace(/^[\s•·*\-–]+/, "").replace(/[.。]\s*$/, "").trim();
+  const m = /^([^:：]+)[:：](.*)$/.exec(clean);
+  if (!m) return null;
+  const options = m[2].split(/[,，、;；]/).map((o) => o.trim()).filter(Boolean);
+  if (options.length !== count || !m[1].trim()) return null;
+  return { name: m[1].trim(), options };
+}
+
+// Keeps acronyms and capitals as written ("PVC", not "pvc"), capitalises the first letter.
+function matchCase(source, value) {
+  if (!value) return source;
+  if (value.toLowerCase() === source.toLowerCase()) return source;
+  if (/^\p{Lu}/u.test(source) && /^\p{Ll}/u.test(value)) return value.charAt(0).toUpperCase() + value.slice(1);
+  return value;
+}
+
+async function translateAttribute(name, options, lang) {
+  const line = name + ": " + options.join(", ");
+  const r = await translateAll(line, lang);
+  const out = { name: {}, options: options.map(() => ({})), ok: r.ok };
+  let parsed = r.ok;
+  for (const l of LANGS) {
+    const parts = splitAttributeLine(r.values[l], options.length);
+    if (!parts) { parsed = false; break; }
+    out.name[l] = matchCase(name, parts.name);
+    parts.options.forEach((o, i) => (out.options[i][l] = matchCase(options[i], o)));
+  }
+  if (parsed) return out;
+  // Fallback: one text at a time.
+  const texts = [name].concat(options);
+  const each = await runLimited(texts.map((t) => () => translateAll(t, lang)), 4);
+  return {
+    name: each[0].values,
+    options: each.slice(1).map((e) => e.values),
+    ok: each.every((e) => e.ok),
+  };
+}
+
+async function applyAttributes(product, body, existing) {
+  if (!Array.isArray(body.attributes)) {
+    product.attributes = existing ? existing.attributes || [] : [];
+    return true;
+  }
+  const lang = product.source.lang;
+  const force = Boolean(body.retranslate) || Boolean(existing && existing.source.lang !== lang);
+  const old = new Map(((existing && existing.attributes) || []).map((a) => [a.id, a]));
+  let ok = true;
+
+  const attributes = [];
+  for (const raw of body.attributes.slice(0, MAX_ATTRIBUTES)) {
+    const name = cleanText(raw && raw.name, MAX_ATTR_TEXT);
+    if (!name) continue;
+    const prev = old.get(raw.id);
+    const prevOptions = new Map(((prev && prev.options) || []).map((o) => [o.id, o]));
+    const seen = new Set();
+    const options = [];
+    for (const rawOpt of (Array.isArray(raw.options) ? raw.options : []).slice(0, MAX_OPTIONS)) {
+      const label = cleanText(rawOpt && rawOpt.label, MAX_ATTR_TEXT);
+      if (!label || seen.has(label.toLowerCase())) continue;
+      seen.add(label.toLowerCase());
+      const prevOpt = prevOptions.get(rawOpt.id);
+      options.push({ id: prevOpt ? prevOpt.id : crypto.randomUUID(), source: label, label: prevOpt && prevOpt.source === label ? prevOpt.label : null });
+    }
+    if (!options.length) continue;
+    attributes.push({
+      id: prev ? prev.id : crypto.randomUUID(),
+      source: name,
+      name: prev && prev.source === name ? prev.name : null,
+      options,
+    });
+  }
+
+  // Only characteristics with new or changed texts are translated again.
+  const pending = attributes.filter((a) => force || !a.name || a.options.some((o) => !o.label));
+  const results = await runLimited(pending.map((a) => () => translateAttribute(a.source, a.options.map((o) => o.source), lang)), 3);
+  pending.forEach((a, i) => {
+    a.name = results[i].name;
+    a.options.forEach((o, j) => (o.label = results[i].options[j]));
+    ok = ok && results[i].ok;
+  });
+
+  product.attributes = attributes;
+  return ok;
+}
+
 // Supplier links are admin-only: they live in the encrypted private data,
 // never in the public product list.
 async function saveSupplierLinks(productId, supplierIds) {
@@ -109,6 +222,7 @@ export default async function handler(req, res) {
       const now = new Date().toISOString();
       const product = { id: crypto.randomUUID(), category: body.category, createdAt: now, updatedAt: now };
       await applyTexts(product, body, null);
+      product.translationOk = (await applyAttributes(product, body, null)) && product.translationOk;
       product.image = await saveImage(product.id, image.buffer, image.contentType);
       products.unshift(product);
       await saveProducts(products);
@@ -127,6 +241,7 @@ export default async function handler(req, res) {
       const product = JSON.parse(JSON.stringify(existing));
       product.category = body.category;
       await applyTexts(product, body, existing);
+      product.translationOk = (await applyAttributes(product, body, existing)) && product.translationOk;
       if (body.image) {
         const image = decodeImage(body.image);
         product.image = await saveImage(product.id, image.buffer, image.contentType);

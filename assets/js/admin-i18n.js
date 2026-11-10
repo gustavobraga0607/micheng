@@ -1,6 +1,14 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "attr.title": "Características",
+    "attr.hint": "Ex.: Revestimento → PVC, Silicone. Ao gerar uma proforma, você escolherá uma opção de cada característica.",
+    "attr.add": "Adicionar característica",
+    "attr.namePh": "Nome (ex.: Revestimento)",
+    "attr.optionPh": "Digite uma opção e pressione Enter",
+    "attr.remove": "Remover característica",
+    "attr.removeOption": "Remover opção",
+    "status.attrNoOptions": "Cada característica precisa de pelo menos uma opção.",
     "tab.products": "Produtos",
     "tab.suppliers": "Fornecedores",
     "common.adminOnly": "Só administradores",
@@ -85,6 +93,14 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "attr.title": "Characteristics",
+    "attr.hint": "E.g. Coating → PVC, Silicone. When creating a proforma, you will choose one option of each characteristic.",
+    "attr.add": "Add characteristic",
+    "attr.namePh": "Name (e.g. Coating)",
+    "attr.optionPh": "Type an option and press Enter",
+    "attr.remove": "Remove characteristic",
+    "attr.removeOption": "Remove option",
+    "status.attrNoOptions": "Each characteristic needs at least one option.",
     "tab.products": "Products",
     "tab.suppliers": "Suppliers",
     "common.adminOnly": "Admins only",
@@ -169,6 +185,14 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "attr.title": "Características",
+    "attr.hint": "Ej.: Revestimiento → PVC, Silicona. Al generar una proforma, elegirá una opción de cada característica.",
+    "attr.add": "Agregar característica",
+    "attr.namePh": "Nombre (ej.: Revestimiento)",
+    "attr.optionPh": "Escriba una opción y presione Enter",
+    "attr.remove": "Eliminar característica",
+    "attr.removeOption": "Eliminar opción",
+    "status.attrNoOptions": "Cada característica necesita al menos una opción.",
     "tab.products": "Productos",
     "tab.suppliers": "Proveedores",
     "common.adminOnly": "Solo administradores",
@@ -253,6 +277,14 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "attr.title": "产品规格",
+    "attr.hint": "例如：涂层 → PVC、硅胶。生成形式发票时，需为每个规格选择一个选项。",
+    "attr.add": "添加规格",
+    "attr.namePh": "名称（例如：涂层）",
+    "attr.optionPh": "输入选项后按回车",
+    "attr.remove": "删除规格",
+    "attr.removeOption": "删除选项",
+    "status.attrNoOptions": "每个规格至少需要一个选项。",
     "tab.products": "产品",
     "tab.suppliers": "供应商",
     "common.adminOnly": "仅管理员可见",

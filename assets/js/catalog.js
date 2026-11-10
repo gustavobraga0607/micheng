@@ -97,6 +97,13 @@
     document.getElementById("pmodal-cat").textContent = categoryName(p.category);
     document.getElementById("pmodal-title").textContent = pick(p.name);
     document.getElementById("pmodal-desc").textContent = pick(p.description);
+    // Characteristics, e.g. "Coating: PVC · Silicone".
+    document.getElementById("pmodal-attrs").innerHTML = (p.attributes || []).map(function (a) {
+      return '<div class="pattr"><span class="pattr__name">' + escapeHtml(pick(a.name) || a.source) + "</span>" +
+        '<span class="pattr__opts">' + a.options.map(function (o) {
+          return '<span class="pattr__opt">' + escapeHtml(pick(o.label) || o.source) + "</span>";
+        }).join("") + "</span></div>";
+    }).join("");
   }
 
   function closeModal() {

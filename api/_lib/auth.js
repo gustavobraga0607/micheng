@@ -20,18 +20,47 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
+// Administrators: the main one from ADMIN_USER / ADMIN_PASSWORD, plus any extra
+// ones in ADMIN_USERS, a JSON object {"user": "scrypt:<salt>:<hash>"} (a plain
+// password also works there, but hashes keep it out of the settings screen).
+function adminAccounts() {
+  const accounts = {};
+  if (process.env.ADMIN_PASSWORD) accounts[(process.env.ADMIN_USER || "admin").toLowerCase()] = process.env.ADMIN_PASSWORD;
+  if (process.env.ADMIN_USERS) {
+    try {
+      const extra = JSON.parse(process.env.ADMIN_USERS);
+      Object.keys(extra).forEach((u) => (accounts[u.trim().toLowerCase()] = String(extra[u])));
+    } catch (e) {
+      console.error("ADMIN_USERS is not valid JSON");
+    }
+  }
+  return accounts;
+}
+
+export function hashPassword(password, salt = crypto.randomBytes(16).toString("base64url")) {
+  const hash = crypto.scryptSync(String(password), salt, 32).toString("base64url");
+  return "scrypt:" + salt + ":" + hash;
+}
+
+function passwordMatches(password, stored) {
+  if (stored.startsWith("scrypt:")) {
+    const salt = stored.split(":")[1];
+    return safeEqual(hashPassword(password, salt), stored);
+  }
+  return safeEqual(password, stored);
+}
+
 export function adminConfigured() {
-  return Boolean(process.env.ADMIN_PASSWORD);
+  return Object.keys(adminAccounts()).length > 0;
 }
 
 export function checkCredentials(user, password) {
-  const expectedUser = process.env.ADMIN_USER || "admin";
-  const expectedPass = process.env.ADMIN_PASSWORD;
-  if (!expectedPass) return false;
-  // Evaluate both comparisons so timing does not reveal which one failed.
-  const okUser = safeEqual(String(user || "").trim().toLowerCase(), expectedUser.toLowerCase());
-  const okPass = safeEqual(password || "", expectedPass);
-  return okUser && okPass;
+  const accounts = adminAccounts();
+  const name = String(user || "").trim().toLowerCase();
+  // Unknown users still pay for a hash, so timing does not reveal valid names.
+  const stored = accounts[name] || hashPassword("unused");
+  const ok = passwordMatches(password || "", stored);
+  return Boolean(accounts[name]) && ok;
 }
 
 function isSecure(req) {

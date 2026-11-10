@@ -13,6 +13,7 @@
   var products = [];
   var suppliers = [];
   var selectedSuppliers = new Set(); // supplier ids ticked in the product form
+  var attrState = []; // characteristics being edited: [{ id, name, options: [{ id, label }] }]
   var pendingImage = null; // data URL of the resized photo
 
   /* ---------- Panel language (shares the site's saved choice) ---------- */
@@ -60,6 +61,7 @@
     updateSupplierMode();
     renderList();
     renderPicker();
+    renderAttrs();
     renderSuppliers();
     setStatus("");
     setSupplierStatus("");
@@ -273,6 +275,8 @@
     selectedSuppliers = new Set();
     $("#supplier-search").value = "";
     renderPicker();
+    attrState = [];
+    renderAttrs();
     renderList();
   }
 
@@ -288,6 +292,15 @@
     $("#translations").hidden = false;
     selectedSuppliers = new Set(p.supplierIds || []);
     renderPicker();
+    // Characteristics are edited in the language they were written in.
+    attrState = (p.attributes || []).map(function (a) {
+      return {
+        id: a.id,
+        name: a.source,
+        options: a.options.map(function (o) { return { id: o.id, label: o.source }; })
+      };
+    });
+    renderAttrs();
     updateFormMode();
     setStatus("");
     renderList();
@@ -307,12 +320,19 @@
     if (!name || !category) ok = false;
     if (!id && !pendingImage) { drop.classList.add("is-invalid"); ok = false; }
     if (!ok) return setStatus(T("status.required"), "error");
+    commitPendingOptions();
+    var attrsOk = attrState.every(function (a) {
+      var empty = !a.name.trim() && !a.options.length;
+      return empty || (a.name.trim() && a.options.length);
+    });
+    if (!attrsOk) return setStatus(T("status.attrNoOptions"), "error");
 
     var body = {
       name: name,
       category: category,
       description: form.elements.description.value,
-      supplierIds: Array.from(selectedSuppliers)
+      supplierIds: Array.from(selectedSuppliers),
+      attributes: attrState.filter(function (a) { return a.name.trim(); })
     };
     if (pendingImage) body.image = pendingImage;
     if (id) {
@@ -370,6 +390,7 @@
         '<p class="pitem__lang">' + (p.category ? '<span class="pitem__cat">' + escapeHtml(T("cat." + p.category)) + "</span> · " : "") +
         escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
         '<div class="pitem__tr">' + chips + "</div>" +
+        attributeLine(p.attributes) +
         supplierLine(p.supplierIds) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
@@ -398,6 +419,98 @@
         setStatus(T("status.deleted"), "ok");
       })
       .catch(function (e2) { btn.disabled = false; setStatus(e2.message, "error"); });
+  });
+
+  /* ---------- Characteristics in the product form ---------- */
+  function attributeLine(attrs) {
+    if (!attrs || !attrs.length) return "";
+    return attrs.map(function (a) {
+      var opts = a.options.map(function (o) { return (o.label && o.label[current]) || o.source; });
+      return '<p class="pitem__attr"><b>' + escapeHtml((a.name && a.name[current]) || a.source) + ":</b> " + escapeHtml(opts.join(", ")) + "</p>";
+    }).join("");
+  }
+
+  // Re-renders the editor; `focus` = { attr: index, field: "name" | "option" } to keep typing there.
+  function renderAttrs(focus) {
+    $("#attr-list").innerHTML = attrState.map(function (a, i) {
+      var chips = a.options.map(function (o, j) {
+        return '<span class="tag">' + escapeHtml(o.label) +
+          '<button type="button" class="tag__x" data-opt="' + j + '" aria-label="' + escapeHtml(T("attr.removeOption")) + '">×</button></span>';
+      }).join("");
+      return '<div class="attr" data-index="' + i + '">' +
+        '<div class="attr__row"><input class="attr__name" maxlength="60" value="' + escapeHtml(a.name) + '" placeholder="' + escapeHtml(T("attr.namePh")) + '" />' +
+        '<button type="button" class="attr__remove" aria-label="' + escapeHtml(T("attr.remove")) + '" title="' + escapeHtml(T("attr.remove")) + '">×</button></div>' +
+        '<div class="tags">' + chips + '<input class="tags__input" maxlength="60" placeholder="' + escapeHtml(T("attr.optionPh")) + '" /></div></div>';
+    }).join("");
+    if (focus) {
+      var box = $("#attr-list").querySelector('.attr[data-index="' + focus.attr + '"]');
+      if (box) box.querySelector(focus.field === "name" ? ".attr__name" : ".tags__input").focus();
+    }
+  }
+
+  function addOption(i, value) {
+    var label = String(value || "").trim().slice(0, 60);
+    if (!label) return false;
+    var exists = attrState[i].options.some(function (o) { return o.label.toLowerCase() === label.toLowerCase(); });
+    if (!exists) attrState[i].options.push({ label: label });
+    return true;
+  }
+
+  // Text typed in an option box but not yet confirmed with Enter is kept on save.
+  function commitPendingOptions() {
+    $("#attr-list").querySelectorAll(".attr").forEach(function (box) {
+      var input = box.querySelector(".tags__input");
+      if (input.value.trim()) addOption(Number(box.dataset.index), input.value);
+    });
+  }
+
+  $("#attr-add").addEventListener("click", function () {
+    commitPendingOptions();
+    attrState.push({ name: "", options: [] });
+    renderAttrs({ attr: attrState.length - 1, field: "name" });
+  });
+
+  $("#attr-list").addEventListener("input", function (e) {
+    if (!e.target.classList.contains("attr__name")) return;
+    attrState[Number(e.target.closest(".attr").dataset.index)].name = e.target.value;
+  });
+
+  $("#attr-list").addEventListener("keydown", function (e) {
+    if (!e.target.classList.contains("tags__input")) return;
+    var i = Number(e.target.closest(".attr").dataset.index);
+    if (e.key === "Enter" || e.key === "," || e.key === "，") {
+      e.preventDefault(); // Enter must not submit the product form
+      if (addOption(i, e.target.value)) renderAttrs({ attr: i, field: "option" });
+    } else if (e.key === "Backspace" && !e.target.value && attrState[i].options.length) {
+      attrState[i].options.pop();
+      renderAttrs({ attr: i, field: "option" });
+    }
+  });
+
+  // Pasting "PVC, Silicone; Rubber" adds several options at once.
+  $("#attr-list").addEventListener("paste", function (e) {
+    if (!e.target.classList.contains("tags__input")) return;
+    var text = (e.clipboardData || window.clipboardData).getData("text");
+    if (!/[,;\n，；]/.test(text)) return;
+    e.preventDefault();
+    var i = Number(e.target.closest(".attr").dataset.index);
+    text.split(/[,;\n，；]/).forEach(function (part) { addOption(i, part); });
+    renderAttrs({ attr: i, field: "option" });
+  });
+
+  $("#attr-list").addEventListener("click", function (e) {
+    var box = e.target.closest(".attr");
+    if (!box) return;
+    var i = Number(box.dataset.index);
+    if (e.target.classList.contains("attr__remove")) {
+      attrState.splice(i, 1);
+      renderAttrs();
+    } else if (e.target.classList.contains("tag__x")) {
+      attrState[i].options.splice(Number(e.target.dataset.opt), 1);
+      renderAttrs({ attr: i, field: "option" });
+    } else if (e.target.classList.contains("tags")) {
+      box.querySelector(".tags__input").focus();
+    }
   });
 
   /* ---------- Supplier picker in the product form ---------- */
