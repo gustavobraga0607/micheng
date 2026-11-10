@@ -12,7 +12,23 @@
   var listEl = $("#product-list");
   var products = [];
   var suppliers = [];
-  var selectedSuppliers = new Set(); // supplier ids ticked in the product form
+  var selectedSuppliers = new Map(); // supplier id -> purchase price typed in the product form
+  var defaultCurrency = "CNY"; // from the Settings tab; RMB unless changed there
+
+  // Currencies offered on proformas. CNY is shown as "RMB".
+  var CURRENCIES = {
+    CNY: { label: "RMB", symbol: "¥" },
+    USD: { label: "USD", symbol: "US$" },
+    EUR: { label: "EUR", symbol: "€" },
+    BRL: { label: "BRL", symbol: "R$" }
+  };
+
+  function money(value, currency) {
+    var c = CURRENCIES[currency] || CURRENCIES.CNY;
+    var n = Number(value);
+    if (!isFinite(n)) return "—";
+    return c.symbol + " " + n.toLocaleString(HTML_LANG[current], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
   var attrState = []; // characteristics being edited: [{ id, name, options: [{ id, label }] }]
   var pendingImage = null; // data URL of the resized photo
 
@@ -70,6 +86,7 @@
     setSupplierStatus("");
     setClientStatus("");
     setSettingsStatus("");
+    document.dispatchEvent(new CustomEvent("admin:lang"));
   }
 
   document.querySelectorAll(".lang__btn").forEach(function (btn) {
@@ -127,7 +144,7 @@
       tab.classList.toggle("is-active", active);
       tab.setAttribute("aria-selected", active ? "true" : "false");
     });
-    ["products", "suppliers", "clients", "settings"].forEach(function (view) {
+    ["products", "suppliers", "clients", "proformas", "settings"].forEach(function (view) {
       $("#" + view + "-view").hidden = view !== name;
     });
     window.scrollTo(0, 0);
@@ -280,7 +297,7 @@
     $("#translations").hidden = true;
     $("#translations").open = false;
     form.querySelectorAll(".is-invalid").forEach(function (el) { el.classList.remove("is-invalid"); });
-    selectedSuppliers = new Set();
+    selectedSuppliers = new Map();
     $("#supplier-search").value = "";
     renderPicker();
     attrState = [];
@@ -298,7 +315,9 @@
     trFields("name").forEach(function (el) { el.value = p.name[el.dataset.lang] || ""; });
     trFields("description").forEach(function (el) { el.value = (p.description || {})[el.dataset.lang] || ""; });
     $("#translations").hidden = false;
-    selectedSuppliers = new Set(p.supplierIds || []);
+    selectedSuppliers = new Map((p.supplierLinks || []).map(function (l) {
+      return [l.supplierId, l.cost == null ? "" : String(l.cost)];
+    }));
     renderPicker();
     // Characteristics are edited in the language they were written in.
     attrState = (p.attributes || []).map(function (a) {
@@ -339,7 +358,7 @@
       name: name,
       category: category,
       description: form.elements.description.value,
-      supplierIds: Array.from(selectedSuppliers),
+      supplierLinks: Array.from(selectedSuppliers, function (entry) { return { supplierId: entry[0], cost: entry[1] }; }),
       attributes: attrState.filter(function (a) { return a.name.trim(); })
     };
     if (pendingImage) body.image = pendingImage;
@@ -373,6 +392,7 @@
     api("/api/products").then(function (data) {
       products = data.products || [];
       renderList();
+      document.dispatchEvent(new CustomEvent("admin:data"));
     }).catch(function (e) { setStatus(e.message, "error"); });
   }
 
@@ -399,7 +419,7 @@
         escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
         '<div class="pitem__tr">' + chips + "</div>" +
         attributeLine(p.attributes) +
-        supplierLine(p.supplierIds) +
+        supplierLine(p.supplierLinks) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
         '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
@@ -527,8 +547,12 @@
   }
 
   // "🔒 Suppliers: A, B" line under a product in the list (admin only).
-  function supplierLine(ids) {
-    var names = (ids || []).map(supplierById).filter(Boolean).map(function (s) { return s.company; });
+  function supplierLine(links) {
+    var names = (links || []).map(function (l) {
+      var s = supplierById(l.supplierId);
+      if (!s) return null;
+      return s.company + (l.cost != null ? " (" + money(l.cost, defaultCurrency) + ")" : "");
+    }).filter(Boolean);
     if (!names.length) return "";
     return '<p class="pitem__sup"><span class="lock" aria-hidden="true"></span>' +
       escapeHtml(T("list.suppliers") + ": " + names.join(", ")) + "</p>";
@@ -547,17 +571,30 @@
     // Ticked suppliers first, so the choice stays visible.
     shown.sort(function (a, b) { return selectedSuppliers.has(b.id) - selectedSuppliers.has(a.id); });
     picker.innerHTML = shown.length ? shown.map(function (s) {
-      return '<label class="picker__item"><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
-        (selectedSuppliers.has(s.id) ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + "</b>" +
-        (s.city ? "<small>" + escapeHtml(s.city) + "</small>" : "") + "</span></label>";
+      var on = selectedSuppliers.has(s.id);
+      // A ticked supplier gets a field for its purchase price of this product.
+      var cost = on ? '<span class="picker__cost"><span>' + escapeHtml(T("form.cost")) + "</span>" +
+        '<input type="number" min="0" step="0.01" inputmode="decimal" data-cost="' + escapeHtml(s.id) + '" value="' +
+        escapeHtml(selectedSuppliers.get(s.id)) + '" placeholder="0,00" />' +
+        "<em>" + escapeHtml((CURRENCIES[defaultCurrency] || CURRENCIES.CNY).label) + "</em></span>" : "";
+      return '<div class="picker__item' + (on ? " is-on" : "") + '"><label><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
+        (on ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + "</b>" +
+        (s.city ? "<small>" + escapeHtml(s.city) + "</small>" : "") + "</span></label>" + cost + "</div>";
     }).join("") : '<p class="picker__none">' + escapeHtml(T("form.noMatch")) + "</p>";
   }
 
   $("#supplier-picker").addEventListener("change", function (e) {
     if (e.target.type !== "checkbox") return;
-    if (e.target.checked) selectedSuppliers.add(e.target.value);
-    else selectedSuppliers.delete(e.target.value);
-    $("#supplier-selected").textContent = selectedSuppliers.size ? T("form.suppliersSelected", { n: selectedSuppliers.size }) : "";
+    var id = e.target.value;
+    if (e.target.checked) selectedSuppliers.set(id, selectedSuppliers.get(id) || "");
+    else selectedSuppliers.delete(id);
+    renderPicker();
+    var costInput = $("#supplier-picker").querySelector('[data-cost="' + id + '"]');
+    if (costInput) costInput.focus();
+  });
+  $("#supplier-picker").addEventListener("input", function (e) {
+    var id = e.target.getAttribute("data-cost");
+    if (id) selectedSuppliers.set(id, e.target.value);
   });
   $("#supplier-search").addEventListener("input", renderPicker);
 
@@ -577,6 +614,7 @@
       renderSuppliers();
       renderPicker();
       renderList();
+      document.dispatchEvent(new CustomEvent("admin:data"));
     }).catch(function (e) { setSupplierStatus(e.message, "error"); });
   }
 
@@ -687,7 +725,8 @@
         suppliers = suppliers.filter(function (x) { return x.id !== id; });
         selectedSuppliers.delete(id);
         products.forEach(function (p) {
-          p.supplierIds = (p.supplierIds || []).filter(function (sid) { return sid !== id; });
+          p.supplierLinks = (p.supplierLinks || []).filter(function (l) { return l.supplierId !== id; });
+          p.supplierIds = p.supplierLinks.map(function (l) { return l.supplierId; });
         });
         if (supForm.elements.id.value === id) resetSupplierForm();
         renderSuppliers();
@@ -713,6 +752,7 @@
     api("/api/clients").then(function (data) {
       clients = data.clients || [];
       renderClients();
+      document.dispatchEvent(new CustomEvent("admin:data"));
     }).catch(function (e) { setClientStatus(e.message, "error"); });
   }
 
@@ -807,9 +847,10 @@
 
   /* ---------- Settings tab (company details for proformas) ---------- */
   var setForm = $("#settings-form");
-  var SET_FIELDS = ["companyName", "address", "phone", "email", "website",
+  var SET_FIELDS = ["currency", "companyName", "address", "phone", "email", "website",
     "bankBeneficiary", "bankName", "bankAccount", "bankSwift", "bankAddress", "bankNotes"];
   var settingsUpdatedAt = null;
+  var companySettings = {};
 
   function setSettingsStatus(msg, kind) {
     var el = $("#settings-status");
@@ -825,8 +866,14 @@
 
   function fillSettings(settings) {
     SET_FIELDS.forEach(function (f) { setForm.elements[f].value = (settings && settings[f]) || ""; });
+    defaultCurrency = (settings && CURRENCIES[settings.currency]) ? settings.currency : "CNY";
+    setForm.elements.currency.value = defaultCurrency;
+    renderPicker();
+    renderList();
     settingsUpdatedAt = settings && settings.updatedAt;
+    companySettings = settings || {};
     renderSettingsUpdated();
+    document.dispatchEvent(new CustomEvent("admin:data"));
   }
 
   function loadSettings() {
@@ -848,6 +895,23 @@
       .catch(function (e2) { setSettingsStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
       .then(function () { btn.disabled = false; });
   });
+
+  /* ---------- Shared with admin-proformas.js ---------- */
+  window.Admin = {
+    api: api,
+    T: T,
+    money: money,
+    escapeHtml: escapeHtml,
+    CURRENCIES: CURRENCIES,
+    lang: function () { return current; },
+    locale: function () { return HTML_LANG[current]; },
+    products: function () { return products; },
+    suppliers: function () { return suppliers; },
+    clients: function () { return clients; },
+    settings: function () { return companySettings; },
+    defaultCurrency: function () { return defaultCurrency; },
+    showTab: showTab
+  };
 
   /* ---------- Start ---------- */
   setLang(detectPanelLang());

@@ -4,7 +4,9 @@ import { send, fail, readJson, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
 import { getPrivate, savePrivate } from "./_lib/store.js";
 
+const CURRENCIES = ["CNY", "USD", "EUR", "BRL"];
 const FIELDS = {
+  currency: 3,
   companyName: 160,
   address: 500,
   phone: 60,
@@ -32,6 +34,7 @@ export default async function handler(req, res) {
       for (const [key, max] of Object.entries(FIELDS)) {
         settings[key] = String(body[key] || "").replace(/\r\n/g, "\n").trim().slice(0, max);
       }
+      if (!CURRENCIES.includes(settings.currency)) settings.currency = "CNY"; // RMB by default
       settings.updatedAt = new Date().toISOString();
       priv.settings = settings;
       await savePrivate(priv);

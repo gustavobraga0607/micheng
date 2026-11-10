@@ -59,8 +59,9 @@
         <button type="button" class="tab is-active" role="tab" data-tab="products" aria-selected="true"><span data-t="tab.products">Produtos</span> <span class="count" id="tab-count-products">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="suppliers" aria-selected="false"><span data-t="tab.suppliers">Fornecedores</span> <span class="count" id="tab-count-suppliers">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="clients" aria-selected="false"><span data-t="tab.clients">Clientes</span> <span class="count" id="tab-count-clients">0</span></button>
+        <button type="button" class="tab" role="tab" data-tab="proformas" aria-selected="false"><span data-t="tab.proformas">Proformas</span> <span class="count" id="tab-count-proformas">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="settings" aria-selected="false"><span data-t="tab.settings">Parâmetros</span></button>
-        <span class="lock tabs__lock" data-t="tab.privateNote">Fornecedores, clientes e parâmetros: só administradores</span>
+        <span class="lock tabs__lock" data-t="tab.privateNote">Fornecedores, clientes, proformas e parâmetros: só administradores</span>
       </div>
     </nav>
 
@@ -220,12 +221,98 @@
       </section>
     </main>
 
+    <!-- ================= PROFORMAS (admin only) ================= -->
+    <main class="dash dash--wide" id="proformas-view" hidden>
+      <!-- List -->
+      <section class="panel" id="pf-list-panel">
+        <div class="list-head">
+          <h2><span data-t="pf.listTitle">Proformas</span> <span class="count" id="pf-count">0</span></h2>
+          <div class="list-tools">
+            <input type="search" id="pf-search" data-t-placeholder="pf.search" />
+            <button type="button" class="btn btn--primary" id="pf-new">+ <span data-t="pf.new">Nova proforma</span></button>
+          </div>
+        </div>
+        <div class="pf-table-wrap">
+          <table class="pf-table" id="pf-table">
+            <thead><tr>
+              <th data-t="pf.number">Número</th><th data-t="pf.client">Cliente</th><th data-t="pf.date">Data</th>
+              <th data-t="pf.status">Situação</th><th class="num" data-t="pf.total">Total</th><th class="num" data-t="pf.profit">Lucro</th><th></th>
+            </tr></thead>
+            <tbody id="pf-rows"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="pf-empty" data-t="pf.empty" hidden>Nenhuma proforma criada ainda.</p>
+      </section>
+
+      <!-- Editor -->
+      <section class="panel pf-editor" id="pf-editor" hidden>
+        <div class="pf-editor__head">
+          <button type="button" class="linkbtn" id="pf-back">← <span data-t="pf.back">Voltar à lista</span></button>
+          <h2><span id="pf-title"></span> <span class="badge" id="pf-badge"></span></h2>
+          <div class="pf-actions">
+            <button type="button" class="btn btn--outline" id="pf-pdf">PDF</button>
+            <button type="button" class="btn btn--outline" id="pf-xlsx">Excel</button>
+            <button type="button" class="btn btn--outline danger-btn" id="pf-delete" data-t="list.delete">Excluir</button>
+            <button type="button" class="btn btn--outline" id="pf-reopen" data-t="pf.reopen" hidden>Reabrir</button>
+            <button type="button" class="btn btn--outline" id="pf-save" data-t="pf.save">Salvar rascunho</button>
+            <button type="button" class="btn btn--primary" id="pf-close" data-t="pf.close">Fechar proforma</button>
+          </div>
+        </div>
+        <p class="status" id="pf-status" role="status" aria-live="polite"></p>
+
+        <form id="pf-form" class="pf-form" novalidate>
+          <div class="pf-fields">
+            <label class="pf-fields__client"><span data-t="pf.client">Cliente</span>
+              <select name="clientId"></select>
+            </label>
+            <label><span data-t="pf.date">Data</span><input type="date" name="date" /></label>
+            <label><span data-t="pf.validUntil">Válida até</span><input type="date" name="validUntil" /></label>
+            <label><span data-t="pf.currency">Moeda</span>
+              <select name="currency">
+                <option value="CNY">RMB (¥)</option><option value="USD">USD (US$)</option><option value="EUR">EUR (€)</option><option value="BRL">BRL (R$)</option>
+              </select>
+            </label>
+            <label><span data-t="pf.language">Idioma do documento</span>
+              <select name="language">
+                <option value="en">English</option><option value="pt">Português</option><option value="es">Español</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="pf-items-head">
+            <h3 data-t="pf.items">Itens</h3>
+            <span class="lock" data-t="pf.internalNote">Custo, margem e lucro não aparecem no PDF nem no Excel</span>
+          </div>
+          <div id="pf-items"></div>
+          <button type="button" class="btn btn--outline attrs__add" id="pf-add-item">+ <span data-t="pf.addItem">Adicionar produto</span></button>
+
+          <div class="pf-bottom">
+            <label class="pf-terms"><span data-t="pf.terms">Condições e observações</span>
+              <textarea name="terms" rows="5" maxlength="3000" data-t-placeholder="pf.termsPh"></textarea>
+            </label>
+            <div class="pf-totals" id="pf-totals"></div>
+          </div>
+        </form>
+      </section>
+    </main>
+
     <!-- ================= SETTINGS (admin only) ================= -->
     <main class="dash dash--single" id="settings-view" hidden>
       <section class="panel">
         <h2 data-t="set.title">Parâmetros da empresa</h2>
         <p class="hint hint--lock" data-t="set.hint">Dados da Shenzhen Micheng usados nas proformas. Ficam visíveis somente neste painel e guardados criptografados.</p>
         <form id="settings-form" class="crud-form" novalidate>
+          <fieldset class="group">
+            <legend data-t="set.general">Geral</legend>
+            <label><span data-t="set.currency">Moeda padrão</span>
+              <select name="currency">
+                <option value="CNY">RMB (¥)</option>
+                <option value="USD">USD (US$)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="BRL">BRL (R$)</option>
+              </select>
+            </label>
+          </fieldset>
           <fieldset class="group">
             <legend data-t="set.company">Empresa</legend>
             <label><span data-t="set.companyName">Nome</span><input type="text" name="companyName" maxlength="160" placeholder="Shenzhen Micheng International Trading Co., Ltd." /></label>
@@ -261,5 +348,6 @@
 
   <script src="assets/js/admin-i18n.js"></script>
   <script src="assets/js/admin.js"></script>
+  <script src="assets/js/admin-proformas.js"></script>
 </body>
 </html>

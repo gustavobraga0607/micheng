@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveImage, deleteImage, getPrivate, savePrivate } from "./_lib/store.js";
+import { getProducts, saveProducts, saveImage, deleteImage, getPrivate, savePrivate, productLinks } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -186,15 +186,32 @@ async function applyAttributes(product, body, existing) {
 
 // Supplier links are admin-only: they live in the encrypted private data,
 // never in the public product list.
-async function saveSupplierLinks(productId, supplierIds) {
-  if (!Array.isArray(supplierIds)) return [];
+// Each link carries that supplier's purchase price (cost) for the product.
+// Accepts body.supplierLinks [{ supplierId, cost }] or the older body.supplierIds.
+async function saveSupplierLinks(productId, body) {
   const priv = await getPrivate();
+  let raw = null;
+  if (Array.isArray(body.supplierLinks)) raw = body.supplierLinks;
+  else if (Array.isArray(body.supplierIds)) raw = body.supplierIds.map((id) => ({ supplierId: id, cost: null }));
+  if (!raw) return productLinks(priv, productId);
   const known = new Set(priv.suppliers.map((s) => s.id));
-  const ids = [...new Set(supplierIds.map(String))].filter((id) => known.has(id));
-  if (ids.length) priv.productSuppliers[productId] = ids;
+  const seen = new Set();
+  const links = [];
+  for (const l of raw) {
+    const id = String((l && l.supplierId) || "");
+    if (!known.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    const cost = l.cost === "" || l.cost == null ? null : Number(l.cost);
+    links.push({ supplierId: id, cost: Number.isFinite(cost) && cost >= 0 ? Math.round(cost * 10000) / 10000 : null });
+  }
+  if (links.length) priv.productSuppliers[productId] = links;
   else delete priv.productSuppliers[productId];
   await savePrivate(priv);
-  return ids;
+  return links;
+}
+
+function withLinks(product, links) {
+  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId) };
 }
 
 export default async function handler(req, res) {
@@ -203,8 +220,7 @@ export default async function handler(req, res) {
       const products = await getProducts();
       if (!getSession(req)) return send(res, 200, { products });
       const priv = await getPrivate();
-      const withLinks = products.map((p) => ({ ...p, supplierIds: priv.productSuppliers[p.id] || [] }));
-      return send(res, 200, { products: withLinks });
+      return send(res, 200, { products: products.map((p) => withLinks(p, productLinks(priv, p.id))) });
     }
 
     if (!getSession(req)) return fail(res, 401, "Login required");
@@ -226,8 +242,7 @@ export default async function handler(req, res) {
       product.image = await saveImage(product.id, image.buffer, image.contentType);
       products.unshift(product);
       await saveProducts(products);
-      const supplierIds = await saveSupplierLinks(product.id, body.supplierIds);
-      return send(res, 201, { product: { ...product, supplierIds } });
+      return send(res, 201, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
     }
 
     const index = products.findIndex((p) => p.id === id);
@@ -250,14 +265,13 @@ export default async function handler(req, res) {
       product.updatedAt = new Date().toISOString();
       products[index] = product;
       await saveProducts(products);
-      const supplierIds = await saveSupplierLinks(product.id, body.supplierIds);
-      return send(res, 200, { product: { ...product, supplierIds } });
+      return send(res, 200, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
     }
 
     if (req.method === "DELETE") {
       const [removed] = products.splice(index, 1);
       await saveProducts(products);
-      await saveSupplierLinks(removed.id, []);
+      await saveSupplierLinks(removed.id, { supplierLinks: [] });
       await deleteImage(removed.image);
       return send(res, 200, { ok: true });
     }

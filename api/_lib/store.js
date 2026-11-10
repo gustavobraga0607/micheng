@@ -64,7 +64,23 @@ export async function saveProducts(products) {
    encrypted (AES-256-GCM) with PRIVATE_DATA_KEY before it is stored.
    Changing or losing PRIVATE_DATA_KEY makes the saved suppliers unreadable. */
 
-const EMPTY_PRIVATE = { suppliers: [], productSuppliers: {}, clients: [], settings: {} };
+const EMPTY_PRIVATE = {
+  suppliers: [],
+  productSuppliers: {}, // productId -> [{ supplierId, cost }]
+  clients: [],
+  settings: {},
+  proformas: [],
+  clientPrices: {}, // clientId -> { priceKey: { price, currency, proformaId, at } }
+  proformaSeq: {}, // year -> last proforma number used
+};
+
+// Supplier links of a product, as [{ supplierId, cost }]. Links saved before
+// purchase prices existed were plain supplier ids.
+export function productLinks(priv, productId) {
+  return (priv.productSuppliers[productId] || []).map((l) =>
+    typeof l === "string" ? { supplierId: l, cost: null } : { supplierId: l.supplierId, cost: l.cost == null ? null : Number(l.cost) }
+  );
+}
 
 function privateKey() {
   const secret = process.env.PRIVATE_DATA_KEY;

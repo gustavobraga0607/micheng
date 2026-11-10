@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getPrivate, savePrivate } from "./_lib/store.js";
+import { getPrivate, savePrivate, productLinks } from "./_lib/store.js";
 
 const FIELDS = {
   company: 120,
@@ -28,7 +28,7 @@ function clean(body) {
 function withProducts(priv) {
   return priv.suppliers.map((s) => ({
     ...s,
-    productIds: Object.keys(priv.productSuppliers).filter((pid) => priv.productSuppliers[pid].includes(s.id)),
+    productIds: Object.keys(priv.productSuppliers).filter((pid) => productLinks(priv, pid).some((l) => l.supplierId === s.id)),
   }));
 }
 
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     if (req.method === "DELETE") {
       priv.suppliers.splice(index, 1);
       for (const pid of Object.keys(priv.productSuppliers)) {
-        priv.productSuppliers[pid] = priv.productSuppliers[pid].filter((sid) => sid !== id);
+        priv.productSuppliers[pid] = productLinks(priv, pid).filter((l) => l.supplierId !== id);
         if (!priv.productSuppliers[pid].length) delete priv.productSuppliers[pid];
       }
       await savePrivate(priv);
