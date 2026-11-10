@@ -18,9 +18,10 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 - Endereço: `/admin` (há também um link "Área restrita" no rodapé).
 - O painel está em português, inglês, espanhol e chinês (seletor de idioma no topo; a escolha é compartilhada com o site).
 - O administrador cadastra **nome, descrição e foto**, em qualquer idioma. O idioma do cadastro é identificado automaticamente (a partir do nome e da descrição juntos; chinês é reconhecido pelos caracteres) e o produto é traduzido para português, inglês, espanhol e chinês. O painel mostra o idioma identificado, e as traduções podem ser corrigidas ao editar o produto.
-- Cada produto pertence a uma das 4 categorias da página inicial: Materiais de Construção, Louças e Metais, Fitness e Recovery e Produtos Gerais. No site, os produtos podem ser filtrados por categoria, e clicar numa categoria da página inicial mostra os produtos dela.
+- Cada produto pertence a uma das 4 categorias da página inicial: Materiais de Construção, Louças e Metais, Fitness e Recovery e Produtos Gerais. Na página de produtos há um filtro por categoria.
 - Dica: nomes de uma palavra que existem em vários idiomas (ex.: "Mesa") são ambíguos; uma descrição curta resolve.
-- Os produtos aparecem no site na seção **Nossos Produtos**, no idioma escolhido pelo visitante.
+- Os produtos aparecem na página **/products** (`products.html`), no idioma escolhido pelo visitante. Na página inicial, cada cartão de categoria leva a essa página já filtrada (ex.: `/products?category=fitness`). Ids das categorias: `building`, `sanitary`, `fitness`, `general`.
+- "Solicitar cotação" num produto leva ao formulário de contato da página inicial, já preenchido com o produto e a categoria.
 - As fotos são ajustadas no navegador antes do envio: ficam **quadradas** (até 1600 × 1600 px). Uma foto retangular é centralizada e o espaço que sobra é preenchido com a cor de fundo da própria foto, quando o fundo é liso (ex.: fundo branco de estúdio), ou com uma versão desfocada da foto, quando é uma foto de ambiente.
 
 ### Variáveis de ambiente (Vercel → Settings → Environment Variables)

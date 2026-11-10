@@ -2,6 +2,8 @@
    Keys match the data-i18n attributes in index.html. */
 window.I18N = {
   en: {
+    "meta.productsTitle": "Products | Micheng",
+    "catalog.empty": "We are updating this category. Tell us what you need and we will find the right supplier for you.",
     "catalog.all": "All",
     "catalog.title": "Our Products",
     "catalog.intro": "A selection of products we supply. Ask us for prices, customization and minimum quantities.",
@@ -98,6 +100,8 @@ window.I18N = {
   },
 
   pt: {
+    "meta.productsTitle": "Produtos | Micheng",
+    "catalog.empty": "Estamos atualizando esta categoria. Conte o que você precisa e encontraremos o fornecedor certo para você.",
     "catalog.all": "Todos",
     "catalog.title": "Nossos Produtos",
     "catalog.intro": "Uma seleção dos produtos que fornecemos. Consulte preços, personalização e quantidades mínimas.",
@@ -194,6 +198,8 @@ window.I18N = {
   },
 
   es: {
+    "meta.productsTitle": "Productos | Micheng",
+    "catalog.empty": "Estamos actualizando esta categoría. Cuéntenos lo que necesita y encontraremos el proveedor adecuado para usted.",
     "catalog.all": "Todos",
     "catalog.title": "Nuestros Productos",
     "catalog.intro": "Una selección de los productos que suministramos. Consulte precios, personalización y cantidades mínimas.",
@@ -290,6 +296,8 @@ window.I18N = {
   },
 
   zh: {
+    "meta.productsTitle": "产品 | Micheng",
+    "catalog.empty": "该类别正在更新中。请告诉我们您的需求，我们将为您寻找合适的供应商。",
     "catalog.all": "全部",
     "catalog.title": "我们的产品",
     "catalog.intro": "我们供应的部分产品。欢迎咨询价格、定制及起订量。",

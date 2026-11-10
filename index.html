@@ -111,33 +111,33 @@
           </div>
           <div class="section__intro">
             <p data-i18n="prod.intro">Explore our main product categories. We can source a wide range of products according to your needs.</p>
-            <a href="#catalog" class="link"><span data-i18n="prod.all">View all products</span> <span class="arrow">→</span></a>
+            <a href="products" class="link"><span data-i18n="prod.all">View all products</span> <span class="arrow">→</span></a>
           </div>
         </div>
 
         <div class="cards">
-          <a href="#contact" class="card" data-category="building">
+          <a href="products?category=building" class="card" data-category="building">
             <div class="card__img"><img src="assets/img/cat-building.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.1.t">Building Materials</span> <span class="arrow">→</span></h3>
               <p data-i18n="prod.1.d">Marbles, granites, quartz, tiles and more.</p>
             </div>
           </a>
-          <a href="#contact" class="card" data-category="sanitary">
+          <a href="products?category=sanitary" class="card" data-category="sanitary">
             <div class="card__img"><img src="assets/img/cat-sanitary.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.2.t">Sanitary &amp; Hardware</span> <span class="arrow">→</span></h3>
               <p data-i18n="prod.2.d">Sanitary ware, faucets, bathroom accessories.</p>
             </div>
           </a>
-          <a href="#contact" class="card" data-category="fitness">
+          <a href="products?category=fitness" class="card" data-category="fitness">
             <div class="card__img"><img src="assets/img/cat-fitness.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.3.t">Fitness &amp; Recovery</span> <span class="arrow">→</span></h3>
               <p data-i18n="prod.3.d">Gym equipment, recovery products and accessories.</p>
             </div>
           </a>
-          <a href="#contact" class="card" data-category="general">
+          <a href="products?category=general" class="card" data-category="general">
             <div class="card__img"><img src="assets/img/cat-general.jpg" alt="" loading="lazy" width="800" height="520" /></div>
             <div class="card__body">
               <h3><span data-i18n="prod.4.t">General Products</span> <span class="arrow">→</span></h3>
@@ -147,42 +147,6 @@
         </div>
       </div>
     </section>
-
-    <!-- ================= CATALOG (products registered in the admin area) ================= -->
-    <section class="section section--white catalog" id="catalog" hidden>
-      <div class="container">
-        <div class="section__head">
-          <div>
-            <h2 class="section__title" data-i18n="catalog.title">Our Products</h2>
-          </div>
-          <div class="section__intro">
-            <p data-i18n="catalog.intro">A selection of products we supply. Ask us for prices, customization and minimum quantities.</p>
-          </div>
-        </div>
-        <div class="catalog__filters" id="catalog-filters" role="group" aria-label="Category">
-          <button type="button" class="chip is-active" data-filter="" data-i18n="catalog.all">All</button>
-          <button type="button" class="chip" data-filter="building" data-i18n="prod.1.t">Building Materials</button>
-          <button type="button" class="chip" data-filter="sanitary" data-i18n="prod.2.t">Sanitary &amp; Hardware</button>
-          <button type="button" class="chip" data-filter="fitness" data-i18n="prod.3.t">Fitness &amp; Recovery</button>
-          <button type="button" class="chip" data-filter="general" data-i18n="prod.4.t">General Products</button>
-        </div>
-        <div class="catalog__grid" id="catalog-grid"></div>
-        <div class="catalog__more">
-          <button type="button" class="btn btn--outline btn--lg" id="catalog-more" hidden><span data-i18n="catalog.more">Show more products</span></button>
-        </div>
-      </div>
-    </section>
-
-    <dialog class="pmodal" id="product-modal" aria-labelledby="pmodal-title">
-      <button type="button" class="pmodal__close" id="pmodal-close" aria-label="Close">×</button>
-      <img class="pmodal__img" id="pmodal-img" alt="" />
-      <div class="pmodal__body">
-        <span class="pmodal__cat" id="pmodal-cat"></span>
-        <h3 id="pmodal-title"></h3>
-        <p id="pmodal-desc"></p>
-        <button type="button" class="btn btn--primary btn--lg" id="pmodal-quote"><span data-i18n="cta.quote">Get a Quote</span> <span class="arrow">→</span></button>
-      </div>
-    </dialog>
 
     <!-- ================= SERVICES ================= -->
     <section class="section section--white" id="services">
@@ -392,7 +356,7 @@
       </div>
       <nav class="footer__nav" aria-label="Footer">
         <a href="#about" data-i18n="nav.about">About</a>
-        <a href="#products" data-i18n="nav.products">Products</a>
+        <a href="products" data-i18n="nav.products">Products</a>
         <a href="#services" data-i18n="nav.services">Services</a>
         <a href="#how" data-i18n="nav.how">How We Work</a>
         <a href="#contact" data-i18n="nav.contact">Contact</a>
@@ -404,6 +368,5 @@
 
   <script src="assets/js/i18n.js"></script>
   <script src="assets/js/main.js"></script>
-  <script src="assets/js/catalog.js"></script>
 </body>
 </html>

@@ -39,7 +39,7 @@
     storageSet(lang);
 
     document.documentElement.lang = HTML_LANG[lang];
-    document.title = t("meta.title");
+    document.title = t(document.body.getAttribute("data-title-key") || "meta.title");
     var desc = document.querySelector('meta[name="description"]');
     if (desc) desc.setAttribute("content", t("meta.desc"));
 
@@ -90,12 +90,13 @@
   nav.querySelectorAll("a").forEach(function (a) { a.addEventListener("click", closeMenu); });
 
   /* ---------- Active nav link on scroll ---------- */
+  // Only on the home page, where the menu links point to sections of the page.
   var links = Array.prototype.slice.call(document.querySelectorAll(".nav__link"));
-  var sections = links
-    .map(function (a) { return document.querySelector(a.getAttribute("href")); })
-    .filter(Boolean);
+  var onePage = links.every(function (a) { return a.getAttribute("href").charAt(0) === "#"; });
+  var sections = onePage ? links.map(function (a) { return document.querySelector(a.getAttribute("href")); }).filter(Boolean) : [];
 
   function onScroll() {
+    if (!sections.length) return;
     var y = window.scrollY + 120;
     var activeIdx = 0;
     sections.forEach(function (sec, i) {
@@ -123,7 +124,7 @@
   /* ---------- Quote form (opens the visitor's e-mail app) ---------- */
   var form = document.getElementById("quote-form");
   var note = document.getElementById("form-note");
-  form.addEventListener("submit", function (e) {
+  if (form) form.addEventListener("submit", function (e) {
     e.preventDefault();
     var data = new FormData(form);
     var required = ["name", "email", "message"];
@@ -151,7 +152,26 @@
     location.href = "mailto:" + CONTACT_EMAIL + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   });
 
+  // Coming from the products page ("Get a quote" on a product): pre-fill the
+  // contact form with the product's category and name.
+  function prefillQuote() {
+    if (!form) return;
+    var params = new URLSearchParams(location.search);
+    var category = params.get("category");
+    var product = params.get("quote");
+    var index = ["building", "sanitary", "fitness", "general"].indexOf(category);
+    if (index > -1) form.elements.category.selectedIndex = index;
+    if (product) form.elements.message.value = t("catalog.ask") + product.slice(0, 200) + "\n\n";
+    if (category || product) {
+      var url = new URL(location.href);
+      url.searchParams.delete("category");
+      url.searchParams.delete("quote");
+      history.replaceState(null, "", url);
+    }
+  }
+
   document.getElementById("year").textContent = new Date().getFullYear();
   setLang(detectLang());
+  prefillQuote();
   onScroll();
 })();

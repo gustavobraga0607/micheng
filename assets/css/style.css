@@ -164,6 +164,30 @@ p { margin: 0; }
 .card:hover h3 .arrow { transform: translateX(4px); }
 .card__body p { font-size: 14px; color: var(--muted); line-height: 1.55; }
 
+/* ---------- Products page hero ---------- */
+.page-hero {
+  position: relative; overflow: hidden; color: #fff;
+  background:
+    linear-gradient(90deg, rgba(6, 30, 66, .95) 0%, rgba(8, 38, 80, .85) 55%, rgba(8, 38, 80, .55) 100%),
+    url("../img/cta-port.jpg") center 40% / cover no-repeat;
+}
+.page-hero__mark {
+  position: absolute; pointer-events: none; fill: #fff; opacity: .12;
+  width: 340px; height: 340px; right: 6%; top: 50%; transform: translateY(-50%);
+}
+.page-hero__content { position: relative; padding-top: 56px; padding-bottom: 60px; }
+.breadcrumb { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: rgba(255,255,255,.75); }
+.breadcrumb a:hover { color: #fff; }
+.breadcrumb #crumb-category { color: #fff; font-weight: 600; }
+.page-hero__title { color: #fff; font-size: clamp(32px, 4.4vw, 52px); font-weight: 800; letter-spacing: -.02em; margin: 18px 0 14px; }
+.page-hero__text { max-width: 560px; color: rgba(255,255,255,.88); font-size: 17px; }
+.catalog__empty {
+  display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center;
+  padding: 56px 24px; border: 1px dashed #cfd8e3; border-radius: 8px; background: var(--bg-soft);
+}
+.catalog__empty p { max-width: 460px; color: var(--muted); }
+.catalog__empty .icon { stroke: var(--blue); }
+
 /* ---------- Catalog (admin-registered products) ---------- */
 .btn--outline { border-color: #cfd8e3; color: var(--navy); background: #fff; }
 .btn--outline:hover { border-color: var(--navy); }
@@ -179,7 +203,6 @@ p { margin: 0; }
 }
 .chip:hover { border-color: var(--navy); }
 .chip.is-active { background: var(--navy); border-color: var(--navy); color: #fff; }
-.chip:disabled { opacity: .45; cursor: default; border-color: #cfd8e3; }
 .pcard__cat { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--blue); margin-bottom: 6px; }
 .pmodal__cat { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
 .catalog__more { display: flex; justify-content: center; margin-top: 32px; }
@@ -387,6 +410,9 @@ p { margin: 0; }
   .pcard .card__body h3 { font-size: 14.5px; }
   .pcard .card__body p { font-size: 13px; }
   .pmodal { grid-template-columns: 1fr; }
+  .page-hero__mark { width: 200px; height: 200px; right: -40px; opacity: .08; }
+  .catalog__filters { flex-wrap: nowrap; overflow-x: auto; margin-left: -16px; margin-right: -16px; padding: 0 16px 4px; }
+  .chip { flex: none; }
   .pmodal__img { max-height: 360px; }
   .pmodal__body { padding: 24px 20px; }
   .steps .step::after { display: none; }
