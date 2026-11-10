@@ -242,8 +242,33 @@ async function saveSupplierLinks(productId, body, product) {
   return links;
 }
 
-function withLinks(product, links) {
-  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId) };
+function withLinks(product, links, refs) {
+  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId), clientRefs: refs || {} };
+}
+
+// Client references (the client's own code for this product), one per variant
+// (comboKey) or "" for a product without variants. Admin-only (private data).
+async function saveClientRefs(product, body) {
+  const priv = await getPrivate();
+  if (body.clientRefs && typeof body.clientRefs === "object") {
+    const clients = new Set(priv.clients.map((c) => c.id));
+    const variants = product.variantSkus || {};
+    const hasVariants = Object.keys(variants).length > 0;
+    const refs = {};
+    for (const [clientId, map] of Object.entries(body.clientRefs)) {
+      if (!clients.has(clientId) || !map || typeof map !== "object") continue;
+      const clean = {};
+      for (const [key, value] of Object.entries(map)) {
+        const ref = String(value || "").trim().slice(0, 60);
+        if (ref && (hasVariants ? key in variants : key === "")) clean[key] = ref;
+      }
+      if (Object.keys(clean).length) refs[clientId] = clean;
+    }
+    if (Object.keys(refs).length) priv.clientRefs[product.id] = refs;
+    else delete priv.clientRefs[product.id];
+    await savePrivate(priv);
+  }
+  return priv.clientRefs[product.id] || {};
 }
 
 async function saveWithSkus(products) {
@@ -254,6 +279,15 @@ async function saveWithSkus(products) {
   for (const p of products) {
     for (const key of Object.keys(p.variantImages || {})) {
       if (!(p.variantSkus && key in p.variantSkus)) { stale.push(p.variantImages[key]); delete p.variantImages[key]; }
+    }
+  }
+  // References of variants that no longer exist are dropped as well.
+  for (const p of products) {
+    const byClient = priv.clientRefs && priv.clientRefs[p.id];
+    if (!byClient) continue;
+    const hasVariants = Object.keys(p.variantSkus || {}).length > 0;
+    for (const map of Object.values(byClient)) {
+      for (const key of Object.keys(map)) if (hasVariants ? !(key in p.variantSkus) : key !== "") delete map[key];
     }
   }
   await saveProducts(products);
@@ -272,7 +306,7 @@ export default async function handler(req, res) {
         await saveProducts(products);
         await savePrivate(priv);
       }
-      return send(res, 200, { products: products.map((p) => withLinks(p, productLinks(priv, p.id))) });
+      return send(res, 200, { products: products.map((p) => withLinks(p, productLinks(priv, p.id), priv.clientRefs[p.id])) });
     }
 
     if (!getSession(req)) return fail(res, 401, "Login required");
@@ -299,7 +333,8 @@ export default async function handler(req, res) {
       product.updatedAt = new Date().toISOString();
       await saveProducts(products);
       if (old && old !== product.variantImages[key]) await deleteImage(old);
-      return send(res, 200, { product: withLinks(product, productLinks(await getPrivate(), product.id)) });
+      const priv = await getPrivate();
+      return send(res, 200, { product: withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id]) });
     }
 
     if (req.method === "POST") {
@@ -319,7 +354,8 @@ export default async function handler(req, res) {
         : await copyImage(copyFrom.image, product.id);
       products.unshift(product);
       await saveWithSkus(products);
-      return send(res, 201, { product: withLinks(product, await saveSupplierLinks(product.id, body, product)) });
+      const links = await saveSupplierLinks(product.id, body, product);
+      return send(res, 201, { product: withLinks(product, links, await saveClientRefs(product, body)) });
     }
 
     const index = products.findIndex((p) => p.id === id);
@@ -342,13 +378,15 @@ export default async function handler(req, res) {
       product.updatedAt = new Date().toISOString();
       products[index] = product;
       await saveWithSkus(products);
-      return send(res, 200, { product: withLinks(product, await saveSupplierLinks(product.id, body, product)) });
+      const links = await saveSupplierLinks(product.id, body, product);
+      return send(res, 200, { product: withLinks(product, links, await saveClientRefs(product, body)) });
     }
 
     if (req.method === "DELETE") {
       const [removed] = products.splice(index, 1);
       await saveProducts(products);
       await saveSupplierLinks(removed.id, { supplierLinks: [] });
+      await saveClientRefs(removed, { clientRefs: {} });
       await deleteImage(removed.image);
       for (const url of Object.values(removed.variantImages || {})) await deleteImage(url);
       return send(res, 200, { ok: true });

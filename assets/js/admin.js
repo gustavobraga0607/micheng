@@ -44,6 +44,7 @@
     if (!isFinite(n)) return "—";
     return c.symbol + " " + n.toLocaleString(HTML_LANG[current], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+  var refState = {}; // client references being edited: { clientId: { comboKey or "": ref } }
   var attrState = []; // characteristics being edited: [{ id, name, options: [{ id, label }] }]
   var pendingImage = null; // data URL of the resized photo
   var duplicateOf = null; // product being duplicated into the form (not saved yet)
@@ -322,6 +323,7 @@
     $("#supplier-search").value = "";
     renderPicker();
     attrState = [];
+    refState = {};
     renderAttrs();
     renderList();
   }
@@ -342,6 +344,7 @@
       return [l.supplierId, { cost: l.cost == null ? "" : String(l.cost), variants: variants, open: Object.keys(variants).length > 0 }];
     }));
     renderPicker();
+    refState = JSON.parse(JSON.stringify(p.clientRefs || {}));
     // Characteristics are edited in the language they were written in.
     attrState = (p.attributes || []).map(function (a) {
       return {
@@ -415,6 +418,7 @@
       name: name,
       category: category,
       description: form.elements.description.value,
+      clientRefs: refState,
       supplierLinks: Array.from(selectedSuppliers, function (entry) {
         return { supplierId: entry[0], cost: entry[1].cost, variantCosts: entry[1].variants };
       }),
@@ -494,6 +498,7 @@
         attributeLine(p.attributes) +
         variantLine(p) +
         supplierLine(p.supplierLinks) +
+        refLine(p.clientRefs) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
         '<button type="button" data-act="duplicate">' + escapeHtml(T("list.duplicate")) + "</button>" +
@@ -549,6 +554,68 @@
     }).join("");
     return '<div class="pitem__skus">' + shown + (list.length > 12 ? "<span>+" + (list.length - 12) + "</span>" : "") + "</div>";
   }
+
+  /* ---------- Client references (per variant) ---------- */
+  // "Client refs: CLARA INOX (12)" under a product in the list.
+  function refLine(refs) {
+    var names = Object.keys(refs || {}).map(function (cid) {
+      return clientName(cid) + " (" + Object.keys(refs[cid]).length + ")";
+    });
+    return names.length ? '<p class="pitem__sup"><span class="lock" aria-hidden="true"></span>' + escapeHtml(T("list.clientRefs") + ": " + names.join(", ")) + "</p>" : "";
+  }
+
+  // Rows to fill for each client: one per variant code, or a single one when
+  // the product has no variants. New variants get codes when the product is saved.
+  function refRows() {
+    var p = form.elements.id.value && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
+    if (attrState.length) return p ? variantCodes(p) : [];
+    return [{ key: "", code: p && p.sku ? String(p.sku) : "", label: "" }];
+  }
+
+  function clientName(id) {
+    var c = clients.filter(function (x) { return x.id === id; })[0];
+    return c ? c.name : "?";
+  }
+
+  function renderClientRefs() {
+    if (typeof clients === "undefined") return;
+    var rows = refRows();
+    var ids = Object.keys(refState);
+    $("#crefs-hint").textContent = T(attrState.length && !rows.length ? "cref.saveFirst" : "cref.hint");
+    $("#crefs-list").innerHTML = rows.length ? ids.map(function (cid) {
+      return '<div class="cref" data-client="' + escapeHtml(cid) + '"><div class="cref__head"><b>' + escapeHtml(clientName(cid)) + "</b>" +
+        '<button type="button" class="linkbtn" data-cref-remove="' + escapeHtml(cid) + '">' + escapeHtml(T("list.delete")) + "</button></div>" +
+        rows.map(function (r) {
+          return '<label class="vcosts__row"><span class="vcosts__code">' + escapeHtml(r.code || "—") + '</span><span class="vcosts__label">' + escapeHtml(r.label) + "</span>" +
+            '<input type="text" maxlength="60" autocomplete="off" data-cref="' + escapeHtml(cid) + '" data-key="' + escapeHtml(r.key) + '" value="' +
+            escapeHtml((refState[cid] || {})[r.key] || "") + '" placeholder="' + escapeHtml(T("cref.placeholder")) + '" /></label>';
+        }).join("") + "</div>";
+    }).join("") : "";
+    var add = $("#crefs-add");
+    var free = clients.filter(function (c) { return !(c.id in refState); });
+    add.hidden = !rows.length || !free.length;
+    add.innerHTML = '<option value="">' + escapeHtml(T(clients.length ? "cref.add" : "cref.noClients")) + "</option>" +
+      free.map(function (c) { return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + "</option>"; }).join("");
+  }
+
+  $("#crefs-add").addEventListener("change", function (e) {
+    if (!e.target.value) return;
+    refState[e.target.value] = refState[e.target.value] || {};
+    var cid = e.target.value;
+    renderClientRefs();
+    var first = $("#crefs-list").querySelector('[data-cref="' + cid + '"]');
+    if (first) first.focus();
+  });
+  $("#crefs-list").addEventListener("input", function (e) {
+    var cid = e.target.getAttribute("data-cref");
+    if (cid) refState[cid][e.target.getAttribute("data-key")] = e.target.value;
+  });
+  $("#crefs-list").addEventListener("click", function (e) {
+    var cid = e.target.getAttribute("data-cref-remove");
+    if (!cid) return;
+    delete refState[cid];
+    renderClientRefs();
+  });
 
   /* ---------- Photos per variant ---------- */
   // Shown for a saved product with variants; each photo is uploaded right away.
@@ -614,6 +681,7 @@
   // Re-renders the editor; `focus` = { attr: index, field: "name" | "option" } to keep typing there.
   function renderAttrs(focus) {
     renderVariantPhotos();
+    renderClientRefs();
     if (typeof suppliers !== "undefined") renderPicker();
     $("#attr-list").innerHTML = attrState.map(function (a, i) {
       var chips = a.options.map(function (o, j) {
@@ -937,6 +1005,7 @@
     api("/api/clients").then(function (data) {
       clients = data.clients || [];
       renderClients();
+      renderClientRefs();
       document.dispatchEvent(new CustomEvent("admin:data"));
     }).catch(function (e) { setClientStatus(e.message, "error"); });
   }
@@ -1096,6 +1165,7 @@
     settings: function () { return companySettings; },
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
+    reloadProducts: loadProducts,
     parseDecimal: parseDecimal,
     showTab: showTab
   };

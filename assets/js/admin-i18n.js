@@ -1,6 +1,15 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.clientRef": "Ref. do cliente",
+    "pf.clientRefPh": "Código usado pelo cliente",
+    "cref.title": "Referência do cliente",
+    "cref.hint": "Código que o cliente usa para este produto. Aparece para ele na proforma, ao lado de cada item.",
+    "cref.saveFirst": "Salve o produto para que as variações recebam código; depois informe aqui a referência do cliente para cada uma.",
+    "cref.add": "+ Adicionar referência de um cliente…",
+    "cref.noClients": "Cadastre clientes na aba Clientes",
+    "cref.placeholder": "Ref. do cliente",
+    "list.clientRefs": "Ref. de clientes",
     "status.badPrice": "Preço inválido: “{value}”. Use números, com vírgula ou ponto (ex.: 15,90).",
     "status.variantsCreated": "Produto salvo. {n} variação(ões) receberam código: informe agora o preço de compra e a foto de cada uma e salve novamente.",
     "form.variantPhotos": "Fotos por variação",
@@ -216,6 +225,15 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.clientRef": "Client ref.",
+    "pf.clientRefPh": "Code used by the client",
+    "cref.title": "Client reference",
+    "cref.hint": "The code the client uses for this product. It is shown to them on the proforma, next to each item.",
+    "cref.saveFirst": "Save the product so its variants get codes; then enter the client's reference for each one here.",
+    "cref.add": "+ Add a client's reference…",
+    "cref.noClients": "Add clients in the Clients tab",
+    "cref.placeholder": "Client ref.",
+    "list.clientRefs": "Client refs",
     "status.badPrice": "Invalid price: “{value}”. Use numbers, with a comma or dot (e.g. 15.90).",
     "status.variantsCreated": "Product saved. {n} variant(s) got their codes: now enter each one's purchase price and photo, then save again.",
     "form.variantPhotos": "Photos per variant",
@@ -431,6 +449,15 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.clientRef": "Ref. del cliente",
+    "pf.clientRefPh": "Código usado por el cliente",
+    "cref.title": "Referencia del cliente",
+    "cref.hint": "Código que el cliente usa para este producto. Se le muestra en la proforma, junto a cada ítem.",
+    "cref.saveFirst": "Guarde el producto para que las variaciones reciban código; luego indique aquí la referencia del cliente para cada una.",
+    "cref.add": "+ Agregar la referencia de un cliente…",
+    "cref.noClients": "Registre clientes en la pestaña Clientes",
+    "cref.placeholder": "Ref. del cliente",
+    "list.clientRefs": "Ref. de clientes",
     "status.badPrice": "Precio inválido: “{value}”. Use números, con coma o punto (ej.: 15,90).",
     "status.variantsCreated": "Producto guardado. {n} variación(es) recibieron código: indique ahora el precio de compra y la foto de cada una y guarde de nuevo.",
     "form.variantPhotos": "Fotos por variación",
@@ -646,6 +673,15 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.clientRef": "客户编号",
+    "pf.clientRefPh": "客户使用的编号",
+    "cref.title": "客户编号",
+    "cref.hint": "客户对此产品使用的编号，将在形式发票中显示在各项目旁。",
+    "cref.saveFirst": "请先保存产品以生成规格编码，然后在此填写客户对各规格的编号。",
+    "cref.add": "+ 添加客户编号…",
+    "cref.noClients": "请先在“客户”中添加客户",
+    "cref.placeholder": "客户编号",
+    "list.clientRefs": "客户编号",
     "status.badPrice": "价格无效：“{value}”。请输入数字，可用逗号或小数点（例如 15.90）。",
     "status.variantsCreated": "产品已保存。{n} 个规格已生成编码：请填写各规格的采购价和图片，然后再次保存。",
     "form.variantPhotos": "规格图片",

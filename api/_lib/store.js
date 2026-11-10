@@ -72,6 +72,7 @@ const EMPTY_PRIVATE = {
   proformas: [],
   clientPrices: {}, // clientId -> { priceKey: { price, currency, proformaId, at } }
   proformaSeq: {}, // year -> last proforma number used
+  clientRefs: {}, // productId -> clientId -> { comboKey ("" = no variants): client's reference }
 };
 
 // Supplier links of a product, as [{ supplierId, cost }]. Links saved before

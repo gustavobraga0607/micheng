@@ -159,7 +159,8 @@
       var opts = {};
       i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
       return { id: i.id, productId: i.productId, sku: i.sku, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
-        qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false };
+        qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false,
+        clientRef: i.clientRef || "", refManual: false };
     }) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
       renderHeader();
@@ -270,6 +271,7 @@
       '<div class="pf-row__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
       '<div class="pf-row__info"><b>' + (skuOf(row) ? '<span class="sku">' + esc(skuOf(row)) + "</span> " : "") + esc(name) + "</b>" +
         (opts.length ? "<small>" + esc(opts.join(" · ")) + "</small>" : "") +
+        (row.clientRef ? '<small class="pf-row__ref">' + esc(T("pf.clientRef")) + ": <b>" + esc(row.clientRef) + "</b></small>" : "") +
         '<small class="internal">' + esc(T("pf.supplier")) + ": " + esc(supplier ? supplier.company : "—") +
           (row.cost != null ? " · " + esc(T("pf.cost")) + " " + esc(A.money(row.cost, cur)) : "") + "</small>" +
       "</div>" +
@@ -316,6 +318,8 @@
             '<label class="pf-item__supplier internal"><span>' + esc(T("pf.supplier")) + '</span><select data-f="supplierId"' + dis + ">" + supplierOptions(product, row) + "</select></label>" +
           "</div>" +
           (attrHtml ? '<div class="pf-item__opts">' + attrHtml + "</div>" : "") +
+          '<label class="pf-ref"><span>' + esc(T("pf.clientRef")) + '</span><input type="text" maxlength="60" autocomplete="off" data-f="clientRef" value="' +
+            esc(row.clientRef || "") + '" placeholder="' + esc(T("pf.clientRefPh")) + '"' + dis + " /></label>" +
           '<div class="pf-item__nums">' +
             '<label><span>' + esc(T("pf.qty")) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-f="qty" value="' + esc(row.qty == null ? "" : row.qty) + '"' + dis + " /></label>" +
             '<label class="internal"><span>' + esc(T("pf.cost")) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-f="cost" value="' + esc(row.cost == null ? "" : row.cost) + '"' + dis + " /></label>" +
@@ -384,6 +388,18 @@
     return v != null ? v : link.cost;
   }
 
+  // The selected client's reference for the row's configuration, from the product.
+  function catalogRef(row) {
+    var product = productById(row.productId);
+    var map = product && product.clientRefs && product.clientRefs[form.elements.clientId.value];
+    if (!map) return "";
+    var current = {};
+    (product.attributes || []).forEach(function (a) { a.options.forEach(function (o) { current[o.id] = true; }); });
+    var key = Object.keys(row.options).map(function (k) { return row.options[k]; })
+      .filter(function (id) { return id && current[id]; }).sort().join(",");
+    return map[key] || map[""] || "";
+  }
+
   function applyDefaults(row, changed) {
     var product = productById(row.productId);
     var links = (product && product.supplierLinks) || [];
@@ -395,6 +411,8 @@
       row.price = null;
     }
     if (changed === "supplierId") row.costAuto = true;
+    if (changed === "productId") row.refManual = false;
+    if (!row.refManual) row.clientRef = catalogRef(row);
     // Product, supplier or options changed: take the price of that configuration
     // (unless the cost was typed by hand).
     if (row.costAuto !== false) {
@@ -428,6 +446,12 @@
   $("#pf-items").addEventListener("input", function (e) {
     var el = e.target.closest(".pf-item");
     var f = e.target.getAttribute("data-f");
+    if (el && f === "clientRef") {
+      var r = rows[Number(el.dataset.row)];
+      r.clientRef = e.target.value;
+      r.refManual = true;
+      return;
+    }
     if (!el || ["qty", "cost", "price"].indexOf(f) < 0) return;
     var row = rows[Number(el.dataset.row)];
     row[f] = toNum(e.target.value);
@@ -538,7 +562,10 @@
 
   form.elements.clientId.addEventListener("change", function () {
     loadClientPrices(form.elements.clientId.value).then(function () {
-      rows.forEach(function (row) { if (row.priceAuto) { var m = rememberedPrice(row); row.price = m ? m.price : row.price; } });
+      rows.forEach(function (row) {
+        if (row.priceAuto) { var m = rememberedPrice(row); row.price = m ? m.price : row.price; }
+        if (!row.refManual) row.clientRef = catalogRef(row);
+      });
       renderItems();
     });
   });
@@ -554,7 +581,8 @@
       language: form.elements.language.value,
       terms: form.elements.terms.value,
       items: rows.filter(function (r) { return r.productId; }).map(function (r) {
-        return { id: r.id, productId: r.productId, supplierId: r.supplierId, options: r.options, qty: r.qty, cost: r.cost, price: r.price };
+        return { id: r.id, productId: r.productId, supplierId: r.supplierId, options: r.options, qty: r.qty, cost: r.cost, price: r.price,
+          clientRef: r.clientRef || "" };
       })
     };
   }
@@ -616,6 +644,7 @@
       }
       accept(r.data.proforma);
       setStatus(T("pf.closedOk"), "ok");
+      A.reloadProducts(); // references typed on it are now in the product catalog
     }, function (e) { setStatus(e.message, "error"); }).then(function () { busy(btn, false); });
   });
 
@@ -644,15 +673,15 @@
   /* ---------- Export (PDF / Excel): sale prices only ---------- */
   var DOC = {
     en: { title: "PROFORMA INVOICE", no: "No.", date: "Date", valid: "Valid until", billTo: "Bill to", taxId: "Tax ID", phone: "Phone",
-      email: "E-mail", web: "Website", item: "#", code: "Code", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
+      email: "E-mail", web: "Website", item: "#", code: "Code", ref: "Your ref.", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
       total: "TOTAL", bank: "Bank details", beneficiary: "Beneficiary", bankName: "Bank", account: "Account No.", swift: "SWIFT / BIC",
       bankAddress: "Bank address", terms: "Terms & notes", page: "Page", currency: "Currency" },
     pt: { title: "FATURA PROFORMA", no: "Nº", date: "Data", valid: "Válida até", billTo: "Cliente", taxId: "Tax ID", phone: "Telefone",
-      email: "E-mail", web: "Site", item: "#", code: "Código", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
+      email: "E-mail", web: "Site", item: "#", code: "Código", ref: "Sua ref.", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
       total: "TOTAL", bank: "Dados bancários", beneficiary: "Beneficiário", bankName: "Banco", account: "Conta", swift: "SWIFT / BIC",
       bankAddress: "Endereço do banco", terms: "Condições e observações", page: "Página", currency: "Moeda" },
     es: { title: "FACTURA PROFORMA", no: "Nº", date: "Fecha", valid: "Válida hasta", billTo: "Cliente", taxId: "Tax ID", phone: "Teléfono",
-      email: "Correo", web: "Sitio web", item: "#", code: "Código", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
+      email: "Correo", web: "Sitio web", item: "#", code: "Código", ref: "Su ref.", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
       total: "TOTAL", bank: "Datos bancarios", beneficiary: "Beneficiario", bankName: "Banco", account: "Cuenta", swift: "SWIFT / BIC",
       bankAddress: "Dirección del banco", terms: "Condiciones y observaciones", page: "Página", currency: "Moneda" }
   };
@@ -705,7 +734,7 @@
       });
       var current = products.filter(function (x) { return x.id === i.productId; })[0];
       var code = i.sku || (current ? skuOf({ productId: i.productId, options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}) }) : "");
-      return { n: n + 1, code: code, name: name, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
+      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
     });
     return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: p.totals.sale, p: p };
   }
@@ -777,28 +806,29 @@
       y += boxH + 6;
 
       // Items
+      // "Your ref." column only when some item has the client's reference.
+      var hasRef = d.items.some(function (it) { return it.ref; });
       var body = d.items.map(function (it) {
-        return [it.n, "", it.code, it.name + (it.options.length ? "\n" + it.options.join("\n") : ""), fmt(it.qty, d).replace(/[.,]00$/, ""), fmt(it.price, d), fmt(it.amount, d)];
+        return [it.n, "", it.code].concat(hasRef ? [it.ref] : []).concat([it.name + (it.options.length ? "\n" + it.options.join("\n") : ""), fmt(it.qty, d).replace(/[.,]00$/, ""), fmt(it.price, d), fmt(it.amount, d)]);
       });
+      var desc = hasRef ? 4 : 3;
+      var colStyles = { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 18, minCellHeight: 18 }, 2: { cellWidth: 17, halign: "center", fontStyle: "bold" } };
+      if (hasRef) colStyles[3] = { cellWidth: 20, halign: "center" };
+      colStyles[desc] = { cellWidth: "auto" };
+      colStyles[desc + 1] = { cellWidth: 15, halign: "right" };
+      colStyles[desc + 2] = { cellWidth: hasRef ? 22 : 25, halign: "right" };
+      colStyles[desc + 3] = { cellWidth: hasRef ? 25 : 27, halign: "right" };
       doc.autoTable({
         startY: y,
         margin: { left: M, right: M },
-        head: [[L.item, "", L.code, L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
+        head: [[L.item, "", L.code].concat(hasRef ? [L.ref] : []).concat([L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"])],
         body: body,
         theme: "grid",
         styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2, valign: "middle", lineColor: [220, 226, 234], textColor: [30, 40, 50] },
         headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", halign: "center" },
-        columnStyles: {
-          0: { cellWidth: 8, halign: "center" },
-          1: { cellWidth: 18, minCellHeight: 18 },
-          2: { cellWidth: 18, halign: "center", fontStyle: "bold" },
-          3: { cellWidth: "auto" },
-          4: { cellWidth: 15, halign: "right" },
-          5: { cellWidth: 25, halign: "right" },
-          6: { cellWidth: 27, halign: "right" }
-        },
+        columnStyles: colStyles,
         didParseCell: function (h) {
-          if (h.section === "body" && h.column.index === 3) h.cell.styles.fontStyle = "normal";
+          if (h.section === "body" && h.column.index === desc) h.cell.styles.fontStyle = "normal";
         },
         didDrawCell: function (h) {
           if (h.section === "body" && h.column.index === 1) {
@@ -854,14 +884,18 @@
       var wb = new window.ExcelJS.Workbook();
       wb.creator = s.companyName || "Micheng";
       var ws = wb.addWorksheet(d.p.number, { pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-      ws.columns = [{ width: 6 }, { width: 12 }, { width: 66 }, { width: 10 }, { width: 16 }, { width: 18 }];
+      // Columns: #, code, [client's ref], description, qty, unit price, amount.
+      var hasRef = d.items.some(function (it) { return it.ref; });
+      var C = hasRef ? { ref: 3, desc: 4, qty: 5, unit: 6, amt: 7, last: 7 } : { desc: 3, qty: 4, unit: 5, amt: 6, last: 6 };
+      var col = function (n) { return String.fromCharCode(64 + n); };
+      ws.columns = [{ width: 6 }, { width: 12 }].concat(hasRef ? [{ width: 14 }] : []).concat([{ width: hasRef ? 56 : 66 }, { width: 10 }, { width: 16 }, { width: 18 }]);
       var navy = "FF0B2A4F";
       var moneyFmt = '"' + d.cur.symbol + '" #,##0.00';
 
       ws.mergeCells("A1:C1");
       ws.getCell("A1").value = s.companyName || "Shenzhen Micheng International Trading Co., Ltd.";
       ws.getCell("A1").font = { bold: true, size: 13, color: { argb: navy } };
-      ws.mergeCells("D1:F1");
+      ws.mergeCells("D1:" + col(C.last) + "1");
       ws.getCell("D1").value = L.title;
       ws.getCell("D1").font = { bold: true, size: 15, color: { argb: navy } };
       ws.getCell("D1").alignment = { horizontal: "right" };
@@ -878,7 +912,7 @@
       for (var i = 0; i < rowsN; i++) {
         var r = ws.getRow(2 + i);
         ws.mergeCells(2 + i, 1, 2 + i, 3);
-        ws.mergeCells(2 + i, 4, 2 + i, 6);
+        ws.mergeCells(2 + i, 4, 2 + i, C.last);
         r.getCell(1).value = left[i] || "";
         r.getCell(4).value = right[i] || "";
         r.getCell(4).alignment = { horizontal: "right" };
@@ -893,7 +927,7 @@
       if (client.phone) bill.push(L.phone + ": " + client.phone);
       if (client.taxId) bill.push(L.taxId + ": " + client.taxId);
       bill.forEach(function (line, n) {
-        ws.mergeCells(y + 1 + n, 1, y + 1 + n, 6);
+        ws.mergeCells(y + 1 + n, 1, y + 1 + n, C.last);
         var c = ws.getCell(y + 1 + n, 1);
         c.value = line;
         c.font = n === 0 ? { bold: true, size: 11 } : { size: 10 };
@@ -901,7 +935,7 @@
       y += bill.length + 2;
 
       var head = ws.getRow(y);
-      head.values = [L.item, L.code, L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"];
+      head.values = [L.item, L.code].concat(hasRef ? [L.ref] : []).concat([L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]);
       head.eachCell(function (c) {
         c.font = { bold: true, color: { argb: "FFFFFFFF" } };
         c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
@@ -912,32 +946,33 @@
         var r = ws.getRow(first + n);
         r.getCell(1).value = it.n;
         r.getCell(2).value = it.code;
-        r.getCell(3).value = it.name + (it.options.length ? "\n" + it.options.join("\n") : "");
-        r.getCell(4).value = it.qty;
-        r.getCell(5).value = it.price;
-        r.getCell(6).value = { formula: "D" + (first + n) + "*E" + (first + n), result: it.amount };
+        if (hasRef) { r.getCell(C.ref).value = it.ref; r.getCell(C.ref).alignment = { horizontal: "center", vertical: "top" }; }
+        r.getCell(C.desc).value = it.name + (it.options.length ? "\n" + it.options.join("\n") : "");
+        r.getCell(C.qty).value = it.qty;
+        r.getCell(C.unit).value = it.price;
+        r.getCell(C.amt).value = { formula: col(C.qty) + (first + n) + "*" + col(C.unit) + (first + n), result: it.amount };
         r.getCell(1).alignment = { horizontal: "center", vertical: "top" };
         r.getCell(2).alignment = { horizontal: "center", vertical: "top" };
         r.getCell(2).font = { bold: true };
-        r.getCell(3).alignment = { wrapText: true, vertical: "top" };
-        [4, 5, 6].forEach(function (k) { r.getCell(k).alignment = { vertical: "top" }; });
-        r.getCell(5).numFmt = moneyFmt;
-        r.getCell(6).numFmt = moneyFmt;
+        r.getCell(C.desc).alignment = { wrapText: true, vertical: "top" };
+        [C.qty, C.unit, C.amt].forEach(function (k) { r.getCell(k).alignment = { vertical: "top" }; });
+        r.getCell(C.unit).numFmt = moneyFmt;
+        r.getCell(C.amt).numFmt = moneyFmt;
         r.height = Math.max(18, 15 * (1 + it.options.length));
       });
       var last = first + d.items.length - 1;
       var totalRow = last + 1;
-      ws.getCell(totalRow, 5).value = L.total;
-      ws.getCell(totalRow, 5).font = { bold: true, color: { argb: "FFFFFFFF" } };
-      ws.getCell(totalRow, 6).value = { formula: "SUM(F" + first + ":F" + last + ")", result: d.total };
-      ws.getCell(totalRow, 6).numFmt = moneyFmt;
-      ws.getCell(totalRow, 6).font = { bold: true, color: { argb: "FFFFFFFF" } };
-      [5, 6].forEach(function (k) {
+      ws.getCell(totalRow, C.unit).value = L.total;
+      ws.getCell(totalRow, C.unit).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      ws.getCell(totalRow, C.amt).value = { formula: "SUM(" + col(C.amt) + first + ":" + col(C.amt) + last + ")", result: d.total };
+      ws.getCell(totalRow, C.amt).numFmt = moneyFmt;
+      ws.getCell(totalRow, C.amt).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      [C.unit, C.amt].forEach(function (k) {
         ws.getCell(totalRow, k).fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
         ws.getCell(totalRow, k).alignment = { horizontal: "right" };
       });
       for (var rr = y; rr <= last; rr++) {
-        for (var cc = 1; cc <= 6; cc++) {
+        for (var cc = 1; cc <= C.last; cc++) {
           ws.getCell(rr, cc).border = { top: { style: "thin", color: { argb: "FFDCE2EA" } }, bottom: { style: "thin", color: { argb: "FFDCE2EA" } },
             left: { style: "thin", color: { argb: "FFDCE2EA" } }, right: { style: "thin", color: { argb: "FFDCE2EA" } } };
         }
@@ -949,7 +984,7 @@
         ws.getCell(y, 1).value = title;
         ws.getCell(y, 1).font = { bold: true, color: { argb: navy } };
         lines.forEach(function (line, n) {
-          ws.mergeCells(y + 1 + n, 1, y + 1 + n, 6);
+          ws.mergeCells(y + 1 + n, 1, y + 1 + n, C.last);
           ws.getCell(y + 1 + n, 1).value = line;
         });
         y += lines.length + 2;

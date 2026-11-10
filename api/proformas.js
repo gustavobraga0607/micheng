@@ -30,7 +30,15 @@ export function priceKey(productId, options) {
   return productId + (ids.length ? "|" + ids.join(",") : "");
 }
 
-function buildItems(rawItems, products, priv, previous) {
+// The client's reference for a product configuration, from the product catalog.
+export function catalogRef(priv, clientId, productId, options) {
+  const byClient = priv.clientRefs && priv.clientRefs[productId];
+  const map = byClient && byClient[clientId];
+  if (!map) return null;
+  return map[(options || []).map((o) => o.optionId).filter(Boolean).sort().join(",")] || map[""] || null;
+}
+
+function buildItems(rawItems, products, priv, previous, clientId) {
   const byId = new Map(products.map((p) => [p.id, p]));
   const prevItems = new Map(((previous && previous.items) || []).map((i) => [i.id, i]));
   const items = [];
@@ -64,6 +72,8 @@ function buildItems(rawItems, products, priv, previous) {
       product: snapshot,
       options,
       attributeCount: product ? (product.attributes || []).length : options.length,
+      // Reference typed on the proforma, otherwise the one registered in the product.
+      clientRef: typeof raw.clientRef === "string" ? raw.clientRef.trim().slice(0, 60) || null : catalogRef(priv, clientId, raw.productId, options),
       supplierId: supplier ? supplier.id : null,
       supplierName: supplier ? supplier.company : null,
       qty: num(raw.qty) || 0,
@@ -99,7 +109,7 @@ async function applyBody(proforma, body, priv, previous) {
   proforma.currency = CURRENCIES.includes(body.currency) ? body.currency : proforma.currency || priv.settings.currency || "CNY";
   proforma.language = DOC_LANGS.includes(body.language) ? body.language : proforma.language || "en";
   proforma.terms = text(body.terms, 3000);
-  proforma.items = buildItems(body.items, await getProducts(), priv, previous);
+  proforma.items = buildItems(body.items, await getProducts(), priv, previous, proforma.clientId);
   proforma.totals = totals(proforma.items);
 }
 
@@ -154,7 +164,12 @@ export default async function handler(req, res) {
       const byId = new Map(products.map((p) => [p.id, p]));
       const proformas = priv.proformas.map((pf) => ({
         ...pf,
-        items: pf.items.map((i) => (i.sku ? i : { ...i, sku: skuFor(byId.get(i.productId), i.options.map((o) => o.optionId)) })),
+        items: pf.items.map((i) => ({
+          ...i,
+          sku: i.sku || skuFor(byId.get(i.productId), i.options.map((o) => o.optionId)),
+          // Drafts saved before references existed show the catalog reference.
+          clientRef: i.clientRef !== undefined || pf.status === "closed" ? i.clientRef || null : catalogRef(priv, pf.clientId, i.productId, i.options),
+        })),
       }));
       return send(res, 200, { proformas });
     }
@@ -199,6 +214,12 @@ export default async function handler(req, res) {
         const memo = { price: item.price, currency: proforma.currency, proformaId: proforma.id, number: proforma.number, at: now };
         prices[priceKey(item.productId, item.options)] = memo; // exact options
         prices[item.productId] = memo; // any options (fallback)
+        // A reference typed on the proforma is remembered in the product catalog.
+        if (item.clientRef) {
+          const product = (priv.clientRefs[item.productId] = priv.clientRefs[item.productId] || {});
+          const map = (product[proforma.clientId] = product[proforma.clientId] || {});
+          map[item.options.map((o) => o.optionId).sort().join(",")] = item.clientRef;
+        }
       }
       priv.proformas[index] = proforma;
       await savePrivate(priv);
