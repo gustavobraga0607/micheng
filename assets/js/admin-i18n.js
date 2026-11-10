@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.noCost": "{n} item(ns) sem custo informado: ficam fora do cálculo de lucro e margem.",
     "list.duplicate": "Duplicar",
     "form.duplicateTitle": "Novo produto (cópia de “{name}”)",
     "form.copySuffix": " (cópia)",
@@ -202,6 +203,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.noCost": "{n} item(s) without cost: left out of the profit and margin calculation.",
     "list.duplicate": "Duplicate",
     "form.duplicateTitle": "New product (copy of “{name}”)",
     "form.copySuffix": " (copy)",
@@ -403,6 +405,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.noCost": "{n} ítem(s) sin costo: quedan fuera del cálculo de ganancia y margen.",
     "list.duplicate": "Duplicar",
     "form.duplicateTitle": "Nuevo producto (copia de “{name}”)",
     "form.copySuffix": " (copia)",
@@ -604,6 +607,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.noCost": "{n} 个项目未填写成本，不计入利润和利润率。",
     "list.duplicate": "复制",
     "form.duplicateTitle": "新产品（复制自“{name}”）",
     "form.copySuffix": "（副本）",

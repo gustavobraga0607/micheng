@@ -36,9 +36,26 @@ function cleanTranslations(obj, max) {
   return out;
 }
 
+// Translations given for every language (e.g. a bulk import): used as they are.
+function fullTranslations(obj, max) {
+  const t = cleanTranslations(obj, max);
+  return t && LANGS.every((l) => t[l]) ? t : null;
+}
+
 async function applyTexts(product, body, existing) {
   const name = cleanText(body.name, MAX_NAME);
   const description = cleanText(body.description, MAX_DESCRIPTION);
+
+  // New product with all translations provided: no detection or machine translation.
+  const givenName = !existing && fullTranslations(body.translations && body.translations.name, MAX_NAME);
+  if (givenName) {
+    const givenDesc = fullTranslations(body.translations.description, MAX_DESCRIPTION);
+    product.name = givenName;
+    product.description = givenDesc || { en: description, pt: description, es: description, zh: description };
+    product.source = { name, description, lang: LANGS.includes(body.lang) ? body.lang : "pt" };
+    product.translationOk = Boolean(givenDesc) || !description;
+    return;
+  }
   const manualName = cleanTranslations(body.translations && body.translations.name, MAX_NAME);
   const manualDesc = cleanTranslations(body.translations && body.translations.description, MAX_DESCRIPTION);
   const force = Boolean(body.retranslate);
@@ -160,13 +177,17 @@ async function applyAttributes(product, body, existing) {
       if (!label || seen.has(label.toLowerCase())) continue;
       seen.add(label.toLowerCase());
       const prevOpt = prevOptions.get(rawOpt.id);
-      options.push({ id: prevOpt ? prevOpt.id : crypto.randomUUID(), source: label, label: prevOpt && prevOpt.source === label ? prevOpt.label : null });
+      options.push({
+        id: prevOpt ? prevOpt.id : crypto.randomUUID(),
+        source: label,
+        label: prevOpt && prevOpt.source === label ? prevOpt.label : fullTranslations(rawOpt.labelTranslations, MAX_ATTR_TEXT),
+      });
     }
     if (!options.length) continue;
     attributes.push({
       id: prev ? prev.id : crypto.randomUUID(),
       source: name,
-      name: prev && prev.source === name ? prev.name : null,
+      name: prev && prev.source === name ? prev.name : fullTranslations(raw.nameTranslations, MAX_ATTR_TEXT),
       options,
     });
   }

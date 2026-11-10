@@ -296,6 +296,7 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .pf-totals { display: grid; gap: 8px; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
 .pf-totals div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .pf-totals div:first-child { font-size: 17px; font-weight: 700; color: var(--navy); border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.pf-nocost { font-size: 12px; margin-top: 4px; }
 .pf-totals__profit { font-weight: 700; font-size: 15px !important; }
 
 @media (max-width: 980px) {

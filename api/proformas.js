@@ -74,14 +74,19 @@ function buildItems(rawItems, products, priv, previous) {
   return items;
 }
 
+// Profit and margin only count items whose cost is known; items without a cost
+// are reported in costMissing instead of being treated as 100% profit.
 function totals(items) {
-  let sale = 0, cost = 0;
+  let sale = 0, saleWithCost = 0, cost = 0, costMissing = 0;
   for (const i of items) {
-    sale += (i.price || 0) * i.qty;
-    cost += (i.cost || 0) * i.qty;
+    const lineSale = (i.price || 0) * i.qty;
+    sale += lineSale;
+    if (i.cost == null) costMissing += 1;
+    else { cost += i.cost * i.qty; saleWithCost += lineSale; }
   }
   const r = (n) => Math.round(n * 100) / 100;
-  return { sale: r(sale), cost: r(cost), profit: r(sale - cost) };
+  const known = costMissing < items.length;
+  return { sale: r(sale), saleWithCost: r(saleWithCost), cost: r(cost), profit: known ? r(saleWithCost - cost) : null, costMissing };
 }
 
 async function applyBody(proforma, body, priv, previous) {

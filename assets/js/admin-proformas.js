@@ -73,14 +73,15 @@
       return !q || (p.number + " " + (p.client ? p.client.name : "")).toLowerCase().indexOf(q) > -1;
     });
     $("#pf-rows").innerHTML = shown.map(function (p) {
-      var m = margin(p.totals.sale, p.totals.cost);
+      var hasProfit = p.totals.profit != null;
+      var m = hasProfit ? margin(p.totals.saleWithCost != null ? p.totals.saleWithCost : p.totals.sale, p.totals.cost) : null;
       return '<tr data-id="' + esc(p.id) + '">' +
         "<td><b>" + esc(p.number) + "</b></td>" +
         "<td>" + esc(p.client ? p.client.name : "—") + "</td>" +
         "<td>" + esc(fmtDate(p.date)) + "</td>" +
         '<td><span class="badge badge--' + p.status + '">' + esc(T(p.status === "closed" ? "pf.closed" : "pf.draft")) + "</span></td>" +
         '<td class="num">' + esc(A.money(p.totals.sale, p.currency)) + "</td>" +
-        '<td class="num internal">' + esc(A.money(p.totals.profit, p.currency)) + " <small>" + esc(pct(m)) + "</small></td>" +
+        '<td class="num internal">' + (hasProfit ? esc(A.money(p.totals.profit, p.currency)) + " <small>" + esc(pct(m)) + "</small>" : "—") + "</td>" +
         '<td class="num"><button type="button" class="btn btn--outline btn--sm" data-open="' + esc(p.id) + '">' + esc(T("pf.open")) + "</button></td></tr>";
     }).join("");
   }
@@ -316,14 +317,15 @@
 
   function recalc() {
     var cur = currency();
-    var sale = 0, cost = 0;
+    var sale = 0, cost = 0, saleWithCost = 0, noCost = 0;
     $("#pf-items").querySelectorAll("[data-row]").forEach(function (el) {
       var row = rows[Number(el.dataset.row)];
       var qty = row.qty || 0;
       var lineSale = (row.price || 0) * qty;
       var lineCost = row.cost == null ? null : row.cost * qty;
       sale += lineSale;
-      cost += lineCost || 0;
+      if (lineCost == null) noCost += 1;
+      else { cost += lineCost; saleWithCost += lineSale; }
       el.querySelector('[data-out="total"]').textContent = A.money(lineSale, cur);
       var m = margin(row.price, row.cost);
       var mEl = el.querySelector('[data-out="margin"]');
@@ -331,13 +333,16 @@
       mEl.className = m == null ? "" : m < 0 ? "is-neg" : m < 0.1 ? "is-low" : "is-ok";
       el.querySelector('[data-out="profit"]').textContent = lineCost == null || row.price == null ? "—" : A.money(lineSale - lineCost, cur);
     });
-    var profit = sale - cost;
-    var m = margin(sale, cost);
+    // Profit and margin only over items with a known cost.
+    var known = rows.length > noCost;
+    var profit = saleWithCost - cost;
+    var m = known ? margin(saleWithCost, cost) : null;
     $("#pf-totals").innerHTML =
       "<div><span>" + esc(T("pf.totSale")) + "</span><b>" + esc(A.money(sale, cur)) + "</b></div>" +
       '<div class="internal"><span>' + esc(T("pf.totCost")) + "</span><b>" + esc(A.money(cost, cur)) + "</b></div>" +
-      '<div class="internal pf-totals__profit"><span>' + esc(T("pf.totProfit")) + "</span><b class=\"" + (profit < 0 ? "is-neg" : "is-ok") + '">' + esc(A.money(profit, cur)) + "</b></div>" +
-      '<div class="internal"><span>' + esc(T("pf.totMargin")) + "</span><b>" + esc(pct(m)) + "</b></div>";
+      '<div class="internal pf-totals__profit"><span>' + esc(T("pf.totProfit")) + "</span><b class=\"" + (profit < 0 ? "is-neg" : "is-ok") + '">' + (known ? esc(A.money(profit, cur)) : "—") + "</b></div>" +
+      '<div class="internal"><span>' + esc(T("pf.totMargin")) + "</span><b>" + esc(pct(m)) + "</b></div>" +
+      (noCost ? '<p class="pf-nocost internal">' + esc(T("pf.noCost", { n: noCost })) + "</p>" : "");
   }
 
   function newRow() {
