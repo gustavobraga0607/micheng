@@ -211,12 +211,14 @@ async function applyAttributes(product, body, existing) {
 // never in the public product list.
 const money = parseDecimal; // accepts "15,9" as well as "15.9"
 
+// The helpers below change the private data (priv) in memory; each request reads
+// it once and saves it once, since every Blob write counts against a quota.
+
 // Each link carries that supplier's purchase price (cost) for the product and,
 // optionally, a price per option combination (variantCosts), which must be one
 // of the product's current variants.
 // Accepts body.supplierLinks [{ supplierId, cost, variantCosts }] or the older body.supplierIds.
-async function saveSupplierLinks(productId, body, product) {
-  const priv = await getPrivate();
+function applySupplierLinks(priv, productId, body, product) {
   let raw = null;
   if (Array.isArray(body.supplierLinks)) raw = body.supplierLinks;
   else if (Array.isArray(body.supplierIds)) raw = body.supplierIds.map((id) => ({ supplierId: id, cost: null }));
@@ -238,7 +240,6 @@ async function saveSupplierLinks(productId, body, product) {
   }
   if (links.length) priv.productSuppliers[productId] = links;
   else delete priv.productSuppliers[productId];
-  await savePrivate(priv);
   return links;
 }
 
@@ -246,10 +247,13 @@ function withLinks(product, links, refs) {
   return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId), clientRefs: refs || {} };
 }
 
+function adminView(priv, product) {
+  return withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id]);
+}
+
 // Client references (the client's own code for this product), one per variant
 // (comboKey) or "" for a product without variants. Admin-only (private data).
-async function saveClientRefs(product, body) {
-  const priv = await getPrivate();
+function applyClientRefs(priv, product, body) {
   if (body.clientRefs && typeof body.clientRefs === "object") {
     const clients = new Set(priv.clients.map((c) => c.id));
     const variants = product.variantSkus || {};
@@ -266,23 +270,19 @@ async function saveClientRefs(product, body) {
     }
     if (Object.keys(refs).length) priv.clientRefs[product.id] = refs;
     else delete priv.clientRefs[product.id];
-    await savePrivate(priv);
   }
   return priv.clientRefs[product.id] || {};
 }
 
-async function saveWithSkus(products) {
-  const priv = await getPrivate();
+// Gives SKUs, and removes photos and references of variants that no longer
+// exist. Returns the photo URLs to delete once the data is saved.
+function prepareSkus(products, priv) {
   assignSkus(products, priv);
-  // Photos of variants that no longer exist (an option was removed) are deleted.
   const stale = [];
   for (const p of products) {
     for (const key of Object.keys(p.variantImages || {})) {
       if (!(p.variantSkus && key in p.variantSkus)) { stale.push(p.variantImages[key]); delete p.variantImages[key]; }
     }
-  }
-  // References of variants that no longer exist are dropped as well.
-  for (const p of products) {
     const byClient = priv.clientRefs && priv.clientRefs[p.id];
     if (!byClient) continue;
     const hasVariants = Object.keys(p.variantSkus || {}).length > 0;
@@ -290,23 +290,32 @@ async function saveWithSkus(products) {
       for (const key of Object.keys(map)) if (hasVariants ? !(key in p.variantSkus) : key !== "") delete map[key];
     }
   }
-  await saveProducts(products);
-  await savePrivate(priv);
-  for (const url of stale) await deleteImage(url);
+  return stale;
+}
+
+// Public product list: cached by Vercel's CDN, so site visits do not read the
+// Blob store each time (changes show up on the site within a few minutes).
+function sendPublic(res, products) {
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
+  res.end(JSON.stringify({ products }));
 }
 
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const products = await getProducts();
-      if (!getSession(req)) return send(res, 200, { products });
+      // The admin panel asks with ?admin=1 (never cached); everyone else gets the cached public list.
+      if (queryParam(req, "admin") !== "1") return sendPublic(res, products);
+      if (!getSession(req)) return fail(res, 401, "Login required");
       const priv = await getPrivate();
       // Products saved before SKUs existed get theirs on the first admin load.
       if (assignSkus(products, priv)) {
         await saveProducts(products);
         await savePrivate(priv);
       }
-      return send(res, 200, { products: products.map((p) => withLinks(p, productLinks(priv, p.id), priv.clientRefs[p.id])) });
+      return send(res, 200, { products: products.map((p) => adminView(priv, p)) });
     }
 
     if (!getSession(req)) return fail(res, 401, "Login required");
@@ -333,8 +342,7 @@ export default async function handler(req, res) {
       product.updatedAt = new Date().toISOString();
       await saveProducts(products);
       if (old && old !== product.variantImages[key]) await deleteImage(old);
-      const priv = await getPrivate();
-      return send(res, 200, { product: withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id]) });
+      return send(res, 200, { product: adminView(await getPrivate(), product) });
     }
 
     if (req.method === "POST") {
@@ -353,9 +361,14 @@ export default async function handler(req, res) {
         ? await saveImage(product.id, image.buffer, image.contentType)
         : await copyImage(copyFrom.image, product.id);
       products.unshift(product);
-      await saveWithSkus(products);
-      const links = await saveSupplierLinks(product.id, body, product);
-      return send(res, 201, { product: withLinks(product, links, await saveClientRefs(product, body)) });
+      const priv = await getPrivate();
+      const stale = prepareSkus(products, priv);
+      const links = applySupplierLinks(priv, product.id, body, product);
+      const refs = applyClientRefs(priv, product, body);
+      await saveProducts(products);
+      await savePrivate(priv);
+      for (const url of stale) await deleteImage(url);
+      return send(res, 201, { product: withLinks(product, links, refs) });
     }
 
     const index = products.findIndex((p) => p.id === id);
@@ -377,16 +390,23 @@ export default async function handler(req, res) {
       }
       product.updatedAt = new Date().toISOString();
       products[index] = product;
-      await saveWithSkus(products);
-      const links = await saveSupplierLinks(product.id, body, product);
-      return send(res, 200, { product: withLinks(product, links, await saveClientRefs(product, body)) });
+      const priv = await getPrivate();
+      const stale = prepareSkus(products, priv);
+      const links = applySupplierLinks(priv, product.id, body, product);
+      const refs = applyClientRefs(priv, product, body);
+      await saveProducts(products);
+      await savePrivate(priv);
+      for (const url of stale) await deleteImage(url);
+      return send(res, 200, { product: withLinks(product, links, refs) });
     }
 
     if (req.method === "DELETE") {
       const [removed] = products.splice(index, 1);
+      const priv = await getPrivate();
+      applySupplierLinks(priv, removed.id, { supplierLinks: [] });
+      applyClientRefs(priv, removed, { clientRefs: {} });
       await saveProducts(products);
-      await saveSupplierLinks(removed.id, { supplierLinks: [] });
-      await saveClientRefs(removed, { clientRefs: {} });
+      await savePrivate(priv);
       await deleteImage(removed.image);
       for (const url of Object.values(removed.variantImages || {})) await deleteImage(url);
       return send(res, 200, { ok: true });

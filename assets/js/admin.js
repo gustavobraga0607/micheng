@@ -465,7 +465,7 @@
 
   /* ---------- List ---------- */
   function loadProducts() {
-    api("/api/products").then(function (data) {
+    api("/api/products?admin=1").then(function (data) {
       products = data.products || [];
       renderList();
       document.dispatchEvent(new CustomEvent("admin:data"));

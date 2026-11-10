@@ -12,25 +12,43 @@ const LOCAL_DIR = path.join(process.cwd(), ".data");
 
 const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
-async function blobsNewestFirst(prefix) {
-  const { blobs } = await list({ prefix });
-  return blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+// Data files live at fixed paths and are overwritten in place. Reading one is a
+// plain URL fetch (a cheap "simple" Blob operation) instead of a list() call,
+// which is an "advanced" operation with a small monthly quota on the free plan.
+function storeBaseUrl() {
+  if (process.env.BLOB_BASE_URL) return process.env.BLOB_BASE_URL.replace(/\/$/, "");
+  const m = /^vercel_blob_rw_([A-Za-z0-9]+)_/.exec(process.env.BLOB_READ_WRITE_TOKEN || "");
+  if (!m) throw new Error("Cannot work out the Blob store URL (set BLOB_BASE_URL)");
+  return "https://" + m[1].toLowerCase() + ".public.blob.vercel-storage.com";
 }
 
-async function readLatest(prefix) {
-  const blobs = await blobsNewestFirst(prefix);
-  if (!blobs.length) return null;
-  const r = await fetch(blobs[0].url, { cache: "no-store" });
+// legacyPrefix: where earlier versions kept this file (defaults to prefix).
+async function readData(prefix, ext, contentType, legacyPrefix) {
+  // A unique query string skips the CDN copy, so a file just overwritten is read fresh.
+  const url = storeBaseUrl() + "/" + prefix + ext + "?v=" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const r = await fetch(url, { cache: "no-store" });
+  if (r.ok) return r.text();
+  if (r.status !== 404) throw new Error("Could not read " + prefix + " (" + r.status + ")");
+  return migrateLegacy(prefix, ext, contentType, legacyPrefix || prefix);
+}
+
+async function writeData(prefix, ext, body, contentType) {
+  await put(prefix + ext, body, { access: "public", addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60, contentType });
+}
+
+// Earlier versions saved each change under a new random name: the newest one is
+// moved once to the fixed path and the old ones are deleted (deletes are free).
+async function migrateLegacy(prefix, ext, contentType, legacyPrefix) {
+  const { blobs } = await list({ prefix: legacyPrefix });
+  const legacy = blobs.filter((b) => b.pathname !== prefix + ext)
+    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+  if (!legacy.length) return null;
+  const r = await fetch(legacy[0].url, { cache: "no-store" });
   if (!r.ok) throw new Error("Could not read " + prefix + " (" + r.status + ")");
-  return r.text();
-}
-
-// Each save writes a new file under a fresh random URL (so no CDN cache can
-// serve an old copy) and then removes the previous versions.
-async function writeNew(prefix, ext, body, contentType) {
-  const saved = await put(prefix + ext, body, { access: "public", addRandomSuffix: true, contentType });
-  const old = (await blobsNewestFirst(prefix)).filter((b) => b.url !== saved.url).map((b) => b.url);
-  if (old.length) await del(old);
+  const text = await r.text();
+  await writeData(prefix, ext, text, contentType);
+  await del(legacy.map((b) => b.url));
+  return text;
 }
 
 async function readLocal(file, fallback) {
@@ -50,13 +68,13 @@ async function writeLocal(file, data) {
 
 export async function getProducts() {
   if (!useBlob()) return readLocal("products.json", []);
-  const text = await readLatest(PRODUCTS_PREFIX);
+  const text = await readData(PRODUCTS_PREFIX, ".json", "application/json");
   return text ? JSON.parse(text) : [];
 }
 
 export async function saveProducts(products) {
   if (!useBlob()) return writeLocal("products.json", products);
-  await writeNew(PRODUCTS_PREFIX, ".json", JSON.stringify(products, null, 2), "application/json");
+  await writeData(PRODUCTS_PREFIX, ".json", JSON.stringify(products), "application/json");
 }
 
 /* ---------- Admin-only data: suppliers and product links ----------
@@ -87,6 +105,12 @@ export function productLinks(priv, productId) {
   );
 }
 
+// Fixed but unguessable path for the encrypted file (derived from the key).
+function privatePath() {
+  const tag = crypto.createHash("sha256").update("micheng-private-path:" + (process.env.PRIVATE_DATA_KEY || "")).digest("hex").slice(0, 24);
+  return PRIVATE_PREFIX + "-" + tag;
+}
+
 function privateKey() {
   const secret = process.env.PRIVATE_DATA_KEY;
   if (!secret) throw new Error("PRIVATE_DATA_KEY is not configured");
@@ -110,13 +134,13 @@ function decrypt(text) {
 
 export async function getPrivate() {
   if (!useBlob()) return { ...EMPTY_PRIVATE, ...(await readLocal("private.json", {})) };
-  const text = await readLatest(PRIVATE_PREFIX);
+  const text = await readData(privatePath(), ".enc", "application/octet-stream", PRIVATE_PREFIX);
   return text ? { ...EMPTY_PRIVATE, ...decrypt(text) } : { ...EMPTY_PRIVATE };
 }
 
 export async function savePrivate(data) {
   if (!useBlob()) return writeLocal("private.json", data);
-  await writeNew(PRIVATE_PREFIX, ".enc", encrypt(data), "application/octet-stream");
+  await writeData(privatePath(), ".enc", encrypt(data), "application/octet-stream");
 }
 
 /* ---------- Photos ---------- */
