@@ -137,7 +137,7 @@
       var opts = {};
       i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
       return { id: i.id, productId: i.productId, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
-        qty: i.qty, cost: i.cost, price: i.price, priceAuto: false };
+        qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false };
     }) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
       renderHeader();
@@ -209,6 +209,56 @@
     return i == null ? "" : T("pf.problem.duplicate", { n: Number(i) + 1, of: dups[i] + 1 });
   }
 
+  var ICON_EDIT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
+  var ICON_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+
+  // What is missing for a row to be confirmed with "OK" ("" = nothing).
+  function rowProblem(row, i, dups) {
+    var product = productById(row.productId);
+    if (!row.productId) return T("pf.problem.product", { n: i + 1 });
+    var needed = product ? (product.attributes || []).length : Object.keys(row.options).length;
+    var chosen = Object.keys(row.options).filter(function (k) { return row.options[k]; }).length;
+    if (chosen < needed) return T("pf.problem.options", { n: i + 1 });
+    if (!(row.qty > 0)) return T("pf.problem.qty", { n: i + 1 });
+    if (row.price == null) return T("pf.problem.price", { n: i + 1 });
+    if (i in dups) return T("pf.problem.duplicate", { n: i + 1, of: dups[i] + 1 });
+    return "";
+  }
+
+  function optionSummary(row, product) {
+    if (product) {
+      return (product.attributes || []).map(function (a) {
+        var o = a.options.filter(function (x) { return x.id === row.options[a.id]; })[0];
+        return o ? ((a.name && a.name[A.lang()]) || a.source) + ": " + ((o.label && o.label[A.lang()]) || o.source) : "";
+      }).filter(Boolean);
+    }
+    return []; // product deleted: options are shown from the saved copy on the PDF
+  }
+
+  // Confirmed item: one compact, locked line with pencil (edit) and bin (delete).
+  function compactRow(row, i, product, image, closed, dups) {
+    var cur = currency();
+    var supplier = row.supplierId ? supplierById(row.supplierId) : null;
+    var opts = optionSummary(row, product);
+    var name = product ? pname(product) : pname(row.snapshot);
+    return '<div class="pf-row' + (i in dups ? " is-dup" : "") + '" data-row="' + i + '">' +
+      '<span class="pf-row__n">' + (i + 1) + "</span>" +
+      '<div class="pf-row__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
+      '<div class="pf-row__info"><b>' + esc(name) + "</b>" +
+        (opts.length ? "<small>" + esc(opts.join(" · ")) + "</small>" : "") +
+        '<small class="internal">' + esc(T("pf.supplier")) + ": " + esc(supplier ? supplier.company : "—") +
+          (row.cost != null ? " · " + esc(T("pf.cost")) + " " + esc(A.money(row.cost, cur)) : "") + "</small>" +
+      "</div>" +
+      '<div class="pf-row__qty"><b>' + esc(String(row.qty)) + "</b> × " + esc(A.money(row.price, cur)) + "</div>" +
+      '<div class="pf-row__total"><b data-out="total"></b></div>' +
+      '<div class="pf-row__margin internal"><b data-out="margin"></b><small data-out="profit"></small></div>' +
+      (closed ? "" : '<div class="pf-row__actions">' +
+        '<button type="button" class="icon-btn" data-edit="' + i + '" aria-label="' + esc(T("pf.editItem")) + '" title="' + esc(T("pf.editItem")) + '">' + ICON_EDIT + "</button>" +
+        '<button type="button" class="icon-btn icon-btn--danger" data-remove="' + i + '" aria-label="' + esc(T("pf.removeItem")) + '" title="' + esc(T("pf.removeItem")) + '">' + ICON_TRASH + "</button></div>") +
+      (i in dups ? '<p class="pf-dup" role="alert">' + esc(T("pf.problem.duplicate", { n: i + 1, of: dups[i] + 1 })) + "</p>" : "") +
+      "</div>";
+  }
+
   function renderItems() {
     var closed = isClosed();
     var dups = duplicateRows();
@@ -217,6 +267,7 @@
     $("#pf-items").innerHTML = rows.map(function (row, i) {
       var product = productById(row.productId);
       var image = product ? product.image : row.snapshot && row.snapshot.image;
+      if (closed || !row.editing) return compactRow(row, i, product, image, closed, dups);
       var productOpts = '<option value="">' + esc(T("pf.selectProduct")) + "</option>" + products.map(function (p) {
         return '<option value="' + esc(p.id) + '"' + (p.id === row.productId ? " selected" : "") + ">" + esc(pname(p)) + "</option>";
       }).join("");
@@ -251,8 +302,12 @@
           "</div>" +
           (memo ? '<p class="pf-memo">' + esc(T("pf.lastPrice", { price: A.money(memo.price, memo.currency), number: memo.number })) + "</p>" : "") +
           (i in dups ? '<p class="pf-dup" role="alert">' + esc(T("pf.problem.duplicate", { n: i + 1, of: dups[i] + 1 })) + "</p>" : "") +
+          '<div class="pf-item__foot">' +
+            (row.error && !(i in dups) ? '<p class="pf-dup" role="alert">' + esc(row.error) + "</p>" : "<span></span>") +
+            '<button type="button" class="btn btn--primary btn--sm pf-ok" data-ok="' + i + '">' + esc(T("pf.ok")) + "</button>" +
+          "</div>" +
         "</div>" +
-        (closed ? "" : '<button type="button" class="pf-item__remove" data-remove="' + i + '" aria-label="' + esc(T("pf.removeItem")) + '" title="' + esc(T("pf.removeItem")) + '">×</button>') +
+        '<button type="button" class="icon-btn icon-btn--danger pf-item__remove" data-remove="' + i + '" aria-label="' + esc(T("pf.removeItem")) + '" title="' + esc(T("pf.removeItem")) + '">' + ICON_TRASH + "</button>" +
         "</div>";
     }).join("");
     recalc();
@@ -261,7 +316,7 @@
   function recalc() {
     var cur = currency();
     var sale = 0, cost = 0;
-    $("#pf-items").querySelectorAll(".pf-item").forEach(function (el) {
+    $("#pf-items").querySelectorAll("[data-row]").forEach(function (el) {
       var row = rows[Number(el.dataset.row)];
       var qty = row.qty || 0;
       var lineSale = (row.price || 0) * qty;
@@ -285,7 +340,7 @@
   }
 
   function newRow() {
-    return { productId: "", supplierId: "", options: {}, qty: 1, cost: null, price: null, priceAuto: true };
+    return { productId: "", supplierId: "", options: {}, qty: 1, cost: null, price: null, priceAuto: true, editing: true };
   }
 
   // When the product, supplier or options change, fill cost and price automatically.
@@ -315,6 +370,7 @@
     var row = rows[Number(el.dataset.row)];
     var f = e.target.getAttribute("data-f");
     var attr = e.target.getAttribute("data-attr");
+    row.error = null;
     if (f === "productId" || f === "supplierId") {
       row[f] = e.target.value;
       applyDefaults(row, f);
@@ -337,16 +393,28 @@
   });
 
   $("#pf-items").addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-remove]");
-    if (!btn) return;
-    rows.splice(Number(btn.dataset.remove), 1);
-    renderItems();
+    var ok = e.target.closest("[data-ok]");
+    var edit = e.target.closest("[data-edit]");
+    var remove = e.target.closest("[data-remove]");
+    if (ok) {
+      var i = Number(ok.dataset.ok);
+      var problem = rowProblem(rows[i], i, duplicateRows());
+      rows[i].error = problem || null;
+      if (!problem) rows[i].editing = false;
+      renderItems();
+    } else if (edit) {
+      rows[Number(edit.dataset.edit)].editing = true;
+      renderItems();
+    } else if (remove) {
+      rows.splice(Number(remove.dataset.remove), 1);
+      renderItems();
+    }
   });
 
   $("#pf-add-item").addEventListener("click", function () {
     rows.push(newRow());
     renderItems();
-    var last = $("#pf-items").querySelector(".pf-item:last-child select");
+    var last = $("#pf-items").querySelector("[data-row]:last-child select");
     if (last) last.focus();
   });
 
@@ -390,6 +458,9 @@
     if (isClosed()) return Promise.resolve(editing);
     var dupMsg = duplicateMessage(duplicateRows());
     if (dupMsg) return Promise.reject(new Error(dupMsg));
+    // Complete rows still open for editing are confirmed automatically on save.
+    var dups = duplicateRows();
+    rows.forEach(function (r, i) { if (r.editing && r.productId && !rowProblem(r, i, dups)) r.editing = false; });
     return A.api(editing ? "/api/proformas?id=" + encodeURIComponent(editing.id) : "/api/proformas",
       { method: editing ? "PUT" : "POST", body: body() }).then(function (data) {
       accept(data.proforma);

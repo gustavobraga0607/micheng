@@ -1,6 +1,9 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.ok": "OK",
+    "pf.editItem": "Editar item",
+    "pf.problem.product": "Item {n}: escolha o produto.",
     "pf.problem.duplicate": "Item {n} repete o item {of} (mesmo produto e mesmas especificações). Some a quantidade no item original ou altere as especificações.",
     "pf.exportError": "Não foi possível gerar o arquivo.",
     "pf.exporting": "Gerando arquivo…",
@@ -194,6 +197,9 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.ok": "OK",
+    "pf.editItem": "Edit item",
+    "pf.problem.product": "Item {n}: choose the product.",
     "pf.problem.duplicate": "Item {n} repeats item {of} (same product and specifications). Add the quantity to the original item or change the specifications.",
     "pf.exportError": "The file could not be generated.",
     "pf.exporting": "Generating file…",
@@ -387,6 +393,9 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.ok": "OK",
+    "pf.editItem": "Editar ítem",
+    "pf.problem.product": "Ítem {n}: elija el producto.",
     "pf.problem.duplicate": "El ítem {n} repite el ítem {of} (mismo producto y especificaciones). Sume la cantidad en el ítem original o cambie las especificaciones.",
     "pf.exportError": "No se pudo generar el archivo.",
     "pf.exporting": "Generando archivo…",
@@ -580,6 +589,9 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.ok": "确定",
+    "pf.editItem": "编辑项目",
+    "pf.problem.product": "第 {n} 项：请选择产品。",
     "pf.problem.duplicate": "第 {n} 项与第 {of} 项重复（相同产品和规格）。请在原项目中增加数量，或修改规格。",
     "pf.exportError": "无法生成文件。",
     "pf.exporting": "正在生成文件…",
