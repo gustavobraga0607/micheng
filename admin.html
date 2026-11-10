@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Área Restrita | Micheng</title>
+  <title>Micheng | Admin</title>
   <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,14 +16,20 @@
   <!-- ================= LOGIN ================= -->
   <section class="login" id="login-view" hidden>
     <form class="login__card" id="login-form" novalidate>
+      <div class="lang lang--card" role="group" aria-label="Language">
+        <button type="button" class="lang__btn" data-lang="pt">PT</button>
+        <button type="button" class="lang__btn" data-lang="en">EN</button>
+        <button type="button" class="lang__btn" data-lang="es">ES</button>
+        <button type="button" class="lang__btn" data-lang="zh">中文</button>
+      </div>
       <img class="login__logo" src="assets/img/logo.svg" alt="" width="72" height="72" />
-      <h1>Área Restrita</h1>
+      <h1 data-t="login.title">Área Restrita</h1>
       <p class="login__sub">Shenzhen Micheng International Trading</p>
-      <label>Usuário<input type="text" name="user" autocomplete="username" required /></label>
-      <label>Senha<input type="password" name="password" autocomplete="current-password" required /></label>
-      <button type="submit" class="btn btn--primary btn--lg">Entrar <span class="arrow">→</span></button>
+      <label><span data-t="login.user">Usuário</span><input type="text" name="user" autocomplete="username" required /></label>
+      <label><span data-t="login.password">Senha</span><input type="password" name="password" autocomplete="current-password" required /></label>
+      <button type="submit" class="btn btn--primary btn--lg"><span data-t="login.submit">Entrar</span> <span class="arrow">→</span></button>
       <p class="login__error" id="login-error" role="alert"></p>
-      <a href="./" class="login__back">← Voltar ao site</a>
+      <a href="./" class="login__back" data-t="login.back">← Voltar ao site</a>
     </form>
   </section>
 
@@ -33,59 +39,57 @@
       <div class="topbar__inner">
         <a href="./" class="logo logo--light" aria-label="Micheng">
           <img class="logo__icon" src="assets/img/logo-white.svg" alt="" />
-          <span class="logo__text"><span class="logo__mark">MICHENG</span><span class="logo__sub">Painel administrativo</span></span>
+          <span class="logo__text"><span class="logo__mark">MICHENG</span><span class="logo__sub" data-t="top.panel">Painel administrativo</span></span>
         </a>
         <div class="topbar__actions">
-          <a href="./#catalog" class="topbar__link" target="_blank" rel="noopener">Ver site ↗</a>
-          <button class="btn btn--ghost" id="logout">Sair</button>
+          <div class="lang lang--dark" role="group" aria-label="Language">
+            <button type="button" class="lang__btn" data-lang="pt">PT</button>
+            <button type="button" class="lang__btn" data-lang="en">EN</button>
+            <button type="button" class="lang__btn" data-lang="es">ES</button>
+            <button type="button" class="lang__btn" data-lang="zh">中文</button>
+          </div>
+          <a href="./#catalog" class="topbar__link" target="_blank" rel="noopener"><span data-t="top.site">Ver site</span> ↗</a>
+          <button class="btn btn--ghost" id="logout" data-t="top.logout">Sair</button>
         </div>
       </div>
     </header>
 
     <main class="dash">
       <section class="panel" id="form-panel">
-        <h2 id="form-title">Novo produto</h2>
+        <h2 id="form-title" data-t="form.new">Novo produto</h2>
         <form id="product-form" novalidate>
           <input type="hidden" name="id" />
-          <label>Nome do produto *
-            <input type="text" name="name" maxlength="120" required placeholder="Em qualquer idioma: português, inglês, espanhol ou chinês" />
+          <label><span data-t="form.name">Nome do produto *</span>
+            <input type="text" name="name" maxlength="120" required data-t-placeholder="form.namePh" />
           </label>
-          <label>Idioma do cadastro
-            <select name="lang">
-              <option value="">Detectar automaticamente</option>
-              <option value="pt">Português</option>
-              <option value="en">English</option>
-              <option value="es">Español</option>
-              <option value="zh">中文</option>
-            </select>
+          <label><span data-t="form.description">Descrição</span>
+            <textarea name="description" rows="5" maxlength="2000" data-t-placeholder="form.descriptionPh"></textarea>
           </label>
-          <label>Descrição
-            <textarea name="description" rows="5" maxlength="2000" placeholder="Material, medidas, aplicações, quantidade mínima…"></textarea>
-          </label>
+          <p class="hint" data-t="form.autoLang">O idioma é identificado automaticamente e o produto é traduzido para português, inglês, espanhol e chinês.</p>
 
           <div class="photo">
-            <span class="photo__label">Foto *</span>
+            <span class="photo__label" data-t="form.photo">Foto *</span>
             <label class="photo__drop" id="photo-drop">
               <img id="photo-preview" alt="" hidden />
-              <span class="photo__hint" id="photo-hint">Clique para escolher ou arraste uma imagem<br /><small>JPG, PNG ou WEBP</small></span>
+              <span class="photo__hint" id="photo-hint"><span data-t="form.photoHint">Clique para escolher ou arraste uma imagem</span><br /><small>JPG, PNG, WEBP</small></span>
               <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
             </label>
           </div>
 
           <details class="translations" id="translations" hidden>
-            <summary>Traduções (pode corrigir manualmente)</summary>
+            <summary><span data-t="form.translations">Traduções (pode corrigir manualmente)</span> <span class="detected" id="detected-lang"></span></summary>
             <div class="translations__grid">
               <fieldset><legend>Português</legend><input data-tr="name" data-lang="pt" maxlength="120" /><textarea data-tr="description" data-lang="pt" rows="3"></textarea></fieldset>
               <fieldset><legend>English</legend><input data-tr="name" data-lang="en" maxlength="120" /><textarea data-tr="description" data-lang="en" rows="3"></textarea></fieldset>
               <fieldset><legend>Español</legend><input data-tr="name" data-lang="es" maxlength="120" /><textarea data-tr="description" data-lang="es" rows="3"></textarea></fieldset>
               <fieldset><legend>中文</legend><input data-tr="name" data-lang="zh" maxlength="120" /><textarea data-tr="description" data-lang="zh" rows="3"></textarea></fieldset>
             </div>
-            <label class="check"><input type="checkbox" name="retranslate" /> Traduzir tudo de novo automaticamente ao salvar</label>
+            <label class="check"><input type="checkbox" name="retranslate" /> <span data-t="form.retranslate">Traduzir tudo de novo automaticamente ao salvar</span></label>
           </details>
 
           <div class="form-actions">
-            <button type="submit" class="btn btn--primary btn--lg" id="save-btn">Salvar produto</button>
-            <button type="button" class="btn btn--outline" id="cancel-edit" hidden>Cancelar edição</button>
+            <button type="submit" class="btn btn--primary btn--lg" id="save-btn" data-t="form.save">Salvar produto</button>
+            <button type="button" class="btn btn--outline" id="cancel-edit" data-t="form.cancel" hidden>Cancelar edição</button>
           </div>
           <p class="status" id="form-status" role="status" aria-live="polite"></p>
         </form>
@@ -93,15 +97,16 @@
 
       <section class="panel">
         <div class="list-head">
-          <h2>Produtos cadastrados <span class="count" id="count">0</span></h2>
-          <input type="search" id="search" placeholder="Buscar…" aria-label="Buscar produtos" />
+          <h2><span data-t="list.title">Produtos cadastrados</span> <span class="count" id="count">0</span></h2>
+          <input type="search" id="search" data-t-placeholder="list.search" />
         </div>
         <ul class="plist" id="product-list"></ul>
-        <p class="empty" id="empty" hidden>Nenhum produto cadastrado ainda. Use o formulário ao lado para adicionar o primeiro.</p>
+        <p class="empty" id="empty" data-t="list.empty" hidden>Nenhum produto cadastrado ainda.</p>
       </section>
     </main>
   </div>
 
+  <script src="assets/js/admin-i18n.js"></script>
   <script src="assets/js/admin.js"></script>
 </body>
 </html>

@@ -16,6 +16,15 @@
   padding: 40px 32px 28px; box-shadow: 0 24px 60px rgba(0,0,0,.3);
   display: grid; gap: 16px; text-align: center;
 }
+.login__card { position: relative; }
+.lang--card { position: absolute; top: 12px; right: 12px; }
+.lang--card .lang__btn { padding: 4px 6px; font-size: 12px; }
+.lang--dark .lang__btn { color: rgba(255,255,255,.65); }
+.lang--dark .lang__btn + .lang__btn { border-left-color: rgba(255,255,255,.2); }
+.lang--dark .lang__btn:hover, .lang--dark .lang__btn.is-active { color: #fff; }
+.hint { font-size: 13px; color: var(--muted); margin-top: -8px; background: var(--bg-soft); border-left: 3px solid var(--blue); padding: 8px 12px; border-radius: 0 4px 4px 0; }
+.detected { font-weight: 500; color: var(--muted); font-size: 13px; }
+.pitem__lang { font-size: 12px; color: var(--muted); margin: -2px 0 6px; }
 .login__logo { width: 72px; height: 72px; margin: 0 auto 4px; }
 .login__card h1 { font-size: 24px; }
 .login__sub { color: var(--muted); font-size: 13px; margin-top: -10px; margin-bottom: 8px; }
@@ -110,7 +119,9 @@
   .dash { padding: 16px 12px 40px; }
   .panel { padding: 20px 16px; }
   .topbar__inner { padding: 0 12px; }
-  .topbar .logo__sub, .topbar__link { display: none; }
+  .topbar .logo__sub, .topbar__link, .topbar .logo__text { display: none; }
+  .topbar__actions { gap: 10px; }
+  .lang--dark .lang__btn { padding: 4px 5px; font-size: 12px; }
   .list-head { flex-direction: column; align-items: stretch; }
   .list-head input { max-width: none; }
   .pitem { grid-template-columns: 72px 1fr; }

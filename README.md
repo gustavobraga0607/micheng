@@ -16,7 +16,9 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 ## Área restrita (cadastro de produtos)
 
 - Endereço: `/admin` (há também um link "Área restrita" no rodapé).
-- O administrador cadastra **nome, descrição e foto**. O nome e a descrição podem ser escritos em qualquer idioma: o site detecta o idioma e traduz automaticamente para português, inglês, espanhol e chinês. As traduções podem ser corrigidas ao editar o produto.
+- O painel está em português, inglês, espanhol e chinês (seletor de idioma no topo; a escolha é compartilhada com o site).
+- O administrador cadastra **nome, descrição e foto**, em qualquer idioma. O idioma do cadastro é identificado automaticamente (a partir do nome e da descrição juntos; chinês é reconhecido pelos caracteres) e o produto é traduzido para português, inglês, espanhol e chinês. O painel mostra o idioma identificado, e as traduções podem ser corrigidas ao editar o produto.
+- Dica: nomes de uma palavra que existem em vários idiomas (ex.: "Mesa") são ambíguos; uma descrição curta resolve.
 - Os produtos aparecem no site na seção **Nossos Produtos**, no idioma escolhido pelo visitante.
 - As fotos são reduzidas no navegador (até 1600 px) antes do envio.
 

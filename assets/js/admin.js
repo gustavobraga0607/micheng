@@ -13,6 +13,56 @@
   var products = [];
   var pendingImage = null; // data URL of the resized photo
 
+  /* ---------- Panel language (shares the site's saved choice) ---------- */
+  var LANG_KEY = "micheng-lang";
+  var HTML_LANG = { pt: "pt-BR", en: "en", es: "es", zh: "zh-CN" };
+  var current = "pt";
+
+  function T(key, vars) {
+    var dict = window.ADMIN_I18N[current] || window.ADMIN_I18N.pt;
+    var out = dict[key] != null ? dict[key] : window.ADMIN_I18N.pt[key] || key;
+    Object.keys(vars || {}).forEach(function (k) { out = out.replace("{" + k + "}", vars[k]); });
+    return out;
+  }
+
+  function langName(code) {
+    var names = window.ADMIN_LANG_NAMES[current];
+    if (!code) return T("lang.unknown");
+    return names[code] || code.toUpperCase();
+  }
+
+  function detectPanelLang() {
+    var saved = null;
+    try { saved = localStorage.getItem(LANG_KEY); } catch (e) { /* ignore */ }
+    if (saved && window.ADMIN_I18N[saved]) return saved;
+    var nav = String(navigator.language || "pt").toLowerCase().slice(0, 2);
+    return window.ADMIN_I18N[nav] ? nav : "pt";
+  }
+
+  function setLang(lang) {
+    current = window.ADMIN_I18N[lang] ? lang : "pt";
+    try { localStorage.setItem(LANG_KEY, current); } catch (e) { /* ignore */ }
+    document.documentElement.lang = HTML_LANG[current];
+    document.title = T("title");
+    document.querySelectorAll("[data-t]").forEach(function (el) { el.textContent = T(el.getAttribute("data-t")); });
+    document.querySelectorAll("[data-t-placeholder]").forEach(function (el) {
+      el.setAttribute("placeholder", T(el.getAttribute("data-t-placeholder")));
+      el.setAttribute("aria-label", T(el.getAttribute("data-t-placeholder")));
+    });
+    document.querySelectorAll(".lang__btn").forEach(function (btn) {
+      var active = btn.getAttribute("data-lang") === current;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    updateFormMode();
+    renderList();
+    setStatus("");
+  }
+
+  document.querySelectorAll(".lang__btn").forEach(function (btn) {
+    btn.addEventListener("click", function () { setLang(btn.getAttribute("data-lang")); });
+  });
+
   function api(path, options) {
     options = options || {};
     var headers = options.body ? { "Content-Type": "application/json" } : {};
@@ -65,7 +115,7 @@
     api("/api/login", { method: "POST", body: { user: f.user.value, password: f.password.value } })
       .then(function () { f.password.value = ""; showApp(); })
       .catch(function (e2) {
-        err.textContent = /Invalid/.test(e2.message) ? "Usuário ou senha incorretos." : e2.message;
+        err.textContent = /Invalid/.test(e2.message) ? T("login.invalid") : e2.message;
       })
       .then(function () { btn.disabled = false; });
   });
@@ -77,7 +127,7 @@
   /* ---------- Photo ---------- */
   function resizeImage(file) {
     return new Promise(function (resolve, reject) {
-      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error("Use uma imagem JPG, PNG ou WEBP."));
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error(T("status.imageType")));
       var url = URL.createObjectURL(file);
       var img = new Image();
       img.onload = function () {
@@ -92,7 +142,7 @@
         URL.revokeObjectURL(url);
         resolve(canvas.toDataURL("image/jpeg", 0.85));
       };
-      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("Não foi possível ler a imagem.")); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(T("status.imageRead"))); };
       img.src = url;
     });
   }
@@ -127,14 +177,22 @@
     return Array.prototype.slice.call(form.querySelectorAll('[data-tr="' + kind + '"]'));
   }
 
+  // Title and button labels depend on whether a product is being edited.
+  function updateFormMode() {
+    var editing = Boolean(form.elements.id.value);
+    $("#form-title").textContent = T(editing ? "form.edit" : "form.new");
+    $("#save-btn").textContent = T(editing ? "form.saveChanges" : "form.save");
+    $("#cancel-edit").hidden = !editing;
+    var p = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
+    $("#detected-lang").textContent = p ? "· " + T("list.registeredIn") + ": " + langName(p.source.lang) : "";
+  }
+
   function resetForm() {
     form.reset();
     form.elements.id.value = "";
     pendingImage = null;
     showPreview(null);
-    $("#form-title").textContent = "Novo produto";
-    $("#save-btn").textContent = "Salvar produto";
-    $("#cancel-edit").hidden = true;
+    updateFormMode();
     $("#translations").hidden = true;
     $("#translations").open = false;
     form.querySelectorAll(".is-invalid").forEach(function (el) { el.classList.remove("is-invalid"); });
@@ -146,14 +204,11 @@
     form.elements.id.value = p.id;
     form.elements.name.value = p.source.name;
     form.elements.description.value = p.source.description || "";
-    form.elements.lang.value = p.source.langHint || "";
     showPreview(p.image);
     trFields("name").forEach(function (el) { el.value = p.name[el.dataset.lang] || ""; });
     trFields("description").forEach(function (el) { el.value = (p.description || {})[el.dataset.lang] || ""; });
     $("#translations").hidden = false;
-    $("#form-title").textContent = "Editar produto";
-    $("#save-btn").textContent = "Salvar alterações";
-    $("#cancel-edit").hidden = false;
+    updateFormMode();
     setStatus("");
     renderList();
     document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -169,12 +224,11 @@
     form.elements.name.classList.toggle("is-invalid", !name);
     if (!name) ok = false;
     if (!id && !pendingImage) { drop.classList.add("is-invalid"); ok = false; }
-    if (!ok) return setStatus("Preencha o nome e escolha uma foto.", "error");
+    if (!ok) return setStatus(T("status.required"), "error");
 
     var body = {
       name: name,
-      description: form.elements.description.value,
-      lang: form.elements.lang.value || null
+      description: form.elements.description.value
     };
     if (pendingImage) body.image = pendingImage;
     if (id) {
@@ -186,7 +240,7 @@
 
     var btn = $("#save-btn");
     btn.disabled = true;
-    setStatus("Salvando e traduzindo…");
+    setStatus(T("status.saving"));
     api(id ? "/api/products?id=" + encodeURIComponent(id) : "/api/products", { method: id ? "PUT" : "POST", body: body })
       .then(function (data) {
         var p = data.product;
@@ -194,10 +248,10 @@
         else products.unshift(p);
         resetForm();
         setStatus(p.translationOk === false
-          ? "Produto salvo, mas a tradução automática falhou. Edite o produto para traduzir de novo."
-          : "Produto salvo e traduzido para os 4 idiomas.", p.translationOk === false ? "error" : "ok");
+          ? T("status.savedNoTr")
+          : T("status.saved", { lang: langName(p.source.lang) }), p.translationOk === false ? "error" : "ok");
       })
-      .catch(function (e2) { setStatus(e2.message, "error"); })
+      .catch(function (e2) { setStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
       .then(function () { btn.disabled = false; });
   });
 
@@ -224,10 +278,12 @@
       }).join("");
       return '<li class="pitem' + (p.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(p.id) + '">' +
         '<img src="' + escapeHtml(p.image) + '" alt="" loading="lazy" />' +
-        "<div><h3>" + escapeHtml(p.name.pt || p.source.name) + '</h3><div class="pitem__tr">' + chips + "</div>" +
-        (p.translationOk === false ? '<p class="pitem__warn">⚠ Tradução automática pendente</p>' : "") + "</div>" +
-        '<div class="pitem__actions"><button type="button" data-act="edit">Editar</button>' +
-        '<button type="button" class="danger" data-act="delete">Excluir</button></div></li>';
+        "<div><h3>" + escapeHtml(p.name[current] || p.source.name) + "</h3>" +
+        '<p class="pitem__lang">' + escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
+        '<div class="pitem__tr">' + chips + "</div>" +
+        (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
+        '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
+        '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
     }).join("");
   }
 
@@ -240,18 +296,19 @@
     var p = products.filter(function (x) { return x.id === id; })[0];
     if (!p) return;
     if (btn.dataset.act === "edit") return editProduct(p);
-    if (!confirm('Excluir o produto "' + (p.name.pt || p.source.name) + '"? Esta ação não pode ser desfeita.')) return;
+    if (!confirm(T("list.confirmDelete", { name: p.name[current] || p.source.name }))) return;
     btn.disabled = true;
     api("/api/products?id=" + encodeURIComponent(id), { method: "DELETE" })
       .then(function () {
         products = products.filter(function (x) { return x.id !== id; });
         if (form.elements.id.value === id) resetForm();
         renderList();
-        setStatus("Produto excluído.", "ok");
+        setStatus(T("status.deleted"), "ok");
       })
       .catch(function (e2) { btn.disabled = false; setStatus(e2.message, "error"); });
   });
 
   /* ---------- Start ---------- */
+  setLang(detectPanelLang());
   api("/api/session").then(function (s) { s.authenticated ? showApp() : showLogin(); }, showLogin);
 })();

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
 import { getProducts, saveProducts, saveImage, deleteImage } from "./_lib/store.js";
-import { translateAll, LANGS } from "./_lib/translate.js";
+import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_NAME = 120;
@@ -35,31 +35,37 @@ function cleanTranslations(obj, max) {
 }
 
 async function applyTexts(product, body, existing) {
-  const lang = LANGS.includes(body.lang) ? body.lang : null;
   const name = cleanText(body.name, MAX_NAME);
   const description = cleanText(body.description, MAX_DESCRIPTION);
   const manualName = cleanTranslations(body.translations && body.translations.name, MAX_NAME);
   const manualDesc = cleanTranslations(body.translations && body.translations.description, MAX_DESCRIPTION);
   const force = Boolean(body.retranslate);
-  let translationOk = existing ? existing.translationOk !== false : true;
+  const nameChanged = !existing || force || name !== existing.source.name;
+  const descChanged = !existing || force || description !== existing.source.description;
 
-  if (!existing || force || name !== existing.source.name || lang !== existing.source.langHint) {
-    const r = await translateAll(name, lang);
+  // The registration language is always detected automatically, from the
+  // name and description together, whenever the source text changes.
+  let source = existing ? existing.source.lang : null;
+  if (nameChanged || descChanged) source = await detectLanguage(name, description);
+
+  let translationOk = existing ? existing.translationOk !== false : true;
+  if (nameChanged) {
+    const r = await translateAll(name, source);
     product.name = r.values;
-    product.source = { ...(product.source || {}), name, lang: r.source, langHint: lang };
+    source = source || r.source;
     translationOk = r.ok;
   } else if (manualName) {
     product.name = manualName;
   }
-
-  if (!existing || force || description !== existing.source.description || lang !== existing.source.langHint) {
-    const r = await translateAll(description, lang || product.source.lang);
+  if (descChanged) {
+    const r = await translateAll(description, source);
     product.description = r.values;
-    product.source.description = description;
+    source = source || r.source;
     translationOk = translationOk && r.ok;
   } else if (manualDesc) {
     product.description = manualDesc;
   }
+  product.source = { name, description, lang: source || null };
   product.translationOk = translationOk;
 }
 
