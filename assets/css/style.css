@@ -215,6 +215,13 @@ p { margin: 0; }
 .pmodal[open] { display: grid; }
 .pmodal::backdrop { background: rgba(6, 20, 40, .65); }
 .pmodal__img { width: 100%; aspect-ratio: 1 / 1; height: auto; align-self: center; object-fit: contain; background: #fff; }
+.pmodal__media { display: flex; flex-direction: column; background: #fff; min-width: 0; }
+.pmodal__thumbs { display: flex; gap: 8px; padding: 10px; overflow-x: auto; border-top: 1px solid var(--line); }
+.pthumb { flex: none; width: 76px; padding: 0; border: 2px solid transparent; border-radius: 6px; background: #fff; cursor: pointer; text-align: center; font: 500 11px/1.25 var(--font); color: var(--muted); }
+.pthumb img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 4px; display: block; }
+.pthumb span { display: block; padding: 3px 2px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pthumb.is-active { border-color: var(--blue); color: var(--navy); }
+.pthumb:hover { border-color: #9fbbe0; }
 .pmodal__body { padding: 40px 32px 32px; display: flex; flex-direction: column; gap: 16px; }
 .pmodal__body h3 { font-size: 24px; }
 .pmodal__body p { color: var(--muted); white-space: pre-line; }

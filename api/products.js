@@ -251,8 +251,16 @@ function withLinks(product, links) {
 async function saveWithSkus(products) {
   const priv = await getPrivate();
   assignSkus(products, priv);
+  // Photos of variants that no longer exist (an option was removed) are deleted.
+  const stale = [];
+  for (const p of products) {
+    for (const key of Object.keys(p.variantImages || {})) {
+      if (!(p.variantSkus && key in p.variantSkus)) { stale.push(p.variantImages[key]); delete p.variantImages[key]; }
+    }
+  }
   await saveProducts(products);
   await savePrivate(priv);
+  for (const url of stale) await deleteImage(url);
 }
 
 export default async function handler(req, res) {
@@ -274,6 +282,27 @@ export default async function handler(req, res) {
 
     const products = await getProducts();
     const id = queryParam(req, "id");
+
+    // Photo of one variant (option combination), sent on its own so requests stay small.
+    if (req.method === "POST" && queryParam(req, "action") === "variantImage") {
+      const index = products.findIndex((p) => p.id === id);
+      if (index < 0) return fail(res, 404, "Product not found");
+      const product = products[index];
+      const body = await readJson(req);
+      const key = String(body.key || "");
+      if (!(product.variantSkus && key in product.variantSkus)) return fail(res, 400, "Unknown variant");
+      product.variantImages = product.variantImages || {};
+      const old = product.variantImages[key];
+      if (body.remove) delete product.variantImages[key];
+      else {
+        const image = decodeImage(body.image);
+        product.variantImages[key] = await saveImage(product.id + "-v" + product.variantSkus[key], image.buffer, image.contentType);
+      }
+      product.updatedAt = new Date().toISOString();
+      await saveProducts(products);
+      if (old && old !== product.variantImages[key]) await deleteImage(old);
+      return send(res, 200, { product: withLinks(product, productLinks(await getPrivate(), product.id)) });
+    }
 
     if (req.method === "POST") {
       const body = await readJson(req);
@@ -323,6 +352,7 @@ export default async function handler(req, res) {
       await saveProducts(products);
       await saveSupplierLinks(removed.id, { supplierLinks: [] });
       await deleteImage(removed.image);
+      for (const url of Object.values(removed.variantImages || {})) await deleteImage(url);
       return send(res, 200, { ok: true });
     }
 

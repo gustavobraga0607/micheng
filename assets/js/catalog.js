@@ -94,6 +94,7 @@
   function fillModal(p) {
     document.getElementById("pmodal-img").src = p.image;
     document.getElementById("pmodal-img").alt = pick(p.name);
+    renderThumbs(p);
     document.getElementById("pmodal-cat").textContent = categoryName(p.category);
     document.getElementById("pmodal-title").textContent = pick(p.name);
     document.getElementById("pmodal-desc").textContent = pick(p.description);
@@ -105,6 +106,39 @@
         }).join("") + "</span></div>";
     }).join("");
   }
+
+  // Photos of the variants that have their own: clicking one shows it large.
+  function renderThumbs(p) {
+    var map = p.variantSkus || {};
+    var photos = p.variantImages || {};
+    var labels = {};
+    (p.attributes || []).forEach(function (a) {
+      a.options.forEach(function (o) { labels[o.id] = { order: (p.attributes || []).indexOf(a), text: pick(o.label) || o.source }; });
+    });
+    var list = Object.keys(photos).filter(function (k) { return k in map; })
+      .sort(function (a, b) { return map[a] - map[b]; })
+      .map(function (k) {
+        var parts = k.split(",").map(function (id) { return labels[id]; }).filter(Boolean)
+          .sort(function (a, b) { return a.order - b.order; }).map(function (x) { return x.text; });
+        return { src: photos[k], label: parts.join(" / ") };
+      });
+    var box = document.getElementById("pmodal-thumbs");
+    box.hidden = list.length === 0;
+    if (!list.length) { box.innerHTML = ""; return; }
+    list.unshift({ src: p.image, label: pick(p.name) });
+    box.innerHTML = list.map(function (t, i) {
+      return '<button type="button" class="pthumb' + (i === 0 ? " is-active" : "") + '" data-src="' + escapeHtml(t.src) + '" title="' + escapeHtml(t.label) + '">' +
+        '<img src="' + escapeHtml(t.src) + '" alt="' + escapeHtml(t.label) + '" loading="lazy" />' +
+        (i ? "<span>" + escapeHtml(t.label) + "</span>" : "") + "</button>";
+    }).join("");
+  }
+
+  document.getElementById("pmodal-thumbs").addEventListener("click", function (e) {
+    var b = e.target.closest(".pthumb");
+    if (!b) return;
+    document.getElementById("pmodal-img").src = b.dataset.src;
+    this.querySelectorAll(".pthumb").forEach(function (x) { x.classList.toggle("is-active", x === b); });
+  });
 
   function closeModal() {
     openProduct = null;

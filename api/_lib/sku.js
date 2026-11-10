@@ -56,3 +56,11 @@ export function skuFor(product, optionIds) {
   const n = product.variantSkus && product.variantSkus[comboKey((optionIds || []).filter((id) => current.has(id)))];
   return n ? product.sku + "-" + n : String(product.sku);
 }
+
+// Photo of a configuration: the variant's own photo, or the product's main photo.
+export function variantImage(product, optionIds) {
+  if (!product) return null;
+  const current = new Set((product.attributes || []).flatMap((a) => a.options.map((o) => o.id)));
+  const key = comboKey((optionIds || []).filter((id) => current.has(id)));
+  return (product.variantImages && product.variantImages[key]) || product.image;
+}

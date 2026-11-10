@@ -1,6 +1,13 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "form.variantPhotos": "Fotos por variação",
+    "form.variantPhotosHint": "Clique numa variação para escolher a foto dela (salva na hora). Sem foto própria, usa a foto principal.",
+    "form.variantPhotosSaveFirst": "Salve o produto para que as variações recebam código; depois adicione aqui a foto de cada uma.",
+    "form.variantPhotoPick": "Escolher foto desta variação",
+    "form.variantPhotoRemove": "Remover foto da variação",
+    "status.variantPhotoSaved": "Foto da variação {code} salva.",
+    "status.variantPhotoRemoved": "Foto da variação {code} removida; ela volta a usar a foto principal.",
     "form.costDefault": "Preço padrão",
     "form.variantCosts": "Preço por variação",
     "form.variantCostsHint": "Deixe em branco para usar o preço padrão.",
@@ -207,6 +214,13 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "form.variantPhotos": "Photos per variant",
+    "form.variantPhotosHint": "Click a variant to choose its photo (saved right away). Without its own photo, it uses the main photo.",
+    "form.variantPhotosSaveFirst": "Save the product so its variants get codes; then add each variant's photo here.",
+    "form.variantPhotoPick": "Choose this variant's photo",
+    "form.variantPhotoRemove": "Remove variant photo",
+    "status.variantPhotoSaved": "Photo of variant {code} saved.",
+    "status.variantPhotoRemoved": "Photo of variant {code} removed; it uses the main photo again.",
     "form.costDefault": "Default price",
     "form.variantCosts": "Price per variant",
     "form.variantCostsHint": "Leave blank to use the default price.",
@@ -413,6 +427,13 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "form.variantPhotos": "Fotos por variación",
+    "form.variantPhotosHint": "Haga clic en una variación para elegir su foto (se guarda al instante). Sin foto propia, usa la foto principal.",
+    "form.variantPhotosSaveFirst": "Guarde el producto para que las variaciones reciban código; luego agregue aquí la foto de cada una.",
+    "form.variantPhotoPick": "Elegir la foto de esta variación",
+    "form.variantPhotoRemove": "Quitar la foto de la variación",
+    "status.variantPhotoSaved": "Foto de la variación {code} guardada.",
+    "status.variantPhotoRemoved": "Foto de la variación {code} eliminada; vuelve a usar la foto principal.",
     "form.costDefault": "Precio predeterminado",
     "form.variantCosts": "Precio por variación",
     "form.variantCostsHint": "Deje en blanco para usar el precio predeterminado.",
@@ -619,6 +640,13 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "form.variantPhotos": "规格图片",
+    "form.variantPhotosHint": "点击某个规格选择其图片（立即保存）。没有单独图片时使用主图。",
+    "form.variantPhotosSaveFirst": "请先保存产品以生成规格编码，然后在此为每个规格添加图片。",
+    "form.variantPhotoPick": "选择该规格的图片",
+    "form.variantPhotoRemove": "删除规格图片",
+    "status.variantPhotoSaved": "规格 {code} 的图片已保存。",
+    "status.variantPhotoRemoved": "规格 {code} 的图片已删除，将使用主图。",
     "form.costDefault": "默认价格",
     "form.variantCosts": "按规格定价",
     "form.variantCostsHint": "留空则使用默认价格。",

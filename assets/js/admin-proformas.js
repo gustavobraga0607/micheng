@@ -53,6 +53,16 @@
     return n ? p.sku + "-" + n : String(p.sku);
   }
 
+  // Photo of the row's configuration: the variant photo when it has one.
+  function rowImage(row, product) {
+    if (!product) return row.snapshot && row.snapshot.image;
+    var current = {};
+    (product.attributes || []).forEach(function (a) { a.options.forEach(function (o) { current[o.id] = true; }); });
+    var key = Object.keys(row.options).map(function (k) { return row.options[k]; })
+      .filter(function (id) { return id && current[id]; }).sort().join(",");
+    return (product.variantImages && product.variantImages[key]) || product.image;
+  }
+
   function setStatus(msg, kind) {
     var el = $("#pf-status");
     el.textContent = msg || "";
@@ -280,7 +290,7 @@
     var dis = closed ? " disabled" : "";
     $("#pf-items").innerHTML = rows.map(function (row, i) {
       var product = productById(row.productId);
-      var image = product ? product.image : row.snapshot && row.snapshot.image;
+      var image = rowImage(row, product);
       if (closed || !row.editing) return compactRow(row, i, product, image, closed, dups);
       var productOpts = '<option value="">' + esc(T("pf.selectProduct")) + "</option>" + products.map(function (p) {
         return '<option value="' + esc(p.id) + '"' + (p.id === row.productId ? " selected" : "") + ">" + esc((p.sku ? p.sku + " · " : "") + pname(p)) + "</option>";

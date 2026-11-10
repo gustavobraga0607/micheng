@@ -511,10 +511,63 @@
     var list = variantCodes(p);
     if (!list.length) return "";
     var shown = list.slice(0, 12).map(function (v) {
-      return '<span><b>' + escapeHtml(v.code) + "</b> " + escapeHtml(v.label) + "</span>";
+      var img = p.variantImages && p.variantImages[v.key];
+      return "<span>" + (img ? '<img src="' + escapeHtml(img) + '" alt="" loading="lazy" />' : "") + "<b>" + escapeHtml(v.code) + "</b> " + escapeHtml(v.label) + "</span>";
     }).join("");
     return '<div class="pitem__skus">' + shown + (list.length > 12 ? "<span>+" + (list.length - 12) + "</span>" : "") + "</div>";
   }
+
+  /* ---------- Photos per variant ---------- */
+  // Shown for a saved product with variants; each photo is uploaded right away.
+  function renderVariantPhotos() {
+    var box = $("#vphotos");
+    var p = form.elements.id.value && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
+    var list = p ? variantCodes(p) : [];
+    box.hidden = !list.length && !attrState.length;
+    if (box.hidden) return;
+    $("#vphotos-hint").textContent = T(list.length ? "form.variantPhotosHint" : "form.variantPhotosSaveFirst");
+    $("#vphotos-grid").innerHTML = list.map(function (v) {
+      var own = p.variantImages && p.variantImages[v.key];
+      return '<div class="vphoto' + (own ? " has-own" : "") + '">' +
+        '<label class="vphoto__img" title="' + escapeHtml(T("form.variantPhotoPick")) + '">' +
+          '<img src="' + escapeHtml(own || p.image) + '" alt="" loading="lazy" />' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp" data-vphoto="' + escapeHtml(v.key) + '" data-code="' + escapeHtml(v.code) + '" />' +
+        "</label>" +
+        '<div class="vphoto__meta"><b>' + escapeHtml(v.code) + "</b><span>" + escapeHtml(v.label) + "</span></div>" +
+        (own ? '<button type="button" class="vphoto__remove" data-vremove="' + escapeHtml(v.key) + '" data-code="' + escapeHtml(v.code) + '" aria-label="' + escapeHtml(T("form.variantPhotoRemove")) + '" title="' + escapeHtml(T("form.variantPhotoRemove")) + '">×</button>' : "") +
+        "</div>";
+    }).join("");
+  }
+
+  function sendVariantPhoto(body, code, done) {
+    var id = form.elements.id.value;
+    setStatus(T("status.saving"));
+    api("/api/products?id=" + encodeURIComponent(id) + "&action=variantImage", { method: "POST", body: body })
+      .then(function (data) {
+        products = products.map(function (x) { return x.id === id ? data.product : x; });
+        renderVariantPhotos();
+        renderList();
+        setStatus(T(done, { code: code }), "ok");
+      })
+      .catch(function (e) { setStatus(e.message, "error"); renderVariantPhotos(); });
+  }
+
+  $("#vphotos-grid").addEventListener("change", function (e) {
+    var key = e.target.getAttribute("data-vphoto");
+    var file = e.target.files && e.target.files[0];
+    if (!key || !file) return;
+    var code = e.target.getAttribute("data-code");
+    e.target.closest(".vphoto").classList.add("is-busy");
+    resizeImage(file).then(function (dataUrl) {
+      sendVariantPhoto({ key: key, image: dataUrl }, code, "status.variantPhotoSaved");
+    }, function (err) { setStatus(err.message, "error"); renderVariantPhotos(); });
+  });
+
+  $("#vphotos-grid").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-vremove]");
+    if (!btn) return;
+    sendVariantPhoto({ key: btn.getAttribute("data-vremove"), remove: true }, btn.getAttribute("data-code"), "status.variantPhotoRemoved");
+  });
 
   /* ---------- Characteristics in the product form ---------- */
   function attributeLine(attrs) {
@@ -527,6 +580,7 @@
 
   // Re-renders the editor; `focus` = { attr: index, field: "name" | "option" } to keep typing there.
   function renderAttrs(focus) {
+    renderVariantPhotos();
     $("#attr-list").innerHTML = attrState.map(function (a, i) {
       var chips = a.options.map(function (o, j) {
         return '<span class="tag">' + escapeHtml(o.label) +

@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
 import { getProducts, getPrivate, savePrivate } from "./_lib/store.js";
-import { skuFor } from "./_lib/sku.js";
+import { skuFor, variantImage } from "./_lib/sku.js";
 
 const CURRENCIES = ["CNY", "USD", "EUR", "BRL"];
 const DOC_LANGS = ["en", "pt", "es"];
@@ -44,12 +44,13 @@ function buildItems(rawItems, products, priv, previous) {
     let snapshot;
     let options = [];
     if (product) {
-      snapshot = { name: product.name, image: product.image, category: product.category };
       const chosen = raw.options || {};
       for (const attr of product.attributes || []) {
         const opt = attr.options.find((o) => o.id === chosen[attr.id]);
         if (opt) options.push({ attrId: attr.id, optionId: opt.id, attrName: attr.name, optionLabel: opt.label });
       }
+      // The photo of the chosen configuration, when it has its own.
+      snapshot = { name: product.name, image: variantImage(product, options.map((o) => o.optionId)), category: product.category };
     } else if (prev && prev.productId === raw.productId) {
       // Product was deleted after this item was added: keep the saved copy.
       snapshot = prev.product;
