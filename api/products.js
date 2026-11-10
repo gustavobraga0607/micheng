@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveImage, copyImage, deleteImage, getPrivate, savePrivate, productLinks } from "./_lib/store.js";
+import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, productLinks, withDataLock, oneChangeAtATime } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
@@ -294,28 +294,32 @@ function prepareSkus(products, priv) {
 }
 
 // Public product list: cached by Vercel's CDN, so site visits do not read the
-// Blob store each time (changes show up on the site within a few minutes).
+// database each time (changes show up on the site within about a minute).
 function sendPublic(res, products) {
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=86400");
   res.end(JSON.stringify({ products }));
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const products = await getProducts();
       // The admin panel asks with ?admin=1 (never cached); everyone else gets the cached public list.
       if (queryParam(req, "admin") !== "1") return sendPublic(res, products);
       if (!getSession(req)) return fail(res, 401, "Login required");
-      const priv = await getPrivate();
+      let priv = await getPrivate();
+      let list = products;
       // Products saved before SKUs existed get theirs on the first admin load.
       if (assignSkus(products, priv)) {
-        await saveProducts(products);
-        await savePrivate(priv);
+        [list, priv] = await withDataLock(async () => {
+          const fresh = await getProducts(), freshPriv = await getPrivate();
+          if (assignSkus(fresh, freshPriv)) await saveProductsAndPrivate(fresh, freshPriv);
+          return [fresh, freshPriv];
+        });
       }
-      return send(res, 200, { products: products.map((p) => adminView(priv, p)) });
+      return send(res, 200, { products: list.map((p) => adminView(priv, p)) });
     }
 
     if (!getSession(req)) return fail(res, 401, "Login required");
@@ -365,8 +369,7 @@ export default async function handler(req, res) {
       const stale = prepareSkus(products, priv);
       const links = applySupplierLinks(priv, product.id, body, product);
       const refs = applyClientRefs(priv, product, body);
-      await saveProducts(products);
-      await savePrivate(priv);
+      await saveProductsAndPrivate(products, priv);
       for (const url of stale) await deleteImage(url);
       return send(res, 201, { product: withLinks(product, links, refs) });
     }
@@ -394,8 +397,7 @@ export default async function handler(req, res) {
       const stale = prepareSkus(products, priv);
       const links = applySupplierLinks(priv, product.id, body, product);
       const refs = applyClientRefs(priv, product, body);
-      await saveProducts(products);
-      await savePrivate(priv);
+      await saveProductsAndPrivate(products, priv);
       for (const url of stale) await deleteImage(url);
       return send(res, 200, { product: withLinks(product, links, refs) });
     }
@@ -405,8 +407,7 @@ export default async function handler(req, res) {
       const priv = await getPrivate();
       applySupplierLinks(priv, removed.id, { supplierLinks: [] });
       applyClientRefs(priv, removed, { clientRefs: {} });
-      await saveProducts(products);
-      await savePrivate(priv);
+      await saveProductsAndPrivate(products, priv);
       await deleteImage(removed.image);
       for (const url of Object.values(removed.variantImages || {})) await deleteImage(url);
       return send(res, 200, { ok: true });
@@ -419,3 +420,5 @@ export default async function handler(req, res) {
     fail(res, clientError ? 400 : 500, clientError ? e.message : "Server error");
   }
 }
+
+export default oneChangeAtATime(handler);

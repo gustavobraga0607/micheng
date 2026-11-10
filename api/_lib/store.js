@@ -1,16 +1,123 @@
-// Storage for products, photos and the admin-only data (suppliers).
-// In production this uses Vercel Blob (BLOB_READ_WRITE_TOKEN is set when a Blob
-// store is connected to the project). Locally it falls back to the .data folder.
+// Storage for products, photos and the admin-only data (suppliers, clients...).
+// - Data (products and the encrypted admin data) lives in Upstash Redis when a
+//   Redis database is connected to the project (KV_REST_API_URL/TOKEN or
+//   UPSTASH_REDIS_REST_URL/TOKEN). Earlier versions kept it in Vercel Blob: it is
+//   copied to Redis the first time it is read.
+// - Photos live in Vercel Blob (BLOB_READ_WRITE_TOKEN).
+// Without these variables everything falls back to the local .data folder.
 import { put, list, del } from "@vercel/blob";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getSession } from "./auth.js";
 
 const PRODUCTS_PREFIX = "data/products";
 const PRIVATE_PREFIX = "private/admin-data";
 const LOCAL_DIR = path.join(process.cwd(), ".data");
 
 const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+/* ---------- Upstash Redis (REST API, no extra dependency) ---------- */
+
+const REDIS_PRODUCTS = "micheng:products";
+const REDIS_PRIVATE = "micheng:private";
+const REDIS_LOCK = "micheng:lock";
+
+function envEnding(suffix) {
+  const name = Object.keys(process.env).find((k) => k.endsWith(suffix) && process.env[k]);
+  return name ? process.env[name] : "";
+}
+
+function redisConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || envEnding("KV_REST_API_URL");
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || envEnding("KV_REST_API_TOKEN");
+  return url && token ? { url: url.replace(/\/$/, ""), token } : null;
+}
+
+const useRedis = () => Boolean(redisConfig());
+
+async function redisCall(pathname, body) {
+  const { url, token } = redisConfig();
+  const r = await fetch(url + pathname, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const out = await r.json().catch(() => ({ error: "HTTP " + r.status }));
+  if (!r.ok || out.error) throw new Error("Redis error: " + (out.error || r.status));
+  return out;
+}
+
+// One command, e.g. redis(["GET", key]).
+async function redis(command) {
+  return (await redisCall("/", command)).result;
+}
+
+// Several commands applied together (all or nothing).
+async function redisTransaction(commands) {
+  const out = await redisCall("/multi-exec", commands);
+  for (const item of out) if (item.error) throw new Error("Redis error: " + item.error);
+  return out.map((item) => item.result);
+}
+
+// Reads a key; on the first read after the move to Redis, copies the data that
+// earlier versions kept in Vercel Blob (SET NX: never overwrites newer data).
+async function redisRead(key, fromBlob) {
+  const value = await redis(["GET", key]);
+  if (value != null) return value;
+  if (!useBlob()) return null;
+  const old = await fromBlob();
+  if (old == null) return null;
+  await redis(["SET", key, old, "NX"]);
+  return redis(["GET", key]);
+}
+
+/* ---------- One change at a time ----------
+   Every change reads the whole data, edits it and writes it back. If two admins
+   saved at the same moment, the later write would undo the earlier one, so
+   changes take turns: each waits for the previous one to finish. */
+
+const LOCK_TTL_MS = 70000; // longer than the slowest request (products: 60 s)
+const LOCK_WAIT_MS = 45000;
+
+export class BusyError extends Error {}
+
+export async function withDataLock(fn) {
+  if (!useRedis()) return fn();
+  const token = crypto.randomUUID();
+  const until = Date.now() + LOCK_WAIT_MS;
+  while ((await redis(["SET", REDIS_LOCK, token, "NX", "PX", String(LOCK_TTL_MS)])) !== "OK") {
+    if (Date.now() > until) throw new BusyError("Another change is still being saved. Please try again.");
+    await new Promise((r) => setTimeout(r, 250 + Math.random() * 250));
+  }
+  try {
+    return await fn();
+  } finally {
+    // Release only our own lock (it may have expired and been taken by someone else).
+    await redis(["EVAL", "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", "1", REDIS_LOCK, token])
+      .catch((e) => console.warn("Could not release the data lock", e.message));
+  }
+}
+
+// Wraps an API handler so that every request that may change data (anything but
+// GET) runs inside withDataLock and reads the data only once it has the turn.
+export function oneChangeAtATime(handler) {
+  return async (req, res) => {
+    // Reads, and requests without a login (refused by the handler), never wait.
+    if (req.method === "GET" || req.method === "HEAD" || !getSession(req)) return handler(req, res);
+    try {
+      return await withDataLock(() => handler(req, res));
+    } catch (e) {
+      if (!(e instanceof BusyError)) throw e;
+      res.statusCode = 503;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Retry-After", "5");
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  };
+}
 
 // Data files live at fixed paths and are overwritten in place. Reading one is a
 // plain URL fetch (a cheap "simple" Blob operation) instead of a list() call,
@@ -66,15 +173,30 @@ async function writeLocal(file, data) {
 
 /* ---------- Products (public) ---------- */
 
+const readBlobProducts = () => readData(PRODUCTS_PREFIX, ".json", "application/json");
+
 export async function getProducts() {
-  if (!useBlob()) return readLocal("products.json", []);
-  const text = await readData(PRODUCTS_PREFIX, ".json", "application/json");
+  let text;
+  if (useRedis()) text = await redisRead(REDIS_PRODUCTS, readBlobProducts);
+  else if (useBlob()) text = await readBlobProducts();
+  else return readLocal("products.json", []);
   return text ? JSON.parse(text) : [];
 }
 
 export async function saveProducts(products) {
+  if (useRedis()) return void (await redis(["SET", REDIS_PRODUCTS, JSON.stringify(products)]));
   if (!useBlob()) return writeLocal("products.json", products);
   await writeData(PRODUCTS_PREFIX, ".json", JSON.stringify(products), "application/json");
+}
+
+// Saves the product list and the admin data together (all or nothing).
+export async function saveProductsAndPrivate(products, priv) {
+  if (useRedis()) {
+    await redisTransaction([["SET", REDIS_PRODUCTS, JSON.stringify(products)], ["SET", REDIS_PRIVATE, encrypt(priv)]]);
+    return;
+  }
+  await saveProducts(products);
+  await savePrivate(priv);
 }
 
 /* ---------- Admin-only data: suppliers and product links ----------
@@ -132,13 +254,18 @@ function decrypt(text) {
   return JSON.parse(plain.toString("utf8"));
 }
 
+const readBlobPrivate = () => readData(privatePath(), ".enc", "application/octet-stream", PRIVATE_PREFIX);
+
 export async function getPrivate() {
-  if (!useBlob()) return { ...EMPTY_PRIVATE, ...(await readLocal("private.json", {})) };
-  const text = await readData(privatePath(), ".enc", "application/octet-stream", PRIVATE_PREFIX);
+  let text;
+  if (useRedis()) text = await redisRead(REDIS_PRIVATE, readBlobPrivate);
+  else if (useBlob()) text = await readBlobPrivate();
+  else return { ...EMPTY_PRIVATE, ...(await readLocal("private.json", {})) };
   return text ? { ...EMPTY_PRIVATE, ...decrypt(text) } : { ...EMPTY_PRIVATE };
 }
 
 export async function savePrivate(data) {
+  if (useRedis()) return void (await redis(["SET", REDIS_PRIVATE, encrypt(data)]));
   if (!useBlob()) return writeLocal("private.json", data);
   await writeData(privatePath(), ".enc", encrypt(data), "application/octet-stream");
 }

@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getPrivate, savePrivate } from "./_lib/store.js";
+import { getPrivate, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 
 const FIELDS = {
   name: 160,
@@ -20,7 +20,7 @@ function clean(body) {
   return out;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     if (!getSession(req)) return fail(res, 401, "Login required");
     if (req.method !== "GET" && req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
@@ -64,3 +64,5 @@ export default async function handler(req, res) {
     fail(res, /JSON/.test(e.message) ? 400 : 500, /JSON/.test(e.message) ? "Invalid JSON" : "Server error");
   }
 }
+
+export default oneChangeAtATime(handler);

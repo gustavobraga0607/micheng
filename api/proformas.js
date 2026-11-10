@@ -6,7 +6,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, getPrivate, savePrivate } from "./_lib/store.js";
+import { getProducts, getPrivate, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
@@ -146,7 +146,7 @@ function closeProblems(p) {
   return problems.concat(duplicateProblems(p.items));
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     const session = getSession(req);
     if (!session) return fail(res, 401, "Login required");
@@ -245,3 +245,5 @@ export default async function handler(req, res) {
     fail(res, /JSON/.test(e.message) ? 400 : 500, /JSON/.test(e.message) ? "Invalid JSON" : "Server error");
   }
 }
+
+export default oneChangeAtATime(handler);
