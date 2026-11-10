@@ -104,6 +104,20 @@ function nextNumber(priv, date) {
   return "PF-" + year + "-" + String(priv.proformaSeq[year]).padStart(3, "0");
 }
 
+// The same product with exactly the same options may appear only once
+// (otherwise the PDF would show two identical lines). Returns "duplicate:n:of".
+function duplicateProblems(items) {
+  const first = new Map();
+  const problems = [];
+  items.forEach((i, n) => {
+    if (i.options.length < i.attributeCount) return; // options still being chosen
+    const key = priceKey(i.productId, i.options);
+    if (first.has(key)) problems.push("duplicate:" + (n + 1) + ":" + (first.get(key) + 1));
+    else first.set(key, n);
+  });
+  return problems;
+}
+
 // Problems that stop a proforma from being closed (empty list = OK).
 function closeProblems(p) {
   const problems = [];
@@ -114,7 +128,7 @@ function closeProblems(p) {
     if (i.price == null) problems.push("price:" + (n + 1));
     if (i.options.length < i.attributeCount) problems.push("options:" + (n + 1));
   });
-  return problems;
+  return problems.concat(duplicateProblems(p.items));
 }
 
 export default async function handler(req, res) {
@@ -138,6 +152,8 @@ export default async function handler(req, res) {
       const now = new Date().toISOString();
       const proforma = { id: crypto.randomUUID(), status: "draft", createdAt: now, updatedAt: now, createdBy: session.u };
       await applyBody(proforma, body, priv, null);
+      const dups = duplicateProblems(proforma.items);
+      if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
       proforma.number = nextNumber(priv, proforma.date);
       priv.proformas.unshift(proforma);
       await savePrivate(priv);
@@ -153,6 +169,8 @@ export default async function handler(req, res) {
       const body = await readJson(req);
       const proforma = { ...current, updatedAt: new Date().toISOString() };
       await applyBody(proforma, body, priv, current);
+      const dups = duplicateProblems(proforma.items);
+      if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });

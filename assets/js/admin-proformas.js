@@ -188,8 +188,30 @@
     return html;
   }
 
+  // Rows repeating an earlier row (same product and same options): { rowIndex: firstRowIndex }.
+  function duplicateRows() {
+    var first = {}, dups = {};
+    rows.forEach(function (row, i) {
+      if (!row.productId) return;
+      var product = productById(row.productId);
+      var chosen = Object.keys(row.options).map(function (k) { return row.options[k]; }).filter(Boolean);
+      var needed = product ? (product.attributes || []).length : chosen.length;
+      if (chosen.length < needed) return; // options still being chosen
+      var key = priceKey(row.productId, chosen);
+      if (key in first) dups[i] = first[key];
+      else first[key] = i;
+    });
+    return dups;
+  }
+
+  function duplicateMessage(dups) {
+    var i = Object.keys(dups)[0];
+    return i == null ? "" : T("pf.problem.duplicate", { n: Number(i) + 1, of: dups[i] + 1 });
+  }
+
   function renderItems() {
     var closed = isClosed();
+    var dups = duplicateRows();
     var products = A.products();
     var dis = closed ? " disabled" : "";
     $("#pf-items").innerHTML = rows.map(function (row, i) {
@@ -211,7 +233,7 @@
           }).join("") + "</select></label>";
       }).join("");
       var memo = row.productId ? rememberedPrice(row) : null;
-      return '<div class="pf-item" data-row="' + i + '">' +
+      return '<div class="pf-item' + (i in dups ? " is-dup" : "") + '" data-row="' + i + '">' +
         '<div class="pf-item__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
         '<div class="pf-item__main">' +
           '<div class="pf-item__line">' +
@@ -228,6 +250,7 @@
             '<div class="pf-calc internal"><span>' + esc(T("pf.lineProfit")) + '</span><b data-out="profit"></b></div>' +
           "</div>" +
           (memo ? '<p class="pf-memo">' + esc(T("pf.lastPrice", { price: A.money(memo.price, memo.currency), number: memo.number })) + "</p>" : "") +
+          (i in dups ? '<p class="pf-dup" role="alert">' + esc(T("pf.problem.duplicate", { n: i + 1, of: dups[i] + 1 })) + "</p>" : "") +
         "</div>" +
         (closed ? "" : '<button type="button" class="pf-item__remove" data-remove="' + i + '" aria-label="' + esc(T("pf.removeItem")) + '" title="' + esc(T("pf.removeItem")) + '">×</button>') +
         "</div>";
@@ -365,6 +388,8 @@
 
   function save() {
     if (isClosed()) return Promise.resolve(editing);
+    var dupMsg = duplicateMessage(duplicateRows());
+    if (dupMsg) return Promise.reject(new Error(dupMsg));
     return A.api(editing ? "/api/proformas?id=" + encodeURIComponent(editing.id) : "/api/proformas",
       { method: editing ? "PUT" : "POST", body: body() }).then(function (data) {
       accept(data.proforma);
@@ -383,7 +408,7 @@
 
   function problemText(code) {
     var parts = code.split(":");
-    return T("pf.problem." + parts[0], { n: parts[1] });
+    return T("pf.problem." + parts[0], { n: parts[1], of: parts[2] });
   }
 
   $("#pf-close").addEventListener("click", function () {
