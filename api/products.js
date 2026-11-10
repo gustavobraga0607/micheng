@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, productLinks, withDataLock, oneChangeAtATime } from "./_lib/store.js";
+import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, productLinks, withDataLock, BusyError } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
@@ -302,7 +302,12 @@ function sendPublic(res, products) {
   res.end(JSON.stringify({ products }));
 }
 
+// Changes are made in two steps: the slow work (machine translation, photo
+// upload) first, without holding up anyone else; then, taking turns with the
+// other admins (withDataLock), the latest data is read, the change is applied
+// and saved in a moment.
 async function handler(req, res) {
+  const uploaded = []; // photos sent in this request: removed again if it fails
   try {
     if (req.method === "GET") {
       const products = await getProducts();
@@ -324,29 +329,38 @@ async function handler(req, res) {
 
     if (!getSession(req)) return fail(res, 401, "Login required");
     if (req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
-
-    const products = await getProducts();
     const id = queryParam(req, "id");
 
     // Photo of one variant (option combination), sent on its own so requests stay small.
     if (req.method === "POST" && queryParam(req, "action") === "variantImage") {
-      const index = products.findIndex((p) => p.id === id);
-      if (index < 0) return fail(res, 404, "Product not found");
-      const product = products[index];
       const body = await readJson(req);
       const key = String(body.key || "");
-      if (!(product.variantSkus && key in product.variantSkus)) return fail(res, 400, "Unknown variant");
-      product.variantImages = product.variantImages || {};
-      const old = product.variantImages[key];
-      if (body.remove) delete product.variantImages[key];
-      else {
+      let url = null;
+      if (!body.remove) {
         const image = decodeImage(body.image);
-        product.variantImages[key] = await saveImage(product.id + "-v" + product.variantSkus[key], image.buffer, image.contentType);
+        const current = (await getProducts()).find((p) => p.id === id);
+        if (!current) return fail(res, 404, "Product not found");
+        if (!(current.variantSkus && key in current.variantSkus)) return fail(res, 400, "Unknown variant");
+        url = await saveImage(current.id + "-v" + current.variantSkus[key], image.buffer, image.contentType);
+        uploaded.push(url);
       }
-      product.updatedAt = new Date().toISOString();
-      await saveProducts(products);
-      if (old && old !== product.variantImages[key]) await deleteImage(old);
-      return send(res, 200, { product: adminView(await getPrivate(), product) });
+      const result = await withDataLock(async () => {
+        const products = await getProducts();
+        const product = products.find((p) => p.id === id);
+        if (!product) return { status: 404, error: "Product not found" };
+        if (!(product.variantSkus && key in product.variantSkus)) return { status: 400, error: "Unknown variant" };
+        product.variantImages = product.variantImages || {};
+        const old = product.variantImages[key];
+        if (url) product.variantImages[key] = url;
+        else delete product.variantImages[key];
+        product.updatedAt = new Date().toISOString();
+        await saveProducts(products);
+        return { product, old, priv: await getPrivate() };
+      });
+      if (result.error) { await cleanup(uploaded); return fail(res, result.status, result.error); }
+      uploaded.length = 0;
+      if (result.old && result.old !== url) await deleteImage(result.old);
+      return send(res, 200, { product: adminView(result.priv, result.product) });
     }
 
     if (req.method === "POST") {
@@ -354,7 +368,7 @@ async function handler(req, res) {
       if (!cleanText(body.name, MAX_NAME)) return fail(res, 400, "Name is required");
       if (!CATEGORIES.includes(body.category)) return fail(res, 400, "Category is required");
       // A duplicated product may reuse the original's photo (copied to a new file).
-      const copyFrom = !body.image && body.copyImageFrom ? products.find((p) => p.id === body.copyImageFrom) : null;
+      const copyFrom = !body.image && body.copyImageFrom ? (await getProducts()).find((p) => p.id === body.copyImageFrom) : null;
       if (!body.image && !copyFrom) return fail(res, 400, "Photo is required");
       const image = body.image ? decodeImage(body.image) : null;
       const now = new Date().toISOString();
@@ -364,61 +378,103 @@ async function handler(req, res) {
       product.image = image
         ? await saveImage(product.id, image.buffer, image.contentType)
         : await copyImage(copyFrom.image, product.id);
-      products.unshift(product);
-      const priv = await getPrivate();
-      const stale = prepareSkus(products, priv);
-      const links = applySupplierLinks(priv, product.id, body, product);
-      const refs = applyClientRefs(priv, product, body);
-      await saveProductsAndPrivate(products, priv);
-      for (const url of stale) await deleteImage(url);
+      uploaded.push(product.image);
+      const { links, refs, stale } = await withDataLock(async () => {
+        const products = await getProducts();
+        products.unshift(product);
+        const priv = await getPrivate();
+        const stale = prepareSkus(products, priv);
+        const links = applySupplierLinks(priv, product.id, body, product);
+        const refs = applyClientRefs(priv, product, body);
+        await saveProductsAndPrivate(products, priv);
+        return { links, refs, stale };
+      });
+      uploaded.length = 0;
+      await cleanup(stale);
       return send(res, 201, { product: withLinks(product, links, refs) });
     }
-
-    const index = products.findIndex((p) => p.id === id);
-    if (index < 0) return fail(res, 404, "Product not found");
 
     if (req.method === "PUT") {
       const body = await readJson(req);
       if (!cleanText(body.name, MAX_NAME)) return fail(res, 400, "Name is required");
       if (!CATEGORIES.includes(body.category)) return fail(res, 400, "Category is required");
-      const existing = products[index];
+      const existing = (await getProducts()).find((p) => p.id === id);
+      if (!existing) return fail(res, 404, "Product not found");
       const product = JSON.parse(JSON.stringify(existing));
       product.category = body.category;
       await applyTexts(product, body, existing);
       product.translationOk = (await applyAttributes(product, body, existing)) && product.translationOk;
+      let newImage = null;
       if (body.image) {
         const image = decodeImage(body.image);
-        product.image = await saveImage(product.id, image.buffer, image.contentType);
-        await deleteImage(existing.image);
+        newImage = await saveImage(product.id, image.buffer, image.contentType);
+        uploaded.push(newImage);
       }
-      product.updatedAt = new Date().toISOString();
-      products[index] = product;
-      const priv = await getPrivate();
-      const stale = prepareSkus(products, priv);
-      const links = applySupplierLinks(priv, product.id, body, product);
-      const refs = applyClientRefs(priv, product, body);
-      await saveProductsAndPrivate(products, priv);
-      for (const url of stale) await deleteImage(url);
-      return send(res, 200, { product: withLinks(product, links, refs) });
+      const result = await withDataLock(async () => {
+        const products = await getProducts();
+        const index = products.findIndex((p) => p.id === id);
+        if (index < 0) return null;
+        // Keep what may have changed meanwhile and is not part of this form
+        // (codes, variant photos, the main photo when no new one was sent).
+        const fresh = products[index];
+        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "image", "createdAt"]) {
+          if (fresh[k] === undefined) delete product[k];
+          else product[k] = fresh[k];
+        }
+        const oldImage = fresh.image;
+        if (newImage) product.image = newImage;
+        product.updatedAt = new Date().toISOString();
+        products[index] = product;
+        const priv = await getPrivate();
+        const stale = prepareSkus(products, priv);
+        const links = applySupplierLinks(priv, product.id, body, product);
+        const refs = applyClientRefs(priv, product, body);
+        await saveProductsAndPrivate(products, priv);
+        return { links, refs, stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale };
+      });
+      if (!result) { await cleanup(uploaded); return fail(res, 404, "Product not found"); }
+      uploaded.length = 0;
+      await cleanup(result.stale);
+      return send(res, 200, { product: withLinks(product, result.links, result.refs) });
     }
 
     if (req.method === "DELETE") {
-      const [removed] = products.splice(index, 1);
-      const priv = await getPrivate();
-      applySupplierLinks(priv, removed.id, { supplierLinks: [] });
-      applyClientRefs(priv, removed, { clientRefs: {} });
-      await saveProductsAndPrivate(products, priv);
-      await deleteImage(removed.image);
-      for (const url of Object.values(removed.variantImages || {})) await deleteImage(url);
+      const removed = await withDataLock(async () => {
+        const products = await getProducts();
+        const index = products.findIndex((p) => p.id === id);
+        if (index < 0) return null;
+        const [gone] = products.splice(index, 1);
+        const priv = await getPrivate();
+        applySupplierLinks(priv, gone.id, { supplierLinks: [] });
+        applyClientRefs(priv, gone, { clientRefs: {} });
+        forgetPrices(priv, gone.id);
+        await saveProductsAndPrivate(products, priv);
+        return gone;
+      });
+      if (!removed) return fail(res, 404, "Product not found");
+      await cleanup([removed.image].concat(Object.values(removed.variantImages || {})));
       return send(res, 200, { ok: true });
     }
 
     fail(res, 405, "Method not allowed");
   } catch (e) {
+    await cleanup(uploaded);
+    if (e instanceof BusyError) return fail(res, 503, e.message);
     console.error(e);
     const clientError = /image|Unsupported|JSON/i.test(e.message);
     fail(res, clientError ? 400 : 500, clientError ? e.message : "Server error");
   }
 }
 
-export default oneChangeAtATime(handler);
+async function cleanup(urls) {
+  for (const url of urls) if (url) await deleteImage(url);
+}
+
+// Remembered sale prices of a deleted product are no longer needed.
+function forgetPrices(priv, productId) {
+  for (const prices of Object.values(priv.clientPrices || {})) {
+    for (const key of Object.keys(prices)) if (key === productId || key.startsWith(productId + "|")) delete prices[key];
+  }
+}
+
+export default handler;

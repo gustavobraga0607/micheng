@@ -78,8 +78,8 @@ async function redisRead(key, fromBlob) {
    saved at the same moment, the later write would undo the earlier one, so
    changes take turns: each waits for the previous one to finish. */
 
-const LOCK_TTL_MS = 70000; // longer than the slowest request (products: 60 s)
-const LOCK_WAIT_MS = 45000;
+const LOCK_TTL_MS = 30000; // a change holds the turn for a moment (slow work happens before)
+const LOCK_WAIT_MS = 20000;
 
 export class BusyError extends Error {}
 
@@ -316,4 +316,38 @@ export async function deleteImage(url) {
   } catch (e) {
     console.warn("Could not delete image", url, e.message);
   }
+}
+
+/* ---------- Failed login attempts (slows down password guessing) ---------- */
+
+const memoryAttempts = new Map(); // without Redis (local development)
+const ATTEMPT_WINDOW_S = 15 * 60;
+
+function attemptKey(id) {
+  return "micheng:login-fail:" + crypto.createHash("sha256").update(String(id)).digest("hex").slice(0, 32);
+}
+
+export async function failedLogins(id) {
+  if (!useRedis()) {
+    const e = memoryAttempts.get(id);
+    return e && e.until > Date.now() ? e.count : 0;
+  }
+  return Number(await redis(["GET", attemptKey(id)])) || 0;
+}
+
+export async function recordFailedLogin(id) {
+  if (!useRedis()) {
+    const e = memoryAttempts.get(id);
+    const live = e && e.until > Date.now() ? e : { count: 0, until: Date.now() + ATTEMPT_WINDOW_S * 1000 };
+    live.count += 1;
+    memoryAttempts.set(id, live);
+    return;
+  }
+  const key = attemptKey(id);
+  await redisTransaction([["SET", key, "0", "EX", String(ATTEMPT_WINDOW_S), "NX"], ["INCR", key]]);
+}
+
+export async function clearFailedLogins(id) {
+  if (!useRedis()) return void memoryAttempts.delete(id);
+  await redis(["DEL", attemptKey(id)]);
 }

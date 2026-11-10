@@ -41,7 +41,8 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 | `ADMIN_USERS` | Administradores adicionais, em JSON: `{"usuario": "scrypt:<sal>:<hash>"}`. Para gerar o hash de uma senha: `node -e "import('./api/_lib/auth.js').then(a=>console.log(a.hashPassword('SENHA')))"`. |
 | `SESSION_SECRET` | Chave que assina a sessão de login (texto aleatório longo). |
 | `PRIVATE_DATA_KEY` | Chave que criptografa os dados de fornecedores. **Não altere nem apague**: sem ela, os fornecedores salvos não podem mais ser lidos. |
-| `BLOB_READ_WRITE_TOKEN` | Criada automaticamente ao ligar o Vercel Blob (onde ficam produtos e fotos). |
+| `BLOB_READ_WRITE_TOKEN` | Criada automaticamente ao ligar o Vercel Blob (onde ficam as fotos). |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Criadas automaticamente ao ligar o banco Upstash Redis (onde ficam produtos, fornecedores, clientes, proformas e parâmetros). |
 | `DEEPL_API_KEY` | Opcional: usa o DeepL para traduzir (melhor qualidade, 500 mil caracteres/mês grátis). |
 | `MYMEMORY_EMAIL` | Opcional: sem DeepL, a tradução usa o MyMemory gratuito (cerca de 5 mil caracteres/dia); um e-mail aqui aumenta o limite para 50 mil/dia. |
 
@@ -60,6 +61,6 @@ Se a tradução automática falhar (limite diário, por exemplo), o produto é s
 
 ## Publicação
 
-Publicado na Vercel (`vercel deploy --prod`). A área restrita depende das funções em `api/` e do Vercel Blob, por isso o site precisa ficar na Vercel.
+Publicado na Vercel (`vercel deploy --prod`). A área restrita depende das funções em `api/` do Upstash Redis e do Vercel Blob, por isso o site precisa ficar na Vercel.
 
 Fotos: [Unsplash](https://unsplash.com) (licença Unsplash).

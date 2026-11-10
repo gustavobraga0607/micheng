@@ -122,6 +122,8 @@
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
         if (r.status === 401 && path !== "/api/login") showLogin();
+        if (r.status === 503 && path !== "/api/login") throw new Error(T("status.busy"));
+        if (r.status === 429) throw new Error(T("login.tooMany"));
         if (!r.ok) throw new Error(data.error || "Erro " + r.status);
         return data;
       });
@@ -1092,6 +1094,11 @@
     api("/api/clients?id=" + encodeURIComponent(id), { method: "DELETE" })
       .then(function () {
         clients = clients.filter(function (x) { return x.id !== id; });
+        // Their references were removed from the products too.
+        products.forEach(function (p) { if (p.clientRefs) delete p.clientRefs[id]; });
+        delete refState[id];
+        renderClientRefs();
+        renderList();
         if (cliForm.elements.id.value === id) resetClientForm();
         renderClients();
         setClientStatus(T("cli.deleted"), "ok");

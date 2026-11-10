@@ -635,10 +635,11 @@
     save().then(function (p) {
       return fetch("/api/proformas?id=" + encodeURIComponent(p.id) + "&action=close", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: "{}", credentials: "same-origin"
-      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+      }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); });
     }).then(function (r) {
       if (!r.ok) {
         var list = (r.data.problems || []).map(problemText);
+        if (r.status === 503) list = [T("status.busy")];
         setStatus(list.length ? list.join(" ") : r.data.error, "error");
         return;
       }

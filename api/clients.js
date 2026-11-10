@@ -54,6 +54,7 @@ async function handler(req, res) {
     if (req.method === "DELETE") {
       priv.clients.splice(index, 1);
       for (const byClient of Object.values(priv.clientRefs || {})) delete byClient[id]; // their references go too
+      delete priv.clientPrices[id]; // and the sale prices remembered for them
       await savePrivate(priv);
       return send(res, 200, { ok: true });
     }

@@ -189,6 +189,7 @@ window.ADMIN_I18N = {
     "login.submit": "Entrar",
     "login.back": "← Voltar ao site",
     "login.invalid": "Usuário ou senha incorretos.",
+    "login.tooMany": "Muitas tentativas erradas. Aguarde 15 minutos e tente de novo.",
     "top.panel": "Painel administrativo",
     "top.site": "Ver site",
     "top.logout": "Sair",
@@ -222,6 +223,7 @@ window.ADMIN_I18N = {
     "status.imageType": "Use uma imagem JPG, PNG ou WEBP.",
     "status.imageRead": "Não foi possível ler a imagem.",
     "status.error": "Erro ao salvar. Tente novamente.",
+    "status.busy": "Outro administrador está salvando neste momento. Tente de novo em alguns segundos.",
     "lang.unknown": "não identificado"
   },
   en: {
@@ -413,6 +415,7 @@ window.ADMIN_I18N = {
     "login.submit": "Sign in",
     "login.back": "← Back to website",
     "login.invalid": "Incorrect username or password.",
+    "login.tooMany": "Too many failed attempts. Wait 15 minutes and try again.",
     "top.panel": "Admin panel",
     "top.site": "View website",
     "top.logout": "Sign out",
@@ -446,6 +449,7 @@ window.ADMIN_I18N = {
     "status.imageType": "Use a JPG, PNG or WEBP image.",
     "status.imageRead": "The image could not be read.",
     "status.error": "Could not save. Please try again.",
+    "status.busy": "Another administrator is saving right now. Try again in a few seconds.",
     "lang.unknown": "not identified"
   },
   es: {
@@ -637,6 +641,7 @@ window.ADMIN_I18N = {
     "login.submit": "Entrar",
     "login.back": "← Volver al sitio",
     "login.invalid": "Usuario o contraseña incorrectos.",
+    "login.tooMany": "Demasiados intentos fallidos. Espere 15 minutos e inténtelo de nuevo.",
     "top.panel": "Panel de administración",
     "top.site": "Ver sitio",
     "top.logout": "Salir",
@@ -670,6 +675,7 @@ window.ADMIN_I18N = {
     "status.imageType": "Use una imagen JPG, PNG o WEBP.",
     "status.imageRead": "No se pudo leer la imagen.",
     "status.error": "No se pudo guardar. Inténtelo de nuevo.",
+    "status.busy": "Otro administrador está guardando en este momento. Inténtelo de nuevo en unos segundos.",
     "lang.unknown": "no identificado"
   },
   zh: {
@@ -861,6 +867,7 @@ window.ADMIN_I18N = {
     "login.submit": "登录",
     "login.back": "← 返回网站",
     "login.invalid": "用户名或密码错误。",
+    "login.tooMany": "错误尝试次数过多，请 15 分钟后再试。",
     "top.panel": "管理后台",
     "top.site": "查看网站",
     "top.logout": "退出",
@@ -894,6 +901,7 @@ window.ADMIN_I18N = {
     "status.imageType": "请使用 JPG、PNG 或 WEBP 格式的图片。",
     "status.imageRead": "无法读取该图片。",
     "status.error": "保存失败，请重试。",
+    "status.busy": "另一位管理员正在保存，请几秒后重试。",
     "lang.unknown": "未识别"
   }
 };
