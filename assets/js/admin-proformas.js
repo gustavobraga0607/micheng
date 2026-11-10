@@ -241,8 +241,9 @@
     var supplier = row.supplierId ? supplierById(row.supplierId) : null;
     var opts = optionSummary(row, product);
     var name = product ? pname(product) : pname(row.snapshot);
-    return '<div class="pf-row' + (i in dups ? " is-dup" : "") + '" data-row="' + i + '">' +
-      '<span class="pf-row__n">' + (i + 1) + "</span>" +
+    return '<div class="pf-row' + (i in dups ? " is-dup" : "") + (closed ? "" : " is-sortable") + '" data-row="' + i + '"' +
+      (closed ? "" : ' title="' + esc(T("pf.dragHint")) + '"') + ">" +
+      '<span class="pf-row__n">' + (closed ? "" : '<svg class="pf-grip" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.4"/><circle cx="7" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="7" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/></svg>') + "<b>" + (i + 1) + "</b></span>" +
       '<div class="pf-row__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
       '<div class="pf-row__info"><b>' + esc(name) + "</b>" +
         (opts.length ? "<small>" + esc(opts.join(" · ")) + "</small>" : "") +
@@ -410,6 +411,80 @@
       renderItems();
     }
   });
+
+  /* ---------- Reorder: press and hold an item, then drag it ---------- */
+  var drag = null;
+
+  function beginDrag(el, y) {
+    var rect = el.getBoundingClientRect();
+    var placeholder = document.createElement("div");
+    placeholder.className = "pf-placeholder";
+    placeholder.style.height = rect.height + "px";
+    el.parentNode.insertBefore(placeholder, el.nextSibling);
+    el.classList.add("is-dragging");
+    el.style.width = rect.width + "px";
+    el.style.left = rect.left + "px";
+    el.style.top = rect.top + "px";
+    drag = { el: el, from: Number(el.dataset.row), startY: y, top: rect.top, placeholder: placeholder, lastY: y };
+    document.body.classList.add("is-sorting");
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+
+  function moveDrag(y) {
+    drag.lastY = y;
+    drag.el.style.top = drag.top + (y - drag.startY) + "px";
+    var list = $("#pf-items");
+    var others = Array.prototype.filter.call(list.children, function (c) { return c !== drag.el && c !== drag.placeholder; });
+    var before = null;
+    for (var k = 0; k < others.length; k++) {
+      var r = others[k].getBoundingClientRect();
+      if (y < r.top + r.height / 2) { before = others[k]; break; }
+    }
+    if (before) list.insertBefore(drag.placeholder, before);
+    else list.appendChild(drag.placeholder);
+    // Scroll the page when dragging near the top or bottom edge.
+    if (y < 140) window.scrollBy(0, -12);
+    else if (y > window.innerHeight - 60) window.scrollBy(0, 12);
+  }
+
+  function endDrag() {
+    var list = $("#pf-items");
+    var to = Array.prototype.filter.call(list.children, function (c) { return c !== drag.el; }).indexOf(drag.placeholder);
+    var moved = rows.splice(drag.from, 1)[0];
+    rows.splice(to, 0, moved);
+    drag = null;
+    document.body.classList.remove("is-sorting");
+    renderItems();
+  }
+
+  $("#pf-items").addEventListener("pointerdown", function (e) {
+    var el = e.target.closest(".pf-row.is-sortable");
+    if (!el || drag || e.button > 0 || e.target.closest("button, a, input, select")) return;
+    var start = { x: e.clientX, y: e.clientY };
+    var touch = e.pointerType !== "mouse";
+    // Touch: hold still briefly (so a quick swipe still scrolls). Mouse: hold or start moving.
+    var timer = setTimeout(function () { beginDrag(el, start.y); }, touch ? 280 : 180);
+    function onMove(ev) {
+      if (drag) { ev.preventDefault(); moveDrag(ev.clientY); return; }
+      var dist = Math.hypot(ev.clientX - start.x, ev.clientY - start.y);
+      if (!touch && dist > 5) { clearTimeout(timer); beginDrag(el, start.y); moveDrag(ev.clientY); }
+      else if (touch && dist > 8) stop(); // it was a scroll, not a long press
+    }
+    function onUp() { stop(); }
+    function stop() {
+      clearTimeout(timer);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      if (drag) endDrag();
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  });
+  // While dragging on a touch screen, the finger moves the item, not the page.
+  document.addEventListener("touchmove", function (e) { if (drag) e.preventDefault(); }, { passive: false });
+  document.addEventListener("contextmenu", function (e) { if (drag || e.target.closest(".pf-row.is-sortable")) e.preventDefault(); });
 
   $("#pf-add-item").addEventListener("click", function () {
     rows.push(newRow());

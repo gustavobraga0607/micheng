@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.dragHint": "Clique e segure para arrastar e mudar a ordem",
     "pf.ok": "OK",
     "pf.editItem": "Editar item",
     "pf.problem.product": "Item {n}: escolha o produto.",
@@ -197,6 +198,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.dragHint": "Click and hold to drag and reorder",
     "pf.ok": "OK",
     "pf.editItem": "Edit item",
     "pf.problem.product": "Item {n}: choose the product.",
@@ -393,6 +395,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.dragHint": "Haga clic y mantenga presionado para arrastrar y reordenar",
     "pf.ok": "OK",
     "pf.editItem": "Editar ítem",
     "pf.problem.product": "Ítem {n}: elija el producto.",
@@ -589,6 +592,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.dragHint": "按住拖动以调整顺序",
     "pf.ok": "确定",
     "pf.editItem": "编辑项目",
     "pf.problem.product": "第 {n} 项：请选择产品。",
