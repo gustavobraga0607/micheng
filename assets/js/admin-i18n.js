@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "form.photoSquare": "a foto é ajustada automaticamente para o formato quadrado",
     "list.allCategories": "Todas as categorias",
     "cat.general": "Produtos Gerais",
     "cat.fitness": "Fitness e Recovery",
@@ -51,6 +52,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "form.photoSquare": "the photo is automatically adjusted to a square format",
     "list.allCategories": "All categories",
     "cat.general": "General Products",
     "cat.fitness": "Fitness & Recovery",
@@ -101,6 +103,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "form.photoSquare": "la foto se ajusta automáticamente al formato cuadrado",
     "list.allCategories": "Todas las categorías",
     "cat.general": "Productos Generales",
     "cat.fitness": "Fitness y Recuperación",
@@ -151,6 +154,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "form.photoSquare": "图片将自动调整为正方形",
     "list.allCategories": "全部类别",
     "cat.general": "综合产品",
     "cat.fitness": "健身与康复",

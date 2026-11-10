@@ -125,20 +125,68 @@
   });
 
   /* ---------- Photo ---------- */
+  // Average colour and spread of the pixels along the edges that will touch
+  // the padding (top/bottom for a wide photo, left/right for a tall one).
+  function edgeColor(img, wide) {
+    var c = document.createElement("canvas");
+    var k = 64 / Math.max(img.width, img.height);
+    c.width = Math.max(1, Math.round(img.width * k));
+    c.height = Math.max(1, Math.round(img.height * k));
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    var data = ctx.getImageData(0, 0, c.width, c.height).data;
+    var px = [];
+    function add(x, y) { var i = (y * c.width + x) * 4; px.push([data[i], data[i + 1], data[i + 2]]); }
+    var x, y;
+    if (wide) for (x = 0; x < c.width; x++) { add(x, 0); add(x, c.height - 1); }
+    else for (y = 0; y < c.height; y++) { add(0, y); add(c.width - 1, y); }
+    var mean = [0, 1, 2].map(function (ch) {
+      return px.reduce(function (sum, p) { return sum + p[ch]; }, 0) / px.length;
+    });
+    var spread = Math.sqrt(px.reduce(function (sum, p) {
+      return sum + Math.pow(p[0] - mean[0], 2) + Math.pow(p[1] - mean[1], 2) + Math.pow(p[2] - mean[2], 2);
+    }, 0) / (px.length * 3));
+    return { rgb: "rgb(" + mean.map(Math.round).join(",") + ")", uniform: spread < 14 };
+  }
+
+  // Photos are always stored square: a rectangular photo is centred and the
+  // empty space is filled with its own background colour when that is plain
+  // (e.g. a white studio background), or with a blurred copy of the photo.
   function resizeImage(file) {
     return new Promise(function (resolve, reject) {
       if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error(T("status.imageType")));
       var url = URL.createObjectURL(file);
       var img = new Image();
       img.onload = function () {
-        var scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+        var side = Math.min(MAX_SIDE, Math.max(img.width, img.height));
+        var scale = side / Math.max(img.width, img.height);
+        var w = Math.round(img.width * scale);
+        var h = Math.round(img.height * scale);
         var canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
+        canvas.width = canvas.height = side;
         var ctx = canvas.getContext("2d");
         ctx.fillStyle = "#fff"; // transparent PNGs get a white background
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, side, side);
+
+        if (Math.abs(w - h) > side * 0.01) {
+          var edge = edgeColor(img, w > h);
+          ctx.fillStyle = edge.rgb;
+          ctx.fillRect(0, 0, side, side);
+          if (!edge.uniform && "filter" in ctx) {
+            // Blurred "cover" copy of the photo behind it, slightly enlarged so
+            // the blurred borders do not show.
+            var cover = (side / Math.min(img.width, img.height)) * 1.15;
+            var cw = img.width * cover, ch = img.height * cover;
+            ctx.filter = "blur(" + Math.round(side * 0.035) + "px)";
+            ctx.drawImage(img, (side - cw) / 2, (side - ch) / 2, cw, ch);
+            ctx.filter = "none";
+            ctx.fillStyle = "rgba(255,255,255,0.12)";
+            ctx.fillRect(0, 0, side, side);
+          }
+        }
+        ctx.drawImage(img, Math.round((side - w) / 2), Math.round((side - h) / 2), w, h);
         URL.revokeObjectURL(url);
         resolve(canvas.toDataURL("image/jpeg", 0.85));
       };
@@ -146,6 +194,7 @@
       img.src = url;
     });
   }
+
 
   function showPreview(src) {
     var prev = $("#photo-preview");

@@ -21,7 +21,7 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 - Cada produto pertence a uma das 4 categorias da página inicial: Materiais de Construção, Louças e Metais, Fitness e Recovery e Produtos Gerais. No site, os produtos podem ser filtrados por categoria, e clicar numa categoria da página inicial mostra os produtos dela.
 - Dica: nomes de uma palavra que existem em vários idiomas (ex.: "Mesa") são ambíguos; uma descrição curta resolve.
 - Os produtos aparecem no site na seção **Nossos Produtos**, no idioma escolhido pelo visitante.
-- As fotos são reduzidas no navegador (até 1600 px) antes do envio.
+- As fotos são ajustadas no navegador antes do envio: ficam **quadradas** (até 1600 × 1600 px). Uma foto retangular é centralizada e o espaço que sobra é preenchido com a cor de fundo da própria foto, quando o fundo é liso (ex.: fundo branco de estúdio), ou com uma versão desfocada da foto, quando é uma foto de ambiente.
 
 ### Variáveis de ambiente (Vercel → Settings → Environment Variables)
 
