@@ -133,6 +133,22 @@ export async function saveImage(id, buffer, contentType) {
   return blob.url;
 }
 
+// Copies an existing product photo to a new file for another product (used when
+// duplicating), so deleting one product never removes the other's photo.
+export async function copyImage(url, newId) {
+  if (!url) return null;
+  if (!useBlob()) {
+    if (!url.startsWith("/.data/uploads/")) return null;
+    const buffer = await fs.readFile(path.join(LOCAL_DIR, "uploads", path.basename(url)));
+    const ext = path.extname(url).toLowerCase();
+    return saveImage(newId, buffer, ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg");
+  }
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error("Could not read the photo to copy (" + r.status + ")");
+  const type = (r.headers.get("content-type") || "image/jpeg").split(";")[0];
+  return saveImage(newId, Buffer.from(await r.arrayBuffer()), ["image/png", "image/webp"].includes(type) ? type : "image/jpeg");
+}
+
 export async function deleteImage(url) {
   if (!url) return;
   try {

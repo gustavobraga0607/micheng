@@ -1,6 +1,10 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "list.duplicate": "Duplicar",
+    "form.duplicateTitle": "Novo produto (cópia de “{name}”)",
+    "form.copySuffix": " (cópia)",
+    "status.duplicating": "Cópia carregada no formulário, com foto, características e fornecedores. Ajuste o que precisar e clique em Salvar produto.",
     "pf.dragHint": "Clique e segure para arrastar e mudar a ordem",
     "pf.ok": "OK",
     "pf.editItem": "Editar item",
@@ -198,6 +202,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "list.duplicate": "Duplicate",
+    "form.duplicateTitle": "New product (copy of “{name}”)",
+    "form.copySuffix": " (copy)",
+    "status.duplicating": "Copy loaded into the form, with photo, characteristics and suppliers. Adjust what you need and click Save product.",
     "pf.dragHint": "Click and hold to drag and reorder",
     "pf.ok": "OK",
     "pf.editItem": "Edit item",
@@ -395,6 +403,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "list.duplicate": "Duplicar",
+    "form.duplicateTitle": "Nuevo producto (copia de “{name}”)",
+    "form.copySuffix": " (copia)",
+    "status.duplicating": "Copia cargada en el formulario, con foto, características y proveedores. Ajuste lo necesario y haga clic en Guardar producto.",
     "pf.dragHint": "Haga clic y mantenga presionado para arrastrar y reordenar",
     "pf.ok": "OK",
     "pf.editItem": "Editar ítem",
@@ -592,6 +604,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "list.duplicate": "复制",
+    "form.duplicateTitle": "新产品（复制自“{name}”）",
+    "form.copySuffix": "（副本）",
+    "status.duplicating": "副本已载入表单，包括图片、规格和供应商。请修改后点击“保存产品”。",
     "pf.dragHint": "按住拖动以调整顺序",
     "pf.ok": "确定",
     "pf.editItem": "编辑项目",

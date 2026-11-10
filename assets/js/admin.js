@@ -31,6 +31,7 @@
   }
   var attrState = []; // characteristics being edited: [{ id, name, options: [{ id, label }] }]
   var pendingImage = null; // data URL of the resized photo
+  var duplicateOf = null; // product being duplicated into the form (not saved yet)
 
   /* ---------- Panel language (shares the site's saved choice) ---------- */
   var LANG_KEY = "micheng-lang";
@@ -281,14 +282,17 @@
   // Title and button labels depend on whether a product is being edited.
   function updateFormMode() {
     var editing = Boolean(form.elements.id.value);
-    $("#form-title").textContent = T(editing ? "form.edit" : "form.new");
+    $("#form-title").textContent = duplicateOf
+      ? T("form.duplicateTitle", { name: duplicateOf.name[current] || duplicateOf.source.name })
+      : T(editing ? "form.edit" : "form.new");
     $("#save-btn").textContent = T(editing ? "form.saveChanges" : "form.save");
-    $("#cancel-edit").hidden = !editing;
+    $("#cancel-edit").hidden = !editing && !duplicateOf;
     var p = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
     $("#detected-lang").textContent = p ? "· " + T("list.registeredIn") + ": " + langName(p.source.lang) : "";
   }
 
   function resetForm() {
+    duplicateOf = null;
     form.reset();
     form.elements.id.value = "";
     pendingImage = null;
@@ -334,6 +338,33 @@
     document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Duplicate: the form is filled as a NEW product with everything from the
+  // original (photo, category, description, characteristics, suppliers and
+  // their prices). Nothing is created until "Save product" is clicked.
+  function duplicateProduct(p) {
+    resetForm();
+    duplicateOf = p;
+    form.elements.name.value = (p.source.name + T("form.copySuffix")).slice(0, 120);
+    form.elements.description.value = p.source.description || "";
+    form.elements.category.value = p.category || "";
+    showPreview(p.image);
+    selectedSuppliers = new Map((p.supplierLinks || []).map(function (l) {
+      return [l.supplierId, l.cost == null ? "" : String(l.cost)];
+    }));
+    renderPicker();
+    // Without ids: the copy gets its own characteristics and options.
+    attrState = (p.attributes || []).map(function (a) {
+      return { name: a.source, options: a.options.map(function (o) { return { label: o.source }; }) };
+    });
+    renderAttrs();
+    updateFormMode();
+    setStatus(T("status.duplicating"), "ok");
+    renderList();
+    document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    form.elements.name.focus();
+    form.elements.name.select();
+  }
+
   $("#cancel-edit").addEventListener("click", function () { resetForm(); setStatus(""); });
 
   form.addEventListener("submit", function (e) {
@@ -345,7 +376,7 @@
     form.elements.name.classList.toggle("is-invalid", !name);
     form.elements.category.classList.toggle("is-invalid", !category);
     if (!name || !category) ok = false;
-    if (!id && !pendingImage) { drop.classList.add("is-invalid"); ok = false; }
+    if (!id && !pendingImage && !duplicateOf) { drop.classList.add("is-invalid"); ok = false; }
     if (!ok) return setStatus(T("status.required"), "error");
     commitPendingOptions();
     var attrsOk = attrState.every(function (a) {
@@ -362,6 +393,7 @@
       attributes: attrState.filter(function (a) { return a.name.trim(); })
     };
     if (pendingImage) body.image = pendingImage;
+    else if (!id && duplicateOf) body.copyImageFrom = duplicateOf.id;
     if (id) {
       body.retranslate = form.elements.retranslate.checked;
       body.translations = { name: {}, description: {} };
@@ -422,6 +454,7 @@
         supplierLine(p.supplierLinks) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
+        '<button type="button" data-act="duplicate">' + escapeHtml(T("list.duplicate")) + "</button>" +
         '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
     }).join("");
   }
@@ -436,6 +469,7 @@
     var p = products.filter(function (x) { return x.id === id; })[0];
     if (!p) return;
     if (btn.dataset.act === "edit") return editProduct(p);
+    if (btn.dataset.act === "duplicate") return duplicateProduct(p);
     if (!confirm(T("list.confirmDelete", { name: p.name[current] || p.source.name }))) return;
     btn.disabled = true;
     api("/api/products?id=" + encodeURIComponent(id), { method: "DELETE" })

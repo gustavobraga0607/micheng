@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveImage, deleteImage, getPrivate, savePrivate, productLinks } from "./_lib/store.js";
+import { getProducts, saveProducts, saveImage, copyImage, deleteImage, getPrivate, savePrivate, productLinks } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -233,13 +233,17 @@ export default async function handler(req, res) {
       const body = await readJson(req);
       if (!cleanText(body.name, MAX_NAME)) return fail(res, 400, "Name is required");
       if (!CATEGORIES.includes(body.category)) return fail(res, 400, "Category is required");
-      if (!body.image) return fail(res, 400, "Photo is required");
-      const image = decodeImage(body.image);
+      // A duplicated product may reuse the original's photo (copied to a new file).
+      const copyFrom = !body.image && body.copyImageFrom ? products.find((p) => p.id === body.copyImageFrom) : null;
+      if (!body.image && !copyFrom) return fail(res, 400, "Photo is required");
+      const image = body.image ? decodeImage(body.image) : null;
       const now = new Date().toISOString();
       const product = { id: crypto.randomUUID(), category: body.category, createdAt: now, updatedAt: now };
       await applyTexts(product, body, null);
       product.translationOk = (await applyAttributes(product, body, null)) && product.translationOk;
-      product.image = await saveImage(product.id, image.buffer, image.contentType);
+      product.image = image
+        ? await saveImage(product.id, image.buffer, image.contentType)
+        : await copyImage(copyFrom.image, product.id);
       products.unshift(product);
       await saveProducts(products);
       return send(res, 201, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
