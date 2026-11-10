@@ -285,6 +285,8 @@
     $("#form-title").textContent = duplicateOf
       ? T("form.duplicateTitle", { name: duplicateOf.name[current] || duplicateOf.source.name })
       : T(editing ? "form.edit" : "form.new");
+    var editingProduct = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
+    if (editingProduct && editingProduct.sku) $("#form-title").textContent += " · SKU " + editingProduct.sku;
     $("#save-btn").textContent = T(editing ? "form.saveChanges" : "form.save");
     $("#cancel-edit").hidden = !editing && !duplicateOf;
     var p = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
@@ -435,6 +437,7 @@
     var shown = products.filter(function (p) {
       if (cat && p.category !== cat) return false;
       if (!q) return true;
+      if (p.sku && (String(p.sku).indexOf(q) === 0 || variantCodes(p).some(function (v) { return v.code.indexOf(q) === 0; }))) return true;
       return LANGS.some(function (l) { return String(p.name[l] || "").toLowerCase().indexOf(q) > -1; });
     });
     $("#count").textContent = products.length;
@@ -446,11 +449,12 @@
       }).join("");
       return '<li class="pitem' + (p.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(p.id) + '">' +
         '<img src="' + escapeHtml(p.image) + '" alt="" loading="lazy" />' +
-        "<div><h3>" + escapeHtml(p.name[current] || p.source.name) + "</h3>" +
+        "<div><h3>" + (p.sku ? '<span class="sku">' + escapeHtml(p.sku) + "</span> " : "") + escapeHtml(p.name[current] || p.source.name) + "</h3>" +
         '<p class="pitem__lang">' + (p.category ? '<span class="pitem__cat">' + escapeHtml(T("cat." + p.category)) + "</span> · " : "") +
         escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
         '<div class="pitem__tr">' + chips + "</div>" +
         attributeLine(p.attributes) +
+        variantLine(p) +
         supplierLine(p.supplierLinks) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
         '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
@@ -482,6 +486,30 @@
       })
       .catch(function (e2) { btn.disabled = false; setStatus(e2.message, "error"); });
   });
+
+  /* ---------- SKU codes ---------- */
+  // Variant codes of a product ("1001-1"), each with its option labels, in suffix order.
+  function variantCodes(p) {
+    var map = p.variantSkus || {};
+    return Object.keys(map).sort(function (a, b) { return map[a] - map[b]; }).map(function (key) {
+      var ids = key.split(",");
+      // Labels in the order of the characteristics (e.g. "75° / 3/4"").
+      var label = (p.attributes || []).map(function (a) {
+        var o = a.options.filter(function (x) { return ids.indexOf(x.id) > -1; })[0];
+        return o ? (o.label && o.label[current]) || o.source : "";
+      }).filter(Boolean).join(" / ");
+      return { code: p.sku + "-" + map[key], label: label };
+    });
+  }
+
+  function variantLine(p) {
+    var list = variantCodes(p);
+    if (!list.length) return "";
+    var shown = list.slice(0, 12).map(function (v) {
+      return '<span><b>' + escapeHtml(v.code) + "</b> " + escapeHtml(v.label) + "</span>";
+    }).join("");
+    return '<div class="pitem__skus">' + shown + (list.length > 12 ? "<span>+" + (list.length - 12) + "</span>" : "") + "</div>";
+  }
 
   /* ---------- Characteristics in the product form ---------- */
   function attributeLine(attrs) {
@@ -944,6 +972,7 @@
     clients: function () { return clients; },
     settings: function () { return companySettings; },
     defaultCurrency: function () { return defaultCurrency; },
+    variantCodes: variantCodes,
     showTab: showTab
   };
 

@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
 import { getProducts, getPrivate, savePrivate } from "./_lib/store.js";
+import { skuFor } from "./_lib/sku.js";
 
 const CURRENCIES = ["CNY", "USD", "EUR", "BRL"];
 const DOC_LANGS = ["en", "pt", "es"];
@@ -61,6 +62,7 @@ function buildItems(rawItems, products, priv, previous) {
     items.push({
       id: prev ? prev.id : crypto.randomUUID(),
       productId: raw.productId,
+      sku: product ? skuFor(product, options.map((o) => o.optionId)) : (prev && prev.sku) || null,
       product: snapshot,
       options,
       attributeCount: product ? (product.attributes || []).length : options.length,
@@ -149,7 +151,14 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const clientId = queryParam(req, "prices");
       if (clientId) return send(res, 200, { prices: priv.clientPrices[clientId] || {} });
-      return send(res, 200, { proformas: priv.proformas });
+      // Items saved before SKUs existed show the current code of their product.
+      const products = await getProducts();
+      const byId = new Map(products.map((p) => [p.id, p]));
+      const proformas = priv.proformas.map((pf) => ({
+        ...pf,
+        items: pf.items.map((i) => (i.sku ? i : { ...i, sku: skuFor(byId.get(i.productId), i.options.map((o) => o.optionId)) })),
+      }));
+      return send(res, 200, { proformas });
     }
 
     if (req.method === "POST" && !id) {

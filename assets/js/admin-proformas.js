@@ -42,6 +42,15 @@
     return productId + (ids.length ? "|" + ids.join(",") : "");
   }
 
+  // "1001" or "1001-2" for the row's product and chosen options.
+  function skuOf(row) {
+    var p = productById(row.productId);
+    if (!p || !p.sku) return row.sku || "";
+    var ids = Object.keys(row.options).map(function (k) { return row.options[k]; }).filter(Boolean);
+    var n = p.variantSkus && p.variantSkus[priceKey("", ids).replace(/^\|/, "")];
+    return n ? p.sku + "-" + n : String(p.sku);
+  }
+
   function setStatus(msg, kind) {
     var el = $("#pf-status");
     el.textContent = msg || "";
@@ -137,7 +146,7 @@
     rows = p ? p.items.map(function (i) {
       var opts = {};
       i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
-      return { id: i.id, productId: i.productId, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
+      return { id: i.id, productId: i.productId, sku: i.sku, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
         qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false };
     }) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
@@ -246,7 +255,7 @@
       (closed ? "" : ' title="' + esc(T("pf.dragHint")) + '"') + ">" +
       '<span class="pf-row__n">' + (closed ? "" : '<svg class="pf-grip" viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1.4"/><circle cx="7" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="7" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/></svg>') + "<b>" + (i + 1) + "</b></span>" +
       '<div class="pf-row__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
-      '<div class="pf-row__info"><b>' + esc(name) + "</b>" +
+      '<div class="pf-row__info"><b>' + (skuOf(row) ? '<span class="sku">' + esc(skuOf(row)) + "</span> " : "") + esc(name) + "</b>" +
         (opts.length ? "<small>" + esc(opts.join(" · ")) + "</small>" : "") +
         '<small class="internal">' + esc(T("pf.supplier")) + ": " + esc(supplier ? supplier.company : "—") +
           (row.cost != null ? " · " + esc(T("pf.cost")) + " " + esc(A.money(row.cost, cur)) : "") + "</small>" +
@@ -271,7 +280,7 @@
       var image = product ? product.image : row.snapshot && row.snapshot.image;
       if (closed || !row.editing) return compactRow(row, i, product, image, closed, dups);
       var productOpts = '<option value="">' + esc(T("pf.selectProduct")) + "</option>" + products.map(function (p) {
-        return '<option value="' + esc(p.id) + '"' + (p.id === row.productId ? " selected" : "") + ">" + esc(pname(p)) + "</option>";
+        return '<option value="' + esc(p.id) + '"' + (p.id === row.productId ? " selected" : "") + ">" + esc((p.sku ? p.sku + " · " : "") + pname(p)) + "</option>";
       }).join("");
       if (row.productId && !product) {
         productOpts += '<option value="' + esc(row.productId) + '" selected>' + esc(pname(row.snapshot)) + "</option>";
@@ -290,7 +299,7 @@
         '<div class="pf-item__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
         '<div class="pf-item__main">' +
           '<div class="pf-item__line">' +
-            '<label class="pf-item__product"><span>' + esc(T("pf.product")) + " " + (i + 1) + "</span><select data-f=\"productId\"" + dis + ">" + productOpts + "</select></label>" +
+            '<label class="pf-item__product"><span>' + esc(T("pf.product")) + " " + (i + 1) + (skuOf(row) ? ' · <span class="sku">' + esc(skuOf(row)) + "</span>" : "") + "</span><select data-f=\"productId\"" + dis + ">" + productOpts + "</select></label>" +
             '<label class="pf-item__supplier internal"><span>' + esc(T("pf.supplier")) + '</span><select data-f="supplierId"' + dis + ">" + supplierOptions(product, row) + "</select></label>" +
           "</div>" +
           (attrHtml ? '<div class="pf-item__opts">' + attrHtml + "</div>" : "") +
@@ -606,15 +615,15 @@
   /* ---------- Export (PDF / Excel): sale prices only ---------- */
   var DOC = {
     en: { title: "PROFORMA INVOICE", no: "No.", date: "Date", valid: "Valid until", billTo: "Bill to", taxId: "Tax ID", phone: "Phone",
-      email: "E-mail", web: "Website", item: "#", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
+      email: "E-mail", web: "Website", item: "#", code: "Code", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
       total: "TOTAL", bank: "Bank details", beneficiary: "Beneficiary", bankName: "Bank", account: "Account No.", swift: "SWIFT / BIC",
       bankAddress: "Bank address", terms: "Terms & notes", page: "Page", currency: "Currency" },
     pt: { title: "FATURA PROFORMA", no: "Nº", date: "Data", valid: "Válida até", billTo: "Cliente", taxId: "Tax ID", phone: "Telefone",
-      email: "E-mail", web: "Site", item: "#", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
+      email: "E-mail", web: "Site", item: "#", code: "Código", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
       total: "TOTAL", bank: "Dados bancários", beneficiary: "Beneficiário", bankName: "Banco", account: "Conta", swift: "SWIFT / BIC",
       bankAddress: "Endereço do banco", terms: "Condições e observações", page: "Página", currency: "Moeda" },
     es: { title: "FACTURA PROFORMA", no: "Nº", date: "Fecha", valid: "Válida hasta", billTo: "Cliente", taxId: "Tax ID", phone: "Teléfono",
-      email: "Correo", web: "Sitio web", item: "#", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
+      email: "Correo", web: "Sitio web", item: "#", code: "Código", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
       total: "TOTAL", bank: "Datos bancarios", beneficiary: "Beneficiario", bankName: "Banco", account: "Cuenta", swift: "SWIFT / BIC",
       bankAddress: "Dirección del banco", terms: "Condiciones y observaciones", page: "Página", currency: "Moneda" }
   };
@@ -659,12 +668,15 @@
     var lang = p.language || "en";
     var settings = A.settings();
     var cur = A.CURRENCIES[p.currency] || A.CURRENCIES.CNY;
+    var products = A.products();
     var items = p.items.map(function (i, n) {
       var name = (i.product && i.product.name && (i.product.name[lang] || i.product.name.en)) || "";
       var opts = i.options.map(function (o) {
         return ((o.attrName && (o.attrName[lang] || o.attrName.en)) || "") + ": " + ((o.optionLabel && (o.optionLabel[lang] || o.optionLabel.en)) || "");
       });
-      return { n: n + 1, name: name, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
+      var current = products.filter(function (x) { return x.id === i.productId; })[0];
+      var code = i.sku || (current ? skuOf({ productId: i.productId, options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}) }) : "");
+      return { n: n + 1, code: code, name: name, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
     });
     return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: p.totals.sale, p: p };
   }
@@ -737,12 +749,12 @@
 
       // Items
       var body = d.items.map(function (it) {
-        return [it.n, "", it.name + (it.options.length ? "\n" + it.options.join("\n") : ""), fmt(it.qty, d).replace(/[.,]00$/, ""), fmt(it.price, d), fmt(it.amount, d)];
+        return [it.n, "", it.code, it.name + (it.options.length ? "\n" + it.options.join("\n") : ""), fmt(it.qty, d).replace(/[.,]00$/, ""), fmt(it.price, d), fmt(it.amount, d)];
       });
       doc.autoTable({
         startY: y,
         margin: { left: M, right: M },
-        head: [[L.item, "", L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
+        head: [[L.item, "", L.code, L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
         body: body,
         theme: "grid",
         styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2, valign: "middle", lineColor: [220, 226, 234], textColor: [30, 40, 50] },
@@ -750,13 +762,14 @@
         columnStyles: {
           0: { cellWidth: 8, halign: "center" },
           1: { cellWidth: 18, minCellHeight: 18 },
-          2: { cellWidth: "auto" },
-          3: { cellWidth: 16, halign: "right" },
-          4: { cellWidth: 28, halign: "right" },
-          5: { cellWidth: 30, halign: "right" }
+          2: { cellWidth: 18, halign: "center", fontStyle: "bold" },
+          3: { cellWidth: "auto" },
+          4: { cellWidth: 15, halign: "right" },
+          5: { cellWidth: 25, halign: "right" },
+          6: { cellWidth: 27, halign: "right" }
         },
         didParseCell: function (h) {
-          if (h.section === "body" && h.column.index === 2) h.cell.styles.fontStyle = "normal";
+          if (h.section === "body" && h.column.index === 3) h.cell.styles.fontStyle = "normal";
         },
         didDrawCell: function (h) {
           if (h.section === "body" && h.column.index === 1) {
@@ -812,7 +825,7 @@
       var wb = new window.ExcelJS.Workbook();
       wb.creator = s.companyName || "Micheng";
       var ws = wb.addWorksheet(d.p.number, { pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-      ws.columns = [{ width: 6 }, { width: 46 }, { width: 34 }, { width: 10 }, { width: 16 }, { width: 18 }];
+      ws.columns = [{ width: 6 }, { width: 12 }, { width: 66 }, { width: 10 }, { width: 16 }, { width: 18 }];
       var navy = "FF0B2A4F";
       var moneyFmt = '"' + d.cur.symbol + '" #,##0.00';
 
@@ -859,8 +872,7 @@
       y += bill.length + 2;
 
       var head = ws.getRow(y);
-      head.values = [L.item, L.description, "", L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"];
-      ws.mergeCells(y, 2, y, 3);
+      head.values = [L.item, L.code, L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"];
       head.eachCell(function (c) {
         c.font = { bold: true, color: { argb: "FFFFFFFF" } };
         c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } };
@@ -869,14 +881,16 @@
       var first = y + 1;
       d.items.forEach(function (it, n) {
         var r = ws.getRow(first + n);
-        ws.mergeCells(first + n, 2, first + n, 3);
         r.getCell(1).value = it.n;
-        r.getCell(2).value = it.name + (it.options.length ? "\n" + it.options.join("\n") : "");
+        r.getCell(2).value = it.code;
+        r.getCell(3).value = it.name + (it.options.length ? "\n" + it.options.join("\n") : "");
         r.getCell(4).value = it.qty;
         r.getCell(5).value = it.price;
         r.getCell(6).value = { formula: "D" + (first + n) + "*E" + (first + n), result: it.amount };
         r.getCell(1).alignment = { horizontal: "center", vertical: "top" };
-        r.getCell(2).alignment = { wrapText: true, vertical: "top" };
+        r.getCell(2).alignment = { horizontal: "center", vertical: "top" };
+        r.getCell(2).font = { bold: true };
+        r.getCell(3).alignment = { wrapText: true, vertical: "top" };
         [4, 5, 6].forEach(function (k) { r.getCell(k).alignment = { vertical: "top" }; });
         r.getCell(5).numFmt = moneyFmt;
         r.getCell(6).numFmt = moneyFmt;

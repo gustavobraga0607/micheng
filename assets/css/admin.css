@@ -117,6 +117,13 @@
 .tag__x:hover { background: rgba(255,255,255,.35); }
 .admin .tags__input { flex: 1; min-width: 160px; border: 0 !important; box-shadow: none !important; padding: 6px !important; }
 .attrs__add { justify-self: start; padding: 8px 16px; }
+.sku {
+  display: inline-block; font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .02em;
+  color: var(--navy); background: var(--bg-tint); border: 1px solid #c9d8ec; border-radius: 4px; padding: 3px 6px; vertical-align: 2px;
+}
+.pitem__skus { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.pitem__skus span { background: #fff; border: 1px dashed #c9d8ec; border-radius: 4px; padding: 1px 6px; }
+.pitem__skus b { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--navy); }
 .pitem__attr { font-size: 12.5px; color: var(--text); margin-top: 6px; }
 .pitem__attr b { color: var(--navy); }
 

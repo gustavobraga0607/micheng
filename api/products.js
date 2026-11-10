@@ -3,6 +3,7 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import { getProducts, saveProducts, saveImage, copyImage, deleteImage, getPrivate, savePrivate, productLinks } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
+import { assignSkus } from "./_lib/sku.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const MAX_NAME = 120;
@@ -235,12 +236,24 @@ function withLinks(product, links) {
   return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId) };
 }
 
+async function saveWithSkus(products) {
+  const priv = await getPrivate();
+  assignSkus(products, priv);
+  await saveProducts(products);
+  await savePrivate(priv);
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const products = await getProducts();
       if (!getSession(req)) return send(res, 200, { products });
       const priv = await getPrivate();
+      // Products saved before SKUs existed get theirs on the first admin load.
+      if (assignSkus(products, priv)) {
+        await saveProducts(products);
+        await savePrivate(priv);
+      }
       return send(res, 200, { products: products.map((p) => withLinks(p, productLinks(priv, p.id))) });
     }
 
@@ -266,7 +279,7 @@ export default async function handler(req, res) {
         ? await saveImage(product.id, image.buffer, image.contentType)
         : await copyImage(copyFrom.image, product.id);
       products.unshift(product);
-      await saveProducts(products);
+      await saveWithSkus(products);
       return send(res, 201, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
     }
 
@@ -289,7 +302,7 @@ export default async function handler(req, res) {
       }
       product.updatedAt = new Date().toISOString();
       products[index] = product;
-      await saveProducts(products);
+      await saveWithSkus(products);
       return send(res, 200, { product: withLinks(product, await saveSupplierLinks(product.id, body)) });
     }
 
