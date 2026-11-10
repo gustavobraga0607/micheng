@@ -49,8 +49,10 @@ export function assignSkus(products, priv) {
 }
 
 // SKU of a product with the chosen options: "2432" or "2432-1".
+// Options removed from the product since the choice was made are ignored.
 export function skuFor(product, optionIds) {
   if (!product || !product.sku) return null;
-  const n = product.variantSkus && product.variantSkus[comboKey(optionIds || [])];
+  const current = new Set((product.attributes || []).flatMap((a) => a.options.map((o) => o.id)));
+  const n = product.variantSkus && product.variantSkus[comboKey((optionIds || []).filter((id) => current.has(id)))];
   return n ? product.sku + "-" + n : String(product.sku);
 }

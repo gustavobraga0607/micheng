@@ -46,7 +46,9 @@
   function skuOf(row) {
     var p = productById(row.productId);
     if (!p || !p.sku) return row.sku || "";
-    var ids = Object.keys(row.options).map(function (k) { return row.options[k]; }).filter(Boolean);
+    var current = {};
+    (p.attributes || []).forEach(function (a) { a.options.forEach(function (o) { current[o.id] = true; }); });
+    var ids = Object.keys(row.options).map(function (k) { return row.options[k]; }).filter(function (id) { return id && current[id]; });
     var n = p.variantSkus && p.variantSkus[priceKey("", ids).replace(/^\|/, "")];
     return n ? p.sku + "-" + n : String(p.sku);
   }
