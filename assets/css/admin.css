@@ -124,14 +124,14 @@
 .pitem__skus { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; font-size: 11.5px; color: var(--muted); }
 .pitem__skus span { background: #fff; border: 1px dashed #c9d8ec; border-radius: 4px; padding: 1px 6px; }
 .pitem__skus span { display: inline-flex; align-items: center; gap: 4px; }
-.pitem__skus img { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; }
+.pitem .pitem__skus img { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; }
 .crefs { display: grid; gap: 8px; }
 .crefs .hint { margin-top: 0; }
 .cref { display: grid; gap: 4px; padding: 8px 10px; background: #fff; border: 1px dashed #c9d8ec; border-radius: 6px; }
 .cref__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13.5px; color: var(--navy); }
 .cref .vcosts__row { grid-template-columns: auto minmax(0, 1fr) 150px; }
 .admin .cref input { padding: 6px 8px; font-size: 13.5px; }
-#crefs-add { width: auto; max-width: 100%; justify-self: start; }
+#crefs-add { width: 100%; text-overflow: ellipsis; }
 .vphotos { display: grid; gap: 8px; }
 .vphotos .hint { margin-top: 0; }
 .vphotos__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
@@ -200,7 +200,8 @@
 .panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 28px; }
 .panel h2 { font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
 #form-panel, #supplier-panel { scroll-margin-top: 140px; }
-#product-form, #supplier-form { display: grid; gap: 18px; }
+#product-form, #supplier-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.panel { min-width: 0; }
 
 .photo { display: grid; gap: 6px; }
 .photo__label { font-size: 13.5px; font-weight: 600; color: var(--navy); }
