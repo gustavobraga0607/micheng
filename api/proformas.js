@@ -79,6 +79,8 @@ function buildItems(rawItems, products, priv, previous, clientId) {
       qty: num(raw.qty) || 0,
       cost: num(raw.cost),
       price: num(raw.price),
+      // Declared value (internal control): kept across edits, never part of the documents.
+      declared: prev && prev.declared != null ? prev.declared : null,
     });
   }
   return items;
@@ -226,6 +228,40 @@ async function handler(req, res) {
           map[item.options.map((o) => o.optionId).sort().join(",")] = item.clientRef;
         }
       }
+      // Declared values kept for this client load into the new order (same currency only).
+      const declared = priv.clientDeclared[proforma.clientId] || {};
+      proforma.items = proforma.items.map((item) => {
+        if (item.declared != null) return item;
+        const memo = declared[priceKey(item.productId, item.options)] || declared[item.productId];
+        return memo && memo.currency === proforma.currency ? { ...item, declared: memo.value } : item;
+      });
+      priv.proformas[index] = proforma;
+      await savePrivate(priv);
+      return send(res, 200, { proforma });
+    }
+
+    // Declared value of each item of an order: what the client declares on their
+    // own invoice. Internal control only: it never changes the proforma, its PDF,
+    // Excel or web page. Remembered per client for the next orders.
+    if (req.method === "POST" && action === "declared") {
+      if (current.status !== "closed") return fail(res, 409, "Only orders have declared values");
+      const body = await readJson(req);
+      const values = body.items && typeof body.items === "object" ? body.items : {};
+      const now = new Date().toISOString();
+      const memo = (priv.clientDeclared[current.clientId] = priv.clientDeclared[current.clientId] || {});
+      const items = current.items.map((item) => {
+        if (!Object.hasOwn(values, item.id)) return item;
+        const raw = values[item.id];
+        const value = raw === "" || raw == null ? null : num(raw);
+        if (raw !== "" && raw != null && value == null) return item; // invalid: left as it was
+        if (value != null && current.clientId) {
+          const m = { value, currency: current.currency, number: current.number, at: now };
+          memo[priceKey(item.productId, item.options)] = m; // exact options
+          memo[item.productId] = m; // any options (fallback)
+        }
+        return { ...item, declared: value };
+      });
+      const proforma = { ...current, items, updatedAt: now };
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });

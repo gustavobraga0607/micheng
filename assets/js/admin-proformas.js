@@ -150,6 +150,7 @@
 
   function openEditor(p) {
     editing = p || null;
+    decState = { id: null, values: {} };
     setStatus("");
     form.reset();
     fillClientSelect();
@@ -256,7 +257,165 @@
       "</div>" +
       (list.length
         ? '<div class="pf-table-wrap"><table class="pf-table fin-table"><tbody>' + rows + "</tbody></table></div>"
-        : '<p class="ord__empty">' + esc(T("ord.empty")) + "</p>");
+        : '<p class="ord__empty">' + esc(T("ord.empty")) + "</p>") +
+      declaredSection();
+    recalcDeclared();
+  }
+
+  /* ----- Declared value per item (internal control) -----
+     What the client declares on their own invoice. Kept per client and loaded
+     into their next orders. It never changes the proforma or its documents. */
+  var decState = { id: null, values: {} }; // typed values of the open order: { itemId: text }
+
+  function decValues() {
+    if (decState.id !== editing.id) {
+      decState = { id: editing.id, values: {} };
+      editing.items.forEach(function (i) { decState.values[i.id] = i.declared == null ? "" : String(i.declared).replace(".", ","); });
+    }
+    return decState.values;
+  }
+  function itemText(i) {
+    var lang = A.lang();
+    var opts = i.options.map(function (o) { return (o.optionLabel && (o.optionLabel[lang] || o.optionLabel.en)) || ""; }).filter(Boolean).join(" · ");
+    return { name: pname(i.product), opts: opts };
+  }
+
+  function declaredSection() {
+    var values = decValues();
+    var cur = editing.currency;
+    var rows = editing.items.map(function (i, n) {
+      var t = itemText(i);
+      return '<tr data-dec-row="' + esc(i.id) + '"><td>' + (n + 1) + "</td>" +
+        '<td class="fin-desc"><b>' + (i.sku ? '<span class="sku">' + esc(i.sku) + "</span> " : "") + esc(t.name) + "</b>" + (t.opts ? "<small>" + esc(t.opts) + "</small>" : "") + "</td>" +
+        '<td class="num">' + esc(String(i.qty)) + "</td>" +
+        '<td class="num">' + esc(A.money(i.price, cur)) + "</td>" +
+        '<td class="num"><input type="text" inputmode="decimal" autocomplete="off" class="dec-input" data-dec="' + esc(i.id) + '" value="' + esc(values[i.id] || "") + '" placeholder="—" /></td>' +
+        '<td class="num">' + esc(A.money(round((i.price || 0) * i.qty), cur)) + "</td>" +
+        '<td class="num" data-dec-total></td><td class="num" data-dec-diff></td></tr>';
+    }).join("");
+    return '<div class="dec">' +
+      '<div class="ord__head"><div><h3>' + esc(T("dec.title")) + ' <span class="lock">' + esc(T("dec.internal")) + "</span></h3><p>" + esc(T("dec.hint")) + "</p></div>" +
+        '<div class="ord__actions"><button type="button" class="btn btn--outline" id="dec-report">' + esc(T("dec.report")) + "</button>" +
+        '<button type="button" class="btn btn--primary" id="dec-save">' + esc(T("dec.save")) + "</button></div></div>" +
+      '<div class="pf-table-wrap"><table class="pf-table dec-table"><thead><tr><th>#</th><th>' + esc(T("dec.item")) + '</th><th class="num">' + esc(T("pf.qty")) +
+        '</th><th class="num">' + esc(T("dec.sale")) + '</th><th class="num">' + esc(T("dec.declared")) + '</th><th class="num">' + esc(T("dec.totalSale")) +
+        '</th><th class="num">' + esc(T("dec.totalDeclared")) + '</th><th class="num">' + esc(T("dec.diff")) + "</th></tr></thead>" +
+        "<tbody>" + rows + "</tbody>" +
+        '<tfoot><tr><td colspan="5">' + esc(T("dec.totals")) + '</td><td class="num">' + esc(A.money(editing.totals.sale, cur)) + '</td><td class="num" id="dec-sum"></td><td class="num" id="dec-sum-diff"></td></tr></tfoot>' +
+      "</table></div></div>";
+  }
+
+  // Totals of the declared column, from what is typed (no re-render, so typing keeps the focus).
+  function declaredRows() {
+    var values = decValues();
+    return editing.items.map(function (i) {
+      var text = String(values[i.id] == null ? "" : values[i.id]).trim();
+      var v = text ? toNum(text) : null;
+      return { item: i, text: text, value: v, invalid: Boolean(text) && v == null,
+        sale: round((i.price || 0) * i.qty), declared: v == null ? null : round(v * i.qty) };
+    });
+  }
+  function recalcDeclared() {
+    if (!isClosed() || !$("#pf-order .dec")) return;
+    var cur = editing.currency;
+    var sum = 0, sale = 0, any = false;
+    declaredRows().forEach(function (r) {
+      var tr = $('#pf-order [data-dec-row="' + r.item.id + '"]');
+      if (!tr) return;
+      tr.querySelector(".dec-input").classList.toggle("is-invalid", r.invalid);
+      tr.querySelector("[data-dec-total]").textContent = r.declared == null ? "—" : A.money(r.declared, cur);
+      var diff = r.declared == null ? null : round(r.declared - r.sale);
+      tr.querySelector("[data-dec-diff]").textContent = diff == null ? "—" : (diff < 0 ? "− " : diff > 0 ? "+ " : "") + A.money(Math.abs(diff), cur);
+      if (r.declared != null) { sum += r.declared; sale += r.sale; any = true; }
+    });
+    $("#dec-sum").textContent = any ? A.money(round(sum), cur) : "—";
+    var d = round(sum - sale);
+    $("#dec-sum-diff").textContent = any ? (d < 0 ? "− " : d > 0 ? "+ " : "") + A.money(Math.abs(d), cur) : "—";
+  }
+
+  function saveDeclared() {
+    var bad = declaredRows().filter(function (r) { return r.invalid; })[0];
+    if (bad) return Promise.reject(new Error(T("dec.bad", { n: editing.items.indexOf(bad.item) + 1 })));
+    return A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=declared", { method: "POST", body: { items: decValues() } }).then(function (data) {
+      decState = { id: null, values: {} };
+      accept(data.proforma);
+      return data.proforma;
+    });
+  }
+
+  $("#pf-order").addEventListener("input", function (e) {
+    var id = e.target.getAttribute("data-dec");
+    if (!id) return;
+    decValues()[id] = e.target.value;
+    recalcDeclared();
+  });
+  $("#pf-order").addEventListener("click", function (e) {
+    if (e.target.closest("#dec-save")) {
+      saveDeclared().then(function () { setStatus(T("dec.saved"), "ok"); }, function (err) { setStatus(err.message, "error"); });
+    } else if (e.target.closest("#dec-report")) {
+      setStatus(T("pf.exporting"));
+      saveDeclared().then(exportDeclared).then(function () { setStatus(""); }, function (err) { setStatus(err.message, "error"); });
+    }
+  });
+
+  // Internal report (PDF): sale price and declared value side by side. It is a
+  // control sheet, not an invoice: no bank details and a clear "internal" title.
+  var DEC_DOC = {
+    pt: { title: "CONTROLE INTERNO", sub: "Valores declarados do pedido", note: "Documento de uso interno. Não é fatura nem proforma.", order: "Pedido", client: "Cliente", date: "Data", currency: "Moeda",
+      item: "Item", qty: "Qtd.", sale: "Preço de venda", declared: "Valor declarado", totalSale: "Total venda", totalDeclared: "Total declarado", diff: "Diferença", totals: "Totais", page: "Página" },
+    en: { title: "INTERNAL CONTROL", sub: "Declared values of the order", note: "Internal document. Not an invoice or a proforma.", order: "Order", client: "Client", date: "Date", currency: "Currency",
+      item: "Item", qty: "Qty", sale: "Sale price", declared: "Declared value", totalSale: "Sale total", totalDeclared: "Declared total", diff: "Difference", totals: "Totals", page: "Page" },
+    es: { title: "CONTROL INTERNO", sub: "Valores declarados del pedido", note: "Documento de uso interno. No es factura ni proforma.", order: "Pedido", client: "Cliente", date: "Fecha", currency: "Moneda",
+      item: "Ítem", qty: "Cant.", sale: "Precio de venta", declared: "Valor declarado", totalSale: "Total venta", totalDeclared: "Total declarado", diff: "Diferencia", totals: "Totales", page: "Página" }
+  };
+
+  function exportDeclared(p) {
+    return loadScript("assets/vendor/jspdf.umd.min.js").then(function () {
+      return loadScript("assets/vendor/jspdf.plugin.autotable.min.js");
+    }).then(function () {
+      var lang = DEC_DOC[A.lang()] ? A.lang() : "en"; // the PDF font has no Chinese
+      var L = DEC_DOC[lang];
+      var d = { lang: lang };
+      var cur = A.CURRENCIES[p.currency] || A.CURRENCIES.CNY;
+      var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+      var W = 297, M = 14, navy = [11, 42, 79], muted = [91, 104, 120];
+      doc.setTextColor.apply(doc, navy); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+      doc.text(L.title + " — " + L.sub, M, 18);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(198, 40, 40);
+      doc.text(L.note, M, 24);
+      doc.setTextColor(30, 40, 50); doc.setFontSize(10);
+      doc.text([L.order + ": " + p.number, L.client + ": " + (p.client ? p.client.name : "—")], M, 32);
+      doc.text([L.date + ": " + docDate(p.date, d), L.currency + ": " + cur.label], W - M, 32, { align: "right" });
+      var sumSale = 0, sumDec = 0, any = false;
+      var body = p.items.map(function (i, n) {
+        var name = (i.product && i.product.name && (i.product.name[lang] || i.product.name.en)) || "";
+        var opts = i.options.map(function (o) { return (o.optionLabel && (o.optionLabel[lang] || o.optionLabel.en)) || ""; }).filter(Boolean).join(" · ");
+        var sale = round((i.price || 0) * i.qty);
+        var dec = i.declared == null ? null : round(i.declared * i.qty);
+        if (dec != null) { sumSale += sale; sumDec += dec; any = true; }
+        return [n + 1, (i.sku ? i.sku + "  " : "") + name + (opts ? "\n" + opts : ""), fmt(i.qty, d).replace(/[.,]00$/, ""), fmt(i.price || 0, d),
+          i.declared == null ? "—" : fmt(i.declared, d), fmt(sale, d), dec == null ? "—" : fmt(dec, d), dec == null ? "—" : fmt(round(dec - sale), d)];
+      });
+      doc.autoTable({
+        startY: 42, margin: { left: M, right: M },
+        head: [["#", L.item, L.qty, L.sale + " (" + cur.label + ")", L.declared + " (" + cur.label + ")", L.totalSale, L.totalDeclared, L.diff]],
+        body: body,
+        foot: [["", L.totals, "", "", "", fmt(p.totals.sale, d), any ? fmt(round(sumDec), d) : "—", any ? fmt(round(sumDec - sumSale), d) : "—"]],
+        theme: "grid", rowPageBreak: "avoid",
+        styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2, valign: "middle", lineColor: [220, 226, 234], textColor: [30, 40, 50] },
+        headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", halign: "center" },
+        footStyles: { fillColor: [246, 248, 251], textColor: navy, fontStyle: "bold", halign: "right" },
+        columnStyles: { 0: { cellWidth: 9, halign: "center" }, 2: { cellWidth: 18, halign: "right" }, 3: { cellWidth: 30, halign: "right" }, 4: { cellWidth: 32, halign: "right" },
+          5: { cellWidth: 30, halign: "right" }, 6: { cellWidth: 32, halign: "right" }, 7: { cellWidth: 28, halign: "right" } }
+      });
+      var pages = doc.getNumberOfPages();
+      for (var k = 1; k <= pages; k++) {
+        doc.setPage(k); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted); doc.setFont("helvetica", "normal");
+        doc.text(L.note + " · " + p.number, M, 203);
+        doc.text(L.page + " " + k + "/" + pages, W - M, 203, { align: "right" });
+      }
+      doc.save((L.title + " - " + p.number).replace(/[\\/:*?"<>|]+/g, " ") + ".pdf");
+    });
   }
 
   $("#pf-order").addEventListener("click", function (e) {
@@ -688,6 +847,7 @@
 
   function accept(p) {
     editing = p;
+    decState = { id: null, values: {} }; // the server's copy is the truth again
     var idx = proformas.findIndex(function (x) { return x.id === p.id; });
     if (idx > -1) proformas[idx] = p; else proformas.unshift(p);
     // Keep typed values but take the ids the server gave to new items.

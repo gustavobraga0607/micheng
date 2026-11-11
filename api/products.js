@@ -477,7 +477,7 @@ async function cleanup(urls) {
 
 // Remembered sale prices of a deleted product are no longer needed.
 function forgetPrices(priv, productId) {
-  for (const prices of Object.values(priv.clientPrices || {})) {
+  for (const prices of Object.values(priv.clientPrices || {}).concat(Object.values(priv.clientDeclared || {}))) {
     for (const key of Object.keys(prices)) if (key === productId || key.startsWith(productId + "|")) delete prices[key];
   }
 }

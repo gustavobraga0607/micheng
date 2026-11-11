@@ -544,3 +544,13 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .ord .fin-table tr[data-ord-entry]:hover td { background: var(--bg-soft); }
 .list-tools select#pf-kind { max-width: 170px; }
 @media (max-width: 560px) { .ord__actions .btn { flex: 1 1 auto; } }
+
+/* Declared value per item (internal control) */
+.dec { border-top: 1px dashed #cfd8e3; padding-top: 14px; display: grid; gap: 12px; }
+.dec h3 .lock { vertical-align: middle; margin-left: 6px; }
+.admin .dec-input { width: 110px; padding: 7px 9px; text-align: right; }
+.dec-table td { white-space: nowrap; }
+.dec-table .fin-desc { white-space: normal; min-width: 220px; }
+.dec-table tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; color: var(--navy); }
+.dec-table .fin-desc small { display: block; color: var(--muted); }
+.admin .dec-table .dec-input { width: 120px; }
