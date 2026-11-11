@@ -163,7 +163,7 @@
       tab.classList.toggle("is-active", active);
       tab.setAttribute("aria-selected", active ? "true" : "false");
     });
-    ["products", "suppliers", "clients", "proformas", "settings"].forEach(function (view) {
+    ["products", "suppliers", "clients", "proformas", "finance", "settings"].forEach(function (view) {
       $("#" + view + "-view").hidden = view !== name;
     });
     window.scrollTo(0, 0);

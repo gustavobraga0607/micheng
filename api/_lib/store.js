@@ -22,6 +22,7 @@ const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 const REDIS_PRODUCTS = "micheng:products";
 const REDIS_PRIVATE = "micheng:private";
 const REDIS_LOCK = "micheng:lock";
+const REDIS_FINANCE = "micheng:finance";
 
 function envEnding(suffix) {
   const name = Object.keys(process.env).find((k) => k.endsWith(suffix) && process.env[k]);
@@ -204,7 +205,8 @@ export async function saveProductsAndPrivate(products, priv) {
    encrypted (AES-256-GCM) with PRIVATE_DATA_KEY before it is stored.
    Changing or losing PRIVATE_DATA_KEY makes the saved suppliers unreadable. */
 
-const EMPTY_PRIVATE = {
+// A fresh object each time: a shared one would keep changes between requests.
+const emptyPrivate = () => ({
   suppliers: [],
   productSuppliers: {}, // productId -> [{ supplierId, cost, variantCosts }]
   clients: [],
@@ -213,7 +215,7 @@ const EMPTY_PRIVATE = {
   clientPrices: {}, // clientId -> { priceKey: { price, currency, proformaId, at } }
   proformaSeq: {}, // year -> last proforma number used
   clientRefs: {}, // productId -> clientId -> { comboKey ("" = no variants): client's reference }
-};
+});
 
 // Supplier links of a product, as [{ supplierId, cost }]. Links saved before
 // purchase prices existed were plain supplier ids.
@@ -260,14 +262,43 @@ export async function getPrivate() {
   let text;
   if (useRedis()) text = await redisRead(REDIS_PRIVATE, readBlobPrivate);
   else if (useBlob()) text = await readBlobPrivate();
-  else return { ...EMPTY_PRIVATE, ...(await readLocal("private.json", {})) };
-  return text ? { ...EMPTY_PRIVATE, ...decrypt(text) } : { ...EMPTY_PRIVATE };
+  else return { ...emptyPrivate(), ...(await readLocal("private.json", {})) };
+  return text ? { ...emptyPrivate(), ...decrypt(text) } : emptyPrivate();
 }
 
 export async function savePrivate(data) {
   if (useRedis()) return void (await redis(["SET", REDIS_PRIVATE, encrypt(data)]));
   if (!useBlob()) return writeLocal("private.json", data);
   await writeData(privatePath(), ".enc", encrypt(data), "application/octet-stream");
+}
+
+/* ---------- Finance (bank accounts, payables and receivables) ----------
+   Kept apart from the other admin data so neither grows too large; encrypted
+   the same way. */
+
+const emptyFinance = () => ({ accounts: [], entries: [] }); // fresh each time
+
+function financePath() {
+  const tag = crypto.createHash("sha256").update("micheng-finance-path:" + (process.env.PRIVATE_DATA_KEY || "")).digest("hex").slice(0, 24);
+  return "private/finance-" + tag;
+}
+
+export async function getFinance() {
+  let text;
+  if (useRedis()) text = await redis(["GET", REDIS_FINANCE]);
+  else if (useBlob()) {
+    const url = storeBaseUrl() + "/" + financePath() + ".enc?v=" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const r = await fetch(url, { cache: "no-store" });
+    if (r.ok) text = await r.text();
+    else if (r.status !== 404) throw new Error("Could not read finance data (" + r.status + ")");
+  } else return { ...emptyFinance(), ...(await readLocal("finance.json", {})) };
+  return text ? { ...emptyFinance(), ...decrypt(text) } : emptyFinance();
+}
+
+export async function saveFinance(data) {
+  if (useRedis()) return void (await redis(["SET", REDIS_FINANCE, encrypt(data)]));
+  if (!useBlob()) return writeLocal("finance.json", data);
+  await writeData(financePath(), ".enc", encrypt(data), "application/octet-stream");
 }
 
 /* ---------- Photos ---------- */

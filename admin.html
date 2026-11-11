@@ -60,8 +60,9 @@
         <button type="button" class="tab" role="tab" data-tab="suppliers" aria-selected="false"><span data-t="tab.suppliers">Fornecedores</span> <span class="count" id="tab-count-suppliers">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="clients" aria-selected="false"><span data-t="tab.clients">Clientes</span> <span class="count" id="tab-count-clients">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="proformas" aria-selected="false"><span data-t="tab.proformas">Proformas</span> <span class="count" id="tab-count-proformas">0</span></button>
+        <button type="button" class="tab" role="tab" data-tab="finance" aria-selected="false"><span data-t="tab.finance">Financeiro</span> <span class="count count--alert" id="tab-count-finance" hidden>0</span></button>
         <button type="button" class="tab" role="tab" data-tab="settings" aria-selected="false"><span data-t="tab.settings">Parâmetros</span></button>
-        <span class="lock tabs__lock" data-t="tab.privateNote">Fornecedores, clientes, proformas e parâmetros: só administradores</span>
+        <span class="lock tabs__lock" data-t="tab.privateNote">Fornecedores, clientes, proformas, financeiro e parâmetros: só administradores</span>
       </div>
     </nav>
 
@@ -312,6 +313,142 @@
       </section>
     </main>
 
+    <!-- ================= FINANCE (admin only) ================= -->
+    <main class="dash dash--wide" id="finance-view" hidden>
+      <section class="panel">
+        <div class="list-head">
+          <h2 data-t="fin.title">Financeiro</h2>
+          <div class="list-tools fin-new">
+            <button type="button" class="btn btn--outline" id="fin-accounts-btn" data-t="fin.accounts">Contas bancárias</button>
+            <button type="button" class="btn btn--outline fin-btn-out" id="fin-new-out">+ <span data-t="fin.newOut">Conta a pagar</span></button>
+            <button type="button" class="btn btn--primary" id="fin-new-in">+ <span data-t="fin.newIn">Conta a receber</span></button>
+          </div>
+        </div>
+        <p class="hint hint--lock" data-t="fin.hint">Visível somente neste painel; os dados ficam guardados criptografados.</p>
+
+        <div class="fin-cards" id="fin-cards"></div>
+
+        <div class="fin-toolbar">
+          <div class="seg" role="tablist" id="fin-modes">
+            <button type="button" class="seg__btn is-active" data-mode="all" data-t="fin.modeAll">Lançamentos</button>
+            <button type="button" class="seg__btn" data-mode="in" data-t="fin.modeIn">A receber</button>
+            <button type="button" class="seg__btn" data-mode="out" data-t="fin.modeOut">A pagar</button>
+            <button type="button" class="seg__btn" data-mode="statement" data-t="fin.modeStatement">Extrato bancário</button>
+          </div>
+          <div class="fin-filters">
+            <input type="search" id="fin-search" data-t-placeholder="fin.search" />
+            <select id="fin-account"></select>
+            <select id="fin-status">
+              <option value="" data-t="fin.stAll">Todas as situações</option>
+              <option value="open" data-t="fin.stOpen">Em aberto</option>
+              <option value="overdue" data-t="fin.stOverdue">Vencidas</option>
+              <option value="paid" data-t="fin.stPaid">Pagas / recebidas</option>
+            </select>
+            <label class="fin-date"><span data-t="fin.from">De</span><input type="date" id="fin-from" /></label>
+            <label class="fin-date"><span data-t="fin.to">Até</span><input type="date" id="fin-to" /></label>
+            <button type="button" class="btn btn--outline btn--sm" id="fin-xlsx">Excel</button>
+          </div>
+        </div>
+        <p class="status" id="fin-status-msg" role="status" aria-live="polite"></p>
+
+        <div id="fin-statement-box" hidden></div>
+        <div class="pf-table-wrap"><table class="pf-table fin-table" id="fin-table"></table></div>
+        <p class="empty" id="fin-empty" hidden></p>
+      </section>
+    </main>
+
+    <!-- Entry form -->
+    <dialog class="mdl" id="fin-entry-dlg">
+      <form id="fin-entry-form" class="crud-form" novalidate>
+        <div class="mdl__head"><h2 id="fin-entry-title"></h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+        <input type="hidden" name="id" />
+        <input type="hidden" name="type" />
+        <label><span data-t="fin.description">Descrição *</span><input type="text" name="description" maxlength="200" required /></label>
+        <div class="form-row">
+          <label><span id="fin-party-label" data-t="fin.client">Cliente</span>
+            <select name="party"></select>
+          </label>
+          <label id="fin-partyname-wrap" hidden><span data-t="fin.partyName">Nome</span><input type="text" name="partyName" maxlength="160" /></label>
+          <label id="fin-proforma-wrap"><span data-t="fin.proforma">Proforma</span><select name="proformaId"></select></label>
+        </div>
+        <div class="form-row form-row--3">
+          <label><span data-t="fin.amount">Valor *</span><input type="text" name="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>
+          <label><span data-t="fin.currency">Moeda</span>
+            <select name="currency"><option value="CNY">RMB (¥)</option><option value="USD">USD (US$)</option><option value="EUR">EUR (€)</option><option value="BRL">BRL (R$)</option></select>
+          </label>
+          <label><span data-t="fin.dueDate">Vencimento *</span><input type="date" name="dueDate" /></label>
+        </div>
+        <div class="form-row form-row--3">
+          <label><span data-t="fin.category">Categoria</span><input type="text" name="category" maxlength="60" list="fin-categories" /></label>
+          <label><span data-t="fin.document">Nº documento / NF</span><input type="text" name="document" maxlength="60" /></label>
+          <label id="fin-repeat-wrap"><span data-t="fin.repeat">Repetir (meses)</span>
+            <select name="repeat"></select>
+          </label>
+        </div>
+        <datalist id="fin-categories"></datalist>
+        <label class="check"><input type="checkbox" name="paid" /> <span id="fin-paid-label" data-t="fin.alreadyReceived">Já foi recebido</span></label>
+        <div class="form-row" id="fin-paid-fields" hidden>
+          <label><span id="fin-paiddate-label" data-t="fin.receivedOn">Recebido em</span><input type="date" name="paidDate" /></label>
+          <label><span data-t="fin.account">Conta bancária</span><select name="accountId"></select></label>
+        </div>
+        <label><span data-t="fin.notes">Observações</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--lg" id="fin-entry-save" data-t="fin.save">Salvar</button>
+          <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
+          <button type="button" class="btn btn--outline danger-btn" id="fin-entry-delete" data-t="list.delete" hidden>Excluir</button>
+        </div>
+        <p class="status" id="fin-entry-status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+
+    <!-- Mark as paid / received -->
+    <dialog class="mdl mdl--sm" id="fin-pay-dlg">
+      <form id="fin-pay-form" class="crud-form" novalidate>
+        <div class="mdl__head"><h2 id="fin-pay-title"></h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+        <p class="fin-pay-what" id="fin-pay-what"></p>
+        <div class="form-row">
+          <label><span data-t="fin.date">Data</span><input type="date" name="paidDate" /></label>
+          <label><span data-t="fin.amount">Valor *</span><input type="text" name="amount" inputmode="decimal" autocomplete="off" /></label>
+        </div>
+        <label><span data-t="fin.account">Conta bancária</span><select name="accountId"></select></label>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="fin-pay-save" data-t="fin.confirm">Confirmar</button>
+          <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
+        </div>
+        <p class="status" id="fin-pay-status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+
+    <!-- Bank accounts -->
+    <dialog class="mdl" id="fin-acc-dlg">
+      <div class="mdl__head"><h2 data-t="fin.accounts">Contas bancárias</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+      <ul class="fin-acc-list" id="fin-acc-list"></ul>
+      <form id="fin-acc-form" class="crud-form" novalidate>
+        <h3 id="fin-acc-title" data-t="fin.accNew">Nova conta</h3>
+        <input type="hidden" name="id" />
+        <div class="form-row">
+          <label><span data-t="fin.accName">Nome da conta *</span><input type="text" name="name" maxlength="80" data-t-placeholder="fin.accNamePh" /></label>
+          <label><span data-t="fin.accBank">Banco</span><input type="text" name="bank" maxlength="120" /></label>
+        </div>
+        <div class="form-row form-row--3">
+          <label><span data-t="fin.accNumber">Nº da conta</span><input type="text" name="number" maxlength="60" /></label>
+          <label><span data-t="fin.currency">Moeda</span>
+            <select name="currency"><option value="CNY">RMB (¥)</option><option value="USD">USD (US$)</option><option value="EUR">EUR (€)</option><option value="BRL">BRL (R$)</option></select>
+          </label>
+          <span></span>
+        </div>
+        <div class="form-row">
+          <label><span data-t="fin.accOpening">Saldo inicial</span><input type="text" name="openingBalance" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>
+          <label><span data-t="fin.accOpeningDate">Data do saldo inicial</span><input type="date" name="openingDate" /></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary" id="fin-acc-save" data-t="fin.accSave">Salvar conta</button>
+          <button type="button" class="btn btn--outline" id="fin-acc-cancel" data-t="form.cancel" hidden>Cancelar edição</button>
+        </div>
+        <p class="status" id="fin-acc-status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+
     <!-- ================= SETTINGS (admin only) ================= -->
     <main class="dash dash--single" id="settings-view" hidden>
       <section class="panel">
@@ -366,5 +503,6 @@
   <script src="assets/js/admin.js"></script>
   <script src="assets/js/proforma-doc.js"></script>
   <script src="assets/js/admin-proformas.js"></script>
+  <script src="assets/js/admin-finance.js"></script>
 </body>
 </html>
