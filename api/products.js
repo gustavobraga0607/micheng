@@ -449,10 +449,12 @@ async function handler(req, res) {
         applyClientRefs(priv, gone, { clientRefs: {} });
         forgetPrices(priv, gone.id);
         await saveProductsAndPrivate(products, priv);
-        return gone;
+        // Proformas show the product's photos: keep them while one still lists it.
+        const inProforma = priv.proformas.some((pf) => pf.items.some((i) => i.productId === gone.id));
+        return { gone, keepPhotos: inProforma };
       });
       if (!removed) return fail(res, 404, "Product not found");
-      await cleanup([removed.image].concat(Object.values(removed.variantImages || {})));
+      if (!removed.keepPhotos) await cleanup([removed.gone.image].concat(Object.values(removed.gone.variantImages || {})));
       return send(res, 200, { ok: true });
     }
 

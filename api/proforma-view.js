@@ -1,0 +1,62 @@
+// Public web page of a proforma (/proforma?t=<link code>), opened by the client
+// from the link on the PDF. Only what the PDF shows is returned — never costs,
+// margins or suppliers. Photos are always the product's current ones.
+import crypto from "node:crypto";
+import { fail, queryParam } from "./_lib/http.js";
+import { getProducts, getPrivate } from "./_lib/store.js";
+import { variantImage } from "./_lib/sku.js";
+
+function sameToken(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+export default async function handler(req, res) {
+  try {
+    if (req.method !== "GET") return fail(res, 405, "Method not allowed");
+    const token = String(queryParam(req, "t") || "");
+    if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return fail(res, 404, "Not found");
+    const priv = await getPrivate();
+    const pf = priv.proformas.find((p) => p.shareToken && sameToken(p.shareToken, token));
+    if (!pf) return fail(res, 404, "Not found");
+
+    const byId = new Map((await getProducts()).map((p) => [p.id, p]));
+    const s = priv.settings || {};
+    const items = pf.items.map((i, n) => {
+      const product = byId.get(i.productId);
+      const ids = i.options.map((o) => o.optionId);
+      const snap = i.product || {};
+      return {
+        n: n + 1,
+        code: i.sku || null,
+        ref: i.clientRef || null,
+        name: snap.name || {},
+        description: snap.description || (product && product.description) || {},
+        options: i.options.map((o) => ({ name: o.attrName || {}, value: o.optionLabel || {} })),
+        image: product ? variantImage(product, ids) : snap.image || null,
+        qty: i.qty,
+        price: i.price,
+        amount: Math.round((i.price || 0) * i.qty * 100) / 100,
+      };
+    });
+    const out = {
+      number: pf.number,
+      date: pf.date,
+      validUntil: pf.validUntil || null,
+      currency: pf.currency,
+      language: pf.language || "en",
+      company: { name: s.companyName || "", address: s.address || "", phone: s.phone || "", email: s.email || "", website: s.website || "" },
+      client: pf.client ? { name: pf.client.name || "", address: pf.client.address || "", phone: pf.client.phone || "", taxId: pf.client.taxId || "" } : null,
+      items,
+      total: pf.totals ? pf.totals.sale : items.reduce((t, i) => t + i.amount, 0),
+      terms: pf.terms || "",
+    };
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(JSON.stringify(out));
+  } catch (e) {
+    console.error(e);
+    fail(res, 500, "Server error");
+  }
+}

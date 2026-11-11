@@ -676,15 +676,15 @@
     en: { title: "PROFORMA INVOICE", no: "No.", date: "Date", valid: "Valid until", billTo: "Bill to", taxId: "Tax ID", phone: "Phone",
       email: "E-mail", web: "Website", item: "#", code: "Code", ref: "Your ref.", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
       total: "TOTAL", bank: "Bank details", beneficiary: "Beneficiary", bankName: "Bank", account: "Account No.", swift: "SWIFT / BIC",
-      bankAddress: "Bank address", terms: "Terms & notes", page: "Page", currency: "Currency" },
+      bankAddress: "Bank address", terms: "Terms & notes", page: "Page", currency: "Currency", photos: "Click here to view the photos in full size" },
     pt: { title: "FATURA PROFORMA", no: "Nº", date: "Data", valid: "Válida até", billTo: "Cliente", taxId: "Tax ID", phone: "Telefone",
       email: "E-mail", web: "Site", item: "#", code: "Código", ref: "Sua ref.", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
       total: "TOTAL", bank: "Dados bancários", beneficiary: "Beneficiário", bankName: "Banco", account: "Conta", swift: "SWIFT / BIC",
-      bankAddress: "Endereço do banco", terms: "Condições e observações", page: "Página", currency: "Moeda" },
+      bankAddress: "Endereço do banco", terms: "Condições e observações", page: "Página", currency: "Moeda", photos: "Clique aqui para visualizar as fotos em tamanho real" },
     es: { title: "FACTURA PROFORMA", no: "Nº", date: "Fecha", valid: "Válida hasta", billTo: "Cliente", taxId: "Tax ID", phone: "Teléfono",
       email: "Correo", web: "Sitio web", item: "#", code: "Código", ref: "Su ref.", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
       total: "TOTAL", bank: "Datos bancarios", beneficiary: "Beneficiario", bankName: "Banco", account: "Cuenta", swift: "SWIFT / BIC",
-      bankAddress: "Dirección del banco", terms: "Condiciones y observaciones", page: "Página", currency: "Moneda" }
+      bankAddress: "Dirección del banco", terms: "Condiciones y observaciones", page: "Página", currency: "Moneda", photos: "Haga clic aquí para ver las fotos en tamaño real" }
   };
 
   function loadScript(src) {
@@ -722,6 +722,21 @@
     });
   }
 
+  // Web page of the proforma, where the client sees the photos in full size.
+  function viewUrl(p) {
+    return p.shareToken ? location.origin + "/proforma?t=" + encodeURIComponent(p.shareToken) + "&lang=" + (p.language || "en") : "";
+  }
+  // Creates the page's link the first time a document is exported.
+  function ensureShare(p) {
+    if (p.shareToken) return Promise.resolve(p);
+    return A.api("/api/proformas?id=" + encodeURIComponent(p.id) + "&action=share", { method: "POST", body: {} }).then(function (data) {
+      var idx = proformas.findIndex(function (x) { return x.id === p.id; });
+      if (idx > -1) proformas[idx] = data.proforma;
+      if (editing && editing.id === p.id) editing = data.proforma;
+      return data.proforma;
+    });
+  }
+
   // Everything the documents show — nothing internal (cost, margin, supplier).
   function docData(p) {
     var lang = p.language || "en";
@@ -739,9 +754,11 @@
       var texts = (i.product && i.product.description) || (current && current.description) || {};
       var description = String(texts[lang] || texts.en || "").trim();
       var code = i.sku || (current ? skuOf({ productId: i.productId, options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}) }) : "");
-      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, description: description, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
+      // Always the product's current photo (the variant's own one when it has it).
+      var image = rowImage({ options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}), snapshot: i.product }, current);
+      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, description: description, options: opts, image: image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
     });
-    return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: p.totals.sale, p: p };
+    return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: p.totals.sale, p: p, link: viewUrl(p) };
   }
 
   function fmt(n, d) {
@@ -794,6 +811,17 @@
       meta.push(L.currency + ": " + d.cur.label);
       doc.text(meta, W - M, y + 13, { align: "right" });
       y = Math.max(infoY + info.length * 4 + 6, y + 32);
+
+      // Link to the web page with the photos in full size.
+      if (d.link) {
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); doc.setTextColor(26, 111, 216);
+        var linkText = "\u00bb " + L.photos; // "»" exists in the PDF's built-in font
+        doc.textWithLink(linkText, M, y - 1, { url: d.link });
+        doc.setDrawColor(26, 111, 216); doc.setLineWidth(0.25);
+        doc.line(M, y - 0.2, M + doc.getTextWidth(linkText), y - 0.2);
+        doc.setLineWidth(0.2);
+        y += 4;
+      }
 
       // Bill to
       doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251);
@@ -880,6 +908,7 @@
           if (h.section === "body" && h.column.index === 1) {
             var t = r.thumbs[h.row.index];
             if (t) doc.addImage(t.data, "JPEG", h.cell.x + 1.5, h.cell.y + (h.cell.height - 15) / 2, 15, 15);
+            if (t && d.link) doc.link(h.cell.x, h.cell.y, h.cell.width, h.cell.height, { url: d.link });
           }
         }
       });
@@ -965,6 +994,12 @@
         r.font = { size: 9, color: { argb: "FF5B6878" } };
       }
       var y = 3 + rowsN;
+      if (d.link) {
+        ws.mergeCells(y, 1, y, C.last);
+        ws.getCell(y, 1).value = { text: "\u2192 " + L.photos, hyperlink: d.link };
+        ws.getCell(y, 1).font = { bold: true, underline: true, color: { argb: "FF1A6FD8" } };
+        y += 2;
+      }
 
       ws.getCell(y, 1).value = L.billTo.toUpperCase();
       ws.getCell(y, 1).font = { bold: true, size: 9, color: { argb: "FF5B6878" } };
@@ -1067,7 +1102,7 @@
     var btn = $(kind === "pdf" ? "#pf-pdf" : "#pf-xlsx");
     btn.disabled = true;
     setStatus(T("pf.exporting"));
-    save().then(function (p) {
+    save().then(ensureShare).then(function (p) {
       return kind === "pdf" ? exportPdf(p) : exportXlsx(p);
     }).then(function () { setStatus(""); }, function (e) {
       setStatus(T("pf.exportError") + " " + e.message, "error");

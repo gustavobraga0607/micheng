@@ -226,6 +226,16 @@ async function handler(req, res) {
       return send(res, 200, { proforma });
     }
 
+    // Link of the proforma's web page (photos in full size), sent to the client.
+    // Created once; works for drafts and closed proformas alike.
+    if (req.method === "POST" && action === "share") {
+      if (current.shareToken) return send(res, 200, { proforma: current });
+      const proforma = { ...current, shareToken: crypto.randomBytes(18).toString("base64url") };
+      priv.proformas[index] = proforma;
+      await savePrivate(priv);
+      return send(res, 200, { proforma });
+    }
+
     if (req.method === "POST" && action === "reopen") {
       const proforma = { ...current, status: "draft", closedAt: null, updatedAt: new Date().toISOString() };
       priv.proformas[index] = proforma;
