@@ -176,10 +176,6 @@
   }
 
   /* ---------- Load ---------- */
-  function loadProformas() {
-    if (proformas) return Promise.resolve(proformas);
-    return A.api("/api/proformas").then(function (d) { proformas = d.proformas || []; return proformas; }).catch(function () { return []; });
-  }
 
   /* ---------- Render ---------- */
   function render() {
@@ -193,6 +189,7 @@
     document.querySelectorAll("#fin-modes .seg__btn").forEach(function (b) { b.classList.toggle("is-active", b.dataset.mode === mode); });
     $("#fin-status").hidden = mode === "statement";
     if (mode === "statement") renderStatement(); else renderList();
+    document.dispatchEvent(new CustomEvent("finance:changed")); // the order screen shows its entries
   }
 
   function renderAccountFilter() {
@@ -564,23 +561,25 @@
     $("#fin-party-label").textContent = T(type === "in" ? "fin.client" : "fin.supplier");
   }
 
-  function fillProformas(entry) {
-    var wrap = $("#fin-proforma-wrap");
-    wrap.hidden = ef.elements.type.value !== "in";
-    if (wrap.hidden) return;
+  // Proformas and orders, always the panel's current list.
+  function pfList() {
+    return window.Proformas && window.Proformas.list ? window.Proformas.list() : proformas || [];
+  }
+
+  // An entry may be linked to an order (closed proforma) or a proforma: income
+  // from its client, or an expense of that order.
+  function fillProformas(entry, wanted) {
     var sel = ef.elements.proformaId;
+    var isIn = ef.elements.type.value === "in";
     var party = ef.elements.party.value;
-    var clientId = party.indexOf("c:") === 0 ? party.slice(2) : "";
-    var selected = sel.value || (entry && entry.proformaId) || "";
-    sel.innerHTML = '<option value="">' + esc(T("fin.noProforma")) + "</option>";
-    loadProformas().then(function (list) {
-      sel.innerHTML = '<option value="">' + esc(T("fin.noProforma")) + "</option>" + list.filter(function (p) {
-        return !clientId || p.clientId === clientId || p.id === selected;
-      }).map(function (p) {
-        return '<option value="' + esc(p.id) + '">' + esc(p.number + " — " + (p.client ? p.client.name : "") + " — " + money(p.totals.sale, p.currency)) + "</option>";
-      }).join("");
-      sel.value = selected;
-    });
+    var clientId = isIn && party.indexOf("c:") === 0 ? party.slice(2) : "";
+    var selected = wanted || sel.value || (entry && entry.proformaId) || "";
+    sel.innerHTML = '<option value="">' + esc(T("fin.noProforma")) + "</option>" + pfList().filter(function (p) {
+      return !clientId || p.clientId === clientId || p.id === selected;
+    }).map(function (p) {
+      return '<option value="' + esc(p.id) + '">' + esc(p.number + (p.status === "closed" ? " · " + T("pf.closed") : "") + " — " + (p.client ? p.client.name : "") + " — " + money(p.totals.sale, p.currency)) + "</option>";
+    }).join("");
+    sel.value = selected;
   }
 
   function syncPaid() {
@@ -592,7 +591,8 @@
     ef.elements.accountId.innerHTML = accountOptions(cur, selected);
   }
 
-  function openEntry(type, entry) {
+  // defaults (new entries only): { proformaId, clientId, description, amount, currency, category }
+  function openEntry(type, entry, defaults) {
     editingEntry = entry || null;
     type = entry ? entry.type : type;
     ef.reset();
@@ -618,8 +618,14 @@
     ef.elements.paidDate.value = entry && entry.paidDate ? entry.paidDate : "";
     ef.elements.accountId.innerHTML = "";
     ef.elements.proformaId.innerHTML = "";
+    var d = (!entry && defaults) || {};
+    if (d.clientId && type === "in" && ef.elements.party.querySelector('option[value="c:' + d.clientId + '"]')) ef.elements.party.value = "c:" + d.clientId;
+    if (d.description) ef.elements.description.value = d.description;
+    if (d.amount > 0) ef.elements.amount.value = String(d.amount).replace(".", ",");
+    if (d.currency) ef.elements.currency.value = d.currency;
+    if (d.category) ef.elements.category.value = d.category;
     syncPaid();
-    fillProformas(entry);
+    fillProformas(entry, d.proformaId);
     $("#fin-entry-delete").hidden = !entry;
     pendingEntryFiles = [];
     renderEntryFiles();
@@ -629,8 +635,13 @@
 
   ef.elements.party.addEventListener("change", function () {
     $("#fin-partyname-wrap").hidden = ef.elements.party.value !== "other";
+    // The linked order stays, unless it is an income and the order belongs to another client.
+    var keep = ef.elements.proformaId.value;
+    var party = ef.elements.party.value;
+    var pf = pfList().filter(function (p) { return p.id === keep; })[0];
+    if (pf && ef.elements.type.value === "in" && party.indexOf("c:") === 0 && pf.clientId !== party.slice(2)) keep = "";
     ef.elements.proformaId.value = "";
-    fillProformas(null);
+    fillProformas(null, keep);
   });
   ef.elements.currency.addEventListener("change", syncPaid);
   ef.elements.paid.addEventListener("change", syncPaid);
@@ -638,10 +649,10 @@
     var a = accountById(ef.elements.accountId.value);
     if (a) ef.elements.currency.value = a.currency;
   });
-  // Choosing a proforma fills the client, amount, currency and description.
+  // Choosing a proforma fills the client, amount, currency and description of an income.
   ef.elements.proformaId.addEventListener("change", function () {
-    var pf = (proformas || []).filter(function (p) { return p.id === ef.elements.proformaId.value; })[0];
-    if (!pf) return;
+    var pf = pfList().filter(function (p) { return p.id === ef.elements.proformaId.value; })[0];
+    if (!pf || ef.elements.type.value !== "in") return;
     if (pf.clientId && ef.elements.party.querySelector('option[value="c:' + pf.clientId + '"]')) ef.elements.party.value = "c:" + pf.clientId;
     if (!ef.elements.amount.value) ef.elements.amount.value = String(pf.totals.sale).replace(".", ",");
     ef.elements.currency.value = pf.currency;
@@ -666,7 +677,7 @@
       clientId: party.indexOf("c:") === 0 ? party.slice(2) : "",
       supplierId: party.indexOf("s:") === 0 ? party.slice(2) : "",
       partyName: party === "other" ? ef.elements.partyName.value : "",
-      proformaId: ef.elements.type.value === "in" ? ef.elements.proformaId.value : "",
+      proformaId: ef.elements.proformaId.value,
       status: ef.elements.paid.checked ? "paid" : "open",
       paidDate: ef.elements.paid.checked ? ef.elements.paidDate.value : "",
       accountId: ef.elements.paid.checked ? ef.elements.accountId.value : (editingEntry && editingEntry.accountId) || "",
@@ -911,6 +922,15 @@
     }).catch(function (e) { setStatus("#fin-status-msg", e.message, "error"); })
       .then(function () { btn.disabled = false; });
   });
+
+  /* ---------- Shared with the order screen (admin-proformas.js) ---------- */
+  window.Finance = {
+    entries: function () { return entries; },
+    openEntry: openEntry,
+    openPay: openPay,
+    stateOf: stateOf,
+    categories: categories
+  };
 
   /* ---------- Wiring ---------- */
   document.addEventListener("admin:data", function (e) {

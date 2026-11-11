@@ -253,8 +253,13 @@
       <!-- List -->
       <section class="panel" id="pf-list-panel">
         <div class="list-head">
-          <h2><span data-t="pf.listTitle">Proformas</span> <span class="count" id="pf-count">0</span></h2>
+          <h2><span data-t="pf.listTitle">Proformas e pedidos</span> <span class="count" id="pf-count">0</span></h2>
           <div class="list-tools">
+            <select id="pf-kind">
+              <option value="" data-t="pf.kindAll">Todos</option>
+              <option value="draft" data-t="pf.kindDraft">Proformas</option>
+              <option value="closed" data-t="pf.kindOrders">Pedidos</option>
+            </select>
             <input type="search" id="pf-search" data-t-placeholder="pf.search" />
             <button type="button" class="btn btn--primary" id="pf-new">+ <span data-t="pf.new">Nova proforma</span></button>
           </div>
@@ -282,10 +287,13 @@
             <button type="button" class="btn btn--outline danger-btn" id="pf-delete" data-t="list.delete">Excluir</button>
             <button type="button" class="btn btn--outline" id="pf-reopen" data-t="pf.reopen" hidden>Reabrir</button>
             <button type="button" class="btn btn--outline" id="pf-save" data-t="pf.save">Salvar rascunho</button>
-            <button type="button" class="btn btn--primary" id="pf-close" data-t="pf.close">Fechar proforma</button>
+            <button type="button" class="btn btn--primary" id="pf-close" data-t="pf.close">Fechar pedido</button>
           </div>
         </div>
         <p class="status" id="pf-status" role="status" aria-live="polite"></p>
+
+        <!-- Order (closed proforma): its income and expenses -->
+        <div class="ord" id="pf-order" hidden></div>
 
         <form id="pf-form" class="pf-form" novalidate>
           <div class="pf-fields">
@@ -379,7 +387,7 @@
             <select name="party"></select>
           </label>
           <label id="fin-partyname-wrap" hidden><span data-t="fin.partyName">Nome</span><input type="text" name="partyName" maxlength="160" /></label>
-          <label id="fin-proforma-wrap"><span data-t="fin.proforma">Proforma</span><select name="proformaId"></select></label>
+          <label id="fin-proforma-wrap"><span data-t="fin.proforma">Pedido / proforma</span><select name="proformaId"></select></label>
         </div>
         <div class="form-row form-row--3">
           <label><span data-t="fin.amount">Valor *</span><input type="text" name="amount" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>

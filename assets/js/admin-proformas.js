@@ -91,7 +91,9 @@
     $("#tab-count-proformas").textContent = proformas.length;
     $("#pf-empty").hidden = proformas.length > 0;
     $("#pf-table").hidden = proformas.length === 0;
+    var kind = $("#pf-kind").value; // "" | draft (proformas) | closed (orders)
     var shown = proformas.filter(function (p) {
+      if (kind && p.status !== kind) return false;
       return !q || (p.number + " " + (p.client ? p.client.name : "")).toLowerCase().indexOf(q) > -1;
     });
     $("#pf-rows").innerHTML = shown.map(function (p) {
@@ -109,6 +111,7 @@
   }
 
   $("#pf-search").addEventListener("input", renderList);
+  $("#pf-kind").addEventListener("change", renderList);
   $("#pf-rows").addEventListener("click", function (e) {
     var tr = e.target.closest("tr[data-id]");
     if (!tr) return;
@@ -187,7 +190,101 @@
     $("#pf-delete").hidden = !editing;
     $("#pf-add-item").hidden = closed;
     form.querySelectorAll(".pf-fields input, .pf-fields select, textarea").forEach(function (el) { el.disabled = closed; });
+    renderOrder();
   }
+
+  /* ---------- Order (closed proforma): income and expenses ----------
+     The entries are ordinary finance entries linked to the order, so they also
+     show in the Finance tab and, once paid, in the bank statement. */
+  function orderEntries() {
+    if (!editing || !window.Finance) return [];
+    return window.Finance.entries().filter(function (e) { return e.proformaId === editing.id; })
+      .sort(function (a, b) { return a.dueDate.localeCompare(b.dueDate); });
+  }
+  // Sums by currency, as text: "¥ 1.000,00" or "¥ 1.000,00 + US$ 50,00".
+  function sumText(list) {
+    var by = {};
+    list.forEach(function (e) { by[e.currency] = round((by[e.currency] || 0) + e.amount); });
+    var keys = Object.keys(by);
+    return keys.length ? keys.map(function (c) { return A.money(by[c], c); }).join(" + ") : A.money(0, editing.currency);
+  }
+  function sumIn(list, cur) {
+    return round(list.filter(function (e) { return e.currency === cur; }).reduce(function (t, e) { return t + e.amount; }, 0));
+  }
+
+  function renderOrder() {
+    var box = $("#pf-order");
+    box.hidden = !isClosed();
+    if (box.hidden) return;
+    var F = window.Finance;
+    var list = orderEntries();
+    var ins = list.filter(function (e) { return e.type === "in"; });
+    var outs = list.filter(function (e) { return e.type === "out"; });
+    var cur = editing.currency;
+    var total = editing.totals.sale;
+    var launched = sumIn(ins, cur);
+    var received = sumIn(ins.filter(function (e) { return e.status === "paid"; }), cur);
+    var missing = round(total - launched);
+    var sameCurrency = list.every(function (e) { return e.currency === cur; });
+    var result = round(launched - sumIn(outs, cur));
+    var rows = list.map(function (e) {
+      var st = F.stateOf(e);
+      var badge = st === "paid" ? '<span class="badge badge--closed">' + esc(T(e.type === "in" ? "fin.received" : "fin.paid")) + "</span> <small>" + esc(fmtDate(e.paidDate)) + "</small>"
+        : st === "overdue" ? '<span class="badge badge--late">' + esc(T("fin.overdue")) + "</span>"
+        : '<span class="badge badge--draft">' + esc(T("fin.open")) + "</span>";
+      return '<tr data-ord-entry="' + esc(e.id) + '"><td>' + esc(fmtDate(e.dueDate)) + "</td>" +
+        '<td class="fin-desc"><b><span class="fin-type fin-type--' + e.type + '">' + (e.type === "in" ? "↓" : "↑") + "</span> " + esc(e.description) + "</b>" +
+          "<small>" + esc([e.party && e.party.name, e.category, e.document].filter(Boolean).join(" · ")) + "</small></td>" +
+        '<td class="num"><b class="' + (e.type === "in" ? "is-ok" : "is-neg") + '">' + esc((e.type === "in" ? "+ " : "− ") + A.money(e.amount, e.currency)) + "</b></td>" +
+        "<td>" + badge + "</td>" +
+        '<td class="num">' + (e.status === "paid" ? "" : '<button type="button" class="btn btn--outline btn--sm" data-ord-pay="' + esc(e.id) + '">' + esc(T(e.type === "in" ? "fin.receive" : "fin.pay")) + "</button>") + "</td></tr>";
+    }).join("");
+    box.innerHTML =
+      '<div class="ord__head"><div><h3>' + esc(T("ord.title")) + '</h3><p>' + esc(T("ord.hint")) + "</p></div>" +
+        '<div class="ord__actions"><button type="button" class="btn btn--outline fin-btn-out" data-ord-new="out">' + esc(T("ord.addOut")) + "</button>" +
+        '<button type="button" class="btn btn--primary" data-ord-new="in">' + esc(T("ord.addIn")) + "</button></div></div>" +
+      '<div class="ord__nums">' +
+        "<div><span>" + esc(T("ord.total")) + "</span><b>" + esc(A.money(total, cur)) + "</b></div>" +
+        '<div><span>' + esc(T("ord.launched")) + '</span><b class="is-ok">' + esc(sumText(ins)) + "</b>" +
+          (missing > 0.004 ? '<small class="is-low">' + esc(T("ord.toLaunch", { value: A.money(missing, cur) })) + "</small>" : "") + "</div>" +
+        "<div><span>" + esc(T("ord.received")) + "</span><b>" + esc(A.money(received, cur)) + "</b>" +
+          (launched - received > 0.004 ? "<small>" + esc(T("ord.toReceive", { value: A.money(round(launched - received), cur) })) + "</small>" : "") + "</div>" +
+        '<div><span>' + esc(T("ord.expenses")) + '</span><b class="is-neg">' + esc(sumText(outs)) + "</b></div>" +
+        "<div><span>" + esc(T("ord.result")) + "</span>" + (sameCurrency
+          ? '<b class="' + (result < 0 ? "is-neg" : "is-ok") + '">' + esc((result < 0 ? "− " : "") + A.money(Math.abs(result), cur)) + "</b>"
+          : "<b>—</b><small>" + esc(T("ord.mixedCurrencies")) + "</small>") + "</div>" +
+      "</div>" +
+      (list.length
+        ? '<div class="pf-table-wrap"><table class="pf-table fin-table"><tbody>' + rows + "</tbody></table></div>"
+        : '<p class="ord__empty">' + esc(T("ord.empty")) + "</p>");
+  }
+
+  $("#pf-order").addEventListener("click", function (e) {
+    var F = window.Finance;
+    if (!F || !editing) return;
+    var add = e.target.closest("[data-ord-new]");
+    var pay = e.target.closest("[data-ord-pay]");
+    var row = e.target.closest("[data-ord-entry]");
+    if (add) {
+      var type = add.getAttribute("data-ord-new");
+      var cur = editing.currency;
+      var launched = sumIn(orderEntries().filter(function (x) { return x.type === "in"; }), cur);
+      F.openEntry(type, null, {
+        proformaId: editing.id,
+        clientId: editing.clientId,
+        currency: cur,
+        description: T(type === "in" ? "ord.inDesc" : "ord.outDesc", { number: editing.number }),
+        amount: type === "in" ? Math.max(0, round(editing.totals.sale - launched)) : 0, // what is still to be invoiced
+        category: type === "in" ? F.categories("in")[0] : ""
+      });
+    } else if (pay) {
+      F.openPay(pay.getAttribute("data-ord-pay"));
+    } else if (row) {
+      var entry = F.entries().filter(function (x) { return x.id === row.getAttribute("data-ord-entry"); })[0];
+      if (entry) F.openEntry(null, entry);
+    }
+  });
+  document.addEventListener("finance:changed", function () { if (!$("#pf-editor").hidden) renderOrder(); });
 
   // Price remembered for this client, product and options (falls back to the product alone).
   function rememberedPrice(row) {
@@ -969,5 +1066,5 @@
   });
 
   // Expose for tests and for loading when the panel opens.
-  window.Proformas = { load: load };
+  window.Proformas = { load: load, list: function () { return proformas; } };
 })();
