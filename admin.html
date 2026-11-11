@@ -49,6 +49,9 @@
             <button type="button" class="lang__btn" data-lang="zh">中文</button>
           </div>
           <a href="products" class="topbar__link" target="_blank" rel="noopener"><span data-t="top.site">Ver site</span> ↗</a>
+          <button type="button" class="tab-gear" data-tab="settings" data-t-title="tab.settings" title="Parâmetros" aria-label="Parâmetros" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.5 7.5 0 000-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 00-1.7-1L15 3.5h-4l-.4 2.5a7.6 7.6 0 00-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 000 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 001.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 001.7-1l2.4 1 2-3.4z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
           <button class="btn btn--ghost" id="logout" data-t="top.logout">Sair</button>
         </div>
       </div>
@@ -61,7 +64,6 @@
         <button type="button" class="tab" role="tab" data-tab="clients" aria-selected="false"><span data-t="tab.clients">Clientes</span> <span class="count" id="tab-count-clients">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="proformas" aria-selected="false"><span data-t="tab.proformas">Proformas</span> <span class="count" id="tab-count-proformas">0</span></button>
         <button type="button" class="tab" role="tab" data-tab="finance" aria-selected="false"><span data-t="tab.finance">Financeiro</span> <span class="count count--alert" id="tab-count-finance" hidden>0</span></button>
-        <button type="button" class="tab" role="tab" data-tab="settings" aria-selected="false"><span data-t="tab.settings">Parâmetros</span></button>
         <span class="lock tabs__lock" data-t="tab.privateNote">Fornecedores, clientes, proformas, financeiro e parâmetros: só administradores</span>
       </div>
     </nav>

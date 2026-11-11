@@ -57,6 +57,14 @@
 .topbar .logo__icon { width: 42px; height: 42px; }
 .topbar .logo__mark { font-size: 22px; }
 .topbar__actions { display: flex; align-items: center; gap: 18px; }
+.tab-gear {
+  display: grid; place-items: center; width: 40px; height: 40px; flex: none; padding: 0; cursor: pointer;
+  background: transparent; border: 1.5px solid rgba(255,255,255,.35); border-radius: 50%; color: rgba(255,255,255,.85);
+  transition: background .2s, color .2s, border-color .2s, transform .3s;
+}
+.tab-gear svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.tab-gear:hover { color: #fff; border-color: #fff; transform: rotate(30deg); }
+.tab-gear.is-active { background: #fff; color: var(--navy); border-color: #fff; }
 .topbar__link { color: rgba(255,255,255,.85); font-size: 14px; font-weight: 500; }
 .topbar__link:hover { color: #fff; }
 .topbar .btn { padding: 8px 18px; }

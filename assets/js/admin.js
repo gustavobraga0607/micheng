@@ -81,6 +81,10 @@
     document.documentElement.lang = HTML_LANG[current];
     document.title = T("title");
     document.querySelectorAll("[data-t]").forEach(function (el) { el.textContent = T(el.getAttribute("data-t")); });
+    document.querySelectorAll("[data-t-title]").forEach(function (el) {
+      el.setAttribute("title", T(el.getAttribute("data-t-title")));
+      el.setAttribute("aria-label", T(el.getAttribute("data-t-title")));
+    });
     document.querySelectorAll("[data-t-placeholder]").forEach(function (el) {
       el.setAttribute("placeholder", T(el.getAttribute("data-t-placeholder")));
       el.setAttribute("aria-label", T(el.getAttribute("data-t-placeholder")));
@@ -163,12 +167,16 @@
       tab.classList.toggle("is-active", active);
       tab.setAttribute("aria-selected", active ? "true" : "false");
     });
+    // Settings opens from the gear next to "Sign out".
+    var gear = $(".tab-gear");
+    gear.classList.toggle("is-active", name === "settings");
+    gear.setAttribute("aria-pressed", name === "settings" ? "true" : "false");
     ["products", "suppliers", "clients", "proformas", "finance", "settings"].forEach(function (view) {
       $("#" + view + "-view").hidden = view !== name;
     });
     window.scrollTo(0, 0);
   }
-  document.querySelectorAll(".tab").forEach(function (tab) {
+  document.querySelectorAll(".tab, .tab-gear").forEach(function (tab) {
     tab.addEventListener("click", function () { showTab(tab.dataset.tab); });
   });
   document.querySelectorAll("[data-goto]").forEach(function (btn) {
