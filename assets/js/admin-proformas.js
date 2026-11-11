@@ -734,8 +734,12 @@
         return ((o.attrName && (o.attrName[lang] || o.attrName.en)) || "") + ": " + ((o.optionLabel && (o.optionLabel[lang] || o.optionLabel.en)) || "");
       });
       var current = products.filter(function (x) { return x.id === i.productId; })[0];
+      // Full description in the document's language (proformas saved before
+      // descriptions were kept fall back to the product's current text).
+      var texts = (i.product && i.product.description) || (current && current.description) || {};
+      var description = String(texts[lang] || texts.en || "").trim();
       var code = i.sku || (current ? skuOf({ productId: i.productId, options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}) }) : "");
-      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
+      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, description: description, options: opts, image: i.product && i.product.image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
     });
     return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: p.totals.sale, p: p };
   }
@@ -809,29 +813,70 @@
       // Items
       // "Your ref." column only when some item has the client's reference.
       var hasRef = d.items.some(function (it) { return it.ref; });
-      var body = d.items.map(function (it) {
-        return [it.n, "", it.code].concat(hasRef ? [it.ref] : []).concat([it.name + (it.options.length ? "\n" + it.options.join("\n") : ""), fmt(it.qty, d).replace(/[.,]00$/, ""), fmt(it.price, d), fmt(it.amount, d)]);
+      // The description column takes the width the other columns leave. Its
+      // lines are split here, the name with the bold font, so they fit exactly.
+      var descWidth = W - 2 * M - (8 + 18 + 17 + (hasRef ? 20 + 15 + 22 + 25 : 15 + 25 + 27));
+      var inner = descWidth - 4; // cell padding 2 mm on each side
+      doc.setFontSize(8.5);
+      var descText = d.items.map(function (it) {
+        doc.setFont("helvetica", "bold");
+        var nameLines = doc.splitTextToSize(it.name, inner);
+        doc.setFont("helvetica", "normal");
+        var rest = (it.description ? doc.splitTextToSize(it.description, inner) : [])
+          .concat(it.options.length ? doc.splitTextToSize(it.options.join("\n"), inner) : []);
+        it.boldLines = nameLines.length;
+        return nameLines.concat(rest).join("\n");
+      });
+      var body = d.items.map(function (it, k) {
+        return [it.n, "", it.code].concat(hasRef ? [it.ref] : []).concat([descText[k], fmt(it.qty, d).replace(/[.,]00$/, ""), fmt(it.price, d), fmt(it.amount, d)]);
       });
       var desc = hasRef ? 4 : 3;
       var colStyles = { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 18, minCellHeight: 18 }, 2: { cellWidth: 17, halign: "center", fontStyle: "bold" } };
       if (hasRef) colStyles[3] = { cellWidth: 20, halign: "center" };
-      colStyles[desc] = { cellWidth: "auto" };
+      colStyles[desc] = { cellWidth: descWidth };
       colStyles[desc + 1] = { cellWidth: 15, halign: "right" };
       colStyles[desc + 2] = { cellWidth: hasRef ? 22 : 25, halign: "right" };
       colStyles[desc + 3] = { cellWidth: hasRef ? 25 : 27, halign: "right" };
+      // Description cell: product name in bold, then its description and the
+      // chosen options in grey (one autoTable cell has a single style).
+      function drawDescription(h) {
+        var it = d.items[h.row.index];
+        var lines = h.cell.descLines || [];
+        if (!it || !lines.length) return;
+        var bold = it.boldLines || 0;
+        var fs = h.cell.styles.fontSize, lh = fs * doc.getLineHeightFactor() / doc.internal.scaleFactor;
+        var x = h.cell.x + h.cell.padding("left");
+        var top = h.cell.y + (h.cell.height - lines.length * lh) / 2;
+        doc.setFontSize(fs);
+        lines.forEach(function (line, k) {
+          doc.setFont("helvetica", k < bold ? "bold" : "normal");
+          if (k < bold) doc.setTextColor(30, 40, 50); else doc.setTextColor(84, 96, 112);
+          doc.text(line, x, top + lh * k, { baseline: "top" });
+        });
+        doc.setFont("helvetica", "normal"); doc.setTextColor(30, 40, 50);
+      }
       doc.autoTable({
         startY: y,
         margin: { left: M, right: M },
         head: [[L.item, "", L.code].concat(hasRef ? [L.ref] : []).concat([L.description, L.qty, L.unit + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"])],
         body: body,
         theme: "grid",
+        rowPageBreak: "avoid", // an item is never split across two pages
         styles: { font: "helvetica", fontSize: 8.5, cellPadding: 2, valign: "middle", lineColor: [220, 226, 234], textColor: [30, 40, 50] },
         headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", halign: "center" },
         columnStyles: colStyles,
         didParseCell: function (h) {
           if (h.section === "body" && h.column.index === desc) h.cell.styles.fontStyle = "normal";
         },
+        // Description cell: product name in bold, then its description and
+        // chosen options in grey (drawn here, as one cell has a single style).
+        willDrawCell: function (h) {
+          if (h.section !== "body" || h.column.index !== desc) return;
+          h.cell.descLines = h.cell.text.slice();
+          h.cell.text = []; // drawn in didDrawCell, after the cell background
+        },
         didDrawCell: function (h) {
+          if (h.section === "body" && h.column.index === desc) drawDescription(h);
           if (h.section === "body" && h.column.index === 1) {
             var t = r.thumbs[h.row.index];
             if (t) doc.addImage(t.data, "JPEG", h.cell.x + 1.5, h.cell.y + (h.cell.height - 15) / 2, 15, 15);
@@ -948,7 +993,9 @@
         r.getCell(1).value = it.n;
         r.getCell(2).value = it.code;
         if (hasRef) { r.getCell(C.ref).value = it.ref; r.getCell(C.ref).alignment = { horizontal: "center", vertical: "top" }; }
-        r.getCell(C.desc).value = it.name + (it.options.length ? "\n" + it.options.join("\n") : "");
+        r.getCell(C.desc).value = { richText: [{ text: it.name, font: { bold: true, size: 10 } }]
+          .concat(it.description ? [{ text: "\n" + it.description, font: { size: 9, color: { argb: "FF546070" } } }] : [])
+          .concat(it.options.length ? [{ text: "\n" + it.options.join("\n"), font: { size: 9, color: { argb: "FF546070" } } }] : []) };
         r.getCell(C.qty).value = it.qty;
         r.getCell(C.unit).value = it.price;
         r.getCell(C.amt).value = { formula: col(C.qty) + (first + n) + "*" + col(C.unit) + (first + n), result: it.amount };
@@ -959,7 +1006,10 @@
         [C.qty, C.unit, C.amt].forEach(function (k) { r.getCell(k).alignment = { vertical: "top" }; });
         r.getCell(C.unit).numFmt = moneyFmt;
         r.getCell(C.amt).numFmt = moneyFmt;
-        r.height = Math.max(18, 15 * (1 + it.options.length));
+        // Wrapped text does not grow the row by itself: estimate the lines.
+        var perLine = hasRef ? 62 : 74;
+        var textLines = Math.ceil(it.name.length / perLine) + (it.description ? Math.ceil(it.description.length / (perLine * 1.1)) : 0) + it.options.length;
+        r.height = Math.max(18, 14 * textLines);
       });
       var last = first + d.items.length - 1;
       var totalRow = last + 1;

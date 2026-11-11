@@ -55,7 +55,7 @@ function buildItems(rawItems, products, priv, previous, clientId) {
         if (opt) options.push({ attrId: attr.id, optionId: opt.id, attrName: attr.name, optionLabel: opt.label });
       }
       // The photo of the chosen configuration, when it has its own.
-      snapshot = { name: product.name, image: variantImage(product, options.map((o) => o.optionId)), category: product.category };
+      snapshot = { name: product.name, description: product.description || null, image: variantImage(product, options.map((o) => o.optionId)), category: product.category };
     } else if (prev && prev.productId === raw.productId) {
       // Product was deleted after this item was added: keep the saved copy.
       snapshot = prev.product;
