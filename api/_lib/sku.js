@@ -38,7 +38,7 @@ export function assignSkus(products, priv) {
       if (!keys.includes(k)) { delete variants[k]; changed = true; } // combination no longer exists
     }
     for (const k of keys) {
-      if (!(k in variants)) { variants[k] = ++vseq; changed = true; }
+      if (!Object.hasOwn(variants, k)) { variants[k] = ++vseq; changed = true; }
     }
     if (!p.variantSkus || p.variantSeq !== vseq) changed = true;
     p.variantSkus = variants;

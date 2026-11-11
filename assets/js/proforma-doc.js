@@ -45,7 +45,7 @@
   // items [{ n, code, ref, name, description, options [text], qty, price, amount }],
   // total, p { number, date, validUntil, client, terms }, link }.
   function buildXlsx(d) {
-    return loadScript("https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js").then(function () {
+    return loadScript("assets/vendor/exceljs.min.js").then(function () {
       var L = d.L, s = d.settings || {}, client = d.p.client || {};
       var wb = new window.ExcelJS.Workbook();
       wb.creator = s.companyName || "Micheng";

@@ -10,6 +10,7 @@
 
   var proformas = [];
   var editing = null; // saved proforma being edited (null = new, not saved yet)
+  var conflicted = false; // a save was refused because someone else changed the proforma
   var rows = []; // items being edited
   var clientPrices = {}; // remembered sale prices of the selected client
   var form = $("#pf-form");
@@ -580,6 +581,7 @@
       currency: form.elements.currency.value,
       language: form.elements.language.value,
       terms: form.elements.terms.value,
+      baseUpdatedAt: editing ? editing.updatedAt : undefined, // refused if someone else saved it meanwhile
       items: rows.filter(function (r) { return r.productId; }).map(function (r) {
         return { id: r.id, productId: r.productId, supplierId: r.supplierId, options: r.options, qty: r.qty, cost: r.cost, price: r.price,
           clientRef: r.clientRef || "" };
@@ -611,6 +613,9 @@
       { method: editing ? "PUT" : "POST", body: body() }).then(function (data) {
       accept(data.proforma);
       return data.proforma;
+    }, function (e) {
+      if (e.message === T("status.conflict")) conflicted = true; // the reloaded data brings the other version
+      throw e;
     });
   }
 
@@ -740,9 +745,9 @@
 
   function exportPdf(p) {
     return Promise.all([
-      loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+      loadScript("assets/vendor/jspdf.umd.min.js")
     ]).then(function () {
-      return loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
+      return loadScript("assets/vendor/jspdf.plugin.autotable.min.js");
     }).then(function () {
       var d = docData(p);
       return Promise.all([imageData("assets/img/logo.svg", 240, "image/png")].concat(d.items.map(function (it) {
@@ -938,9 +943,23 @@
   $("#pf-xlsx").addEventListener("click", function () { runExport("xlsx"); });
 
   /* ---------- Wiring ---------- */
-  var loadedOnce = false;
-  document.addEventListener("admin:data", function () {
-    if (!loadedOnce) { loadedOnce = true; load(); } // first data after login
+  document.addEventListener("admin:data", function (e) {
+    // The panel's combined load brings the proformas too.
+    if (e.detail && e.detail.proformas) {
+      proformas = e.detail.proformas;
+      // The open proforma keeps what is being typed; only its saved copy is replaced.
+      if (editing) {
+        var fresh = proformas.filter(function (x) { return x.id === editing.id; })[0];
+        if (fresh && fresh.updatedAt === editing.updatedAt) editing = fresh;
+        else if (fresh && conflicted && !$("#pf-editor").hidden) {
+          // Someone else saved it meanwhile: show their version (ours could not be saved over it).
+          openEditor(fresh);
+          setStatus(T("pf.conflict"), "error");
+        }
+        conflicted = false;
+      }
+      renderList();
+    }
     fillClientSelect();
     if (!$("#pf-editor").hidden) renderItems();
   });
@@ -948,9 +967,7 @@
     renderList();
     if (!$("#pf-editor").hidden) { renderHeader(); renderItems(); }
   });
-  document.querySelector('.tab[data-tab="proformas"]').addEventListener("click", load);
 
   // Expose for tests and for loading when the panel opens.
   window.Proformas = { load: load };
-  load();
 })();

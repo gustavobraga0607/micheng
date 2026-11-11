@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, productLinks, withDataLock, BusyError } from "./_lib/store.js";
+import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
@@ -234,7 +234,7 @@ function applySupplierLinks(priv, productId, body, product) {
     const variantCosts = {};
     for (const [key, value] of Object.entries((l && l.variantCosts) || {})) {
       const c = money(value);
-      if (key in variants && c != null) variantCosts[key] = c;
+      if (Object.hasOwn(variants, key) && c != null) variantCosts[key] = c;
     }
     links.push({ supplierId: id, cost: money(l.cost), variantCosts });
   }
@@ -264,7 +264,7 @@ function applyClientRefs(priv, product, body) {
       const clean = {};
       for (const [key, value] of Object.entries(map)) {
         const ref = String(value || "").trim().slice(0, 60);
-        if (ref && (hasVariants ? key in variants : key === "")) clean[key] = ref;
+        if (ref && (hasVariants ? Object.hasOwn(variants, key) : key === "")) clean[key] = ref;
       }
       if (Object.keys(clean).length) refs[clientId] = clean;
     }
@@ -281,13 +281,13 @@ function prepareSkus(products, priv) {
   const stale = [];
   for (const p of products) {
     for (const key of Object.keys(p.variantImages || {})) {
-      if (!(p.variantSkus && key in p.variantSkus)) { stale.push(p.variantImages[key]); delete p.variantImages[key]; }
+      if (!(p.variantSkus && Object.hasOwn(p.variantSkus, key))) { stale.push(p.variantImages[key]); delete p.variantImages[key]; }
     }
     const byClient = priv.clientRefs && priv.clientRefs[p.id];
     if (!byClient) continue;
     const hasVariants = Object.keys(p.variantSkus || {}).length > 0;
     for (const map of Object.values(byClient)) {
-      for (const key of Object.keys(map)) if (hasVariants ? !(key in p.variantSkus) : key !== "") delete map[key];
+      for (const key of Object.keys(map)) if (hasVariants ? !(Object.hasOwn(p.variantSkus, key)) : key !== "") delete map[key];
     }
   }
   return stale;
@@ -314,17 +314,7 @@ async function handler(req, res) {
       // The admin panel asks with ?admin=1 (never cached); everyone else gets the cached public list.
       if (queryParam(req, "admin") !== "1") return sendPublic(res, products);
       if (!getSession(req)) return fail(res, 401, "Login required");
-      let priv = await getPrivate();
-      let list = products;
-      // Products saved before SKUs existed get theirs on the first admin load.
-      if (assignSkus(products, priv)) {
-        [list, priv] = await withDataLock(async () => {
-          const fresh = await getProducts(), freshPriv = await getPrivate();
-          if (assignSkus(fresh, freshPriv)) await saveProductsAndPrivate(fresh, freshPriv);
-          return [fresh, freshPriv];
-        });
-      }
-      return send(res, 200, { products: list.map((p) => adminView(priv, p)) });
+      return send(res, 200, { products: await adminProducts(products, await getPrivate()) });
     }
 
     if (!getSession(req)) return fail(res, 401, "Login required");
@@ -340,7 +330,7 @@ async function handler(req, res) {
         const image = decodeImage(body.image);
         const current = (await getProducts()).find((p) => p.id === id);
         if (!current) return fail(res, 404, "Product not found");
-        if (!(current.variantSkus && key in current.variantSkus)) return fail(res, 400, "Unknown variant");
+        if (!(current.variantSkus && Object.hasOwn(current.variantSkus, key))) return fail(res, 400, "Unknown variant");
         url = await saveImage(current.id + "-v" + current.variantSkus[key], image.buffer, image.contentType);
         uploaded.push(url);
       }
@@ -348,7 +338,7 @@ async function handler(req, res) {
         const products = await getProducts();
         const product = products.find((p) => p.id === id);
         if (!product) return { status: 404, error: "Product not found" };
-        if (!(product.variantSkus && key in product.variantSkus)) return { status: 400, error: "Unknown variant" };
+        if (!(product.variantSkus && Object.hasOwn(product.variantSkus, key))) return { status: 400, error: "Unknown variant" };
         product.variantImages = product.variantImages || {};
         const old = product.variantImages[key];
         if (url) product.variantImages[key] = url;
@@ -380,9 +370,8 @@ async function handler(req, res) {
         : await copyImage(copyFrom.image, product.id);
       uploaded.push(product.image);
       const { links, refs, stale } = await withDataLock(async () => {
-        const products = await getProducts();
+        const { products, priv } = await getAllData();
         products.unshift(product);
-        const priv = await getPrivate();
         const stale = prepareSkus(products, priv);
         const links = applySupplierLinks(priv, product.id, body, product);
         const refs = applyClientRefs(priv, product, body);
@@ -411,9 +400,11 @@ async function handler(req, res) {
         uploaded.push(newImage);
       }
       const result = await withDataLock(async () => {
-        const products = await getProducts();
+        const { products, priv } = await getAllData();
         const index = products.findIndex((p) => p.id === id);
         if (index < 0) return null;
+        // Someone else saved this product after this form was opened: do not undo their change.
+        if (body.baseUpdatedAt && products[index].updatedAt !== body.baseUpdatedAt) return { conflict: true };
         // Keep what may have changed meanwhile and is not part of this form
         // (codes, variant photos, the main photo when no new one was sent).
         const fresh = products[index];
@@ -425,7 +416,6 @@ async function handler(req, res) {
         if (newImage) product.image = newImage;
         product.updatedAt = new Date().toISOString();
         products[index] = product;
-        const priv = await getPrivate();
         const stale = prepareSkus(products, priv);
         const links = applySupplierLinks(priv, product.id, body, product);
         const refs = applyClientRefs(priv, product, body);
@@ -433,6 +423,7 @@ async function handler(req, res) {
         return { links, refs, stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale };
       });
       if (!result) { await cleanup(uploaded); return fail(res, 404, "Product not found"); }
+      if (result.conflict) { await cleanup(uploaded); return fail(res, 409, "Changed by someone else"); }
       uploaded.length = 0;
       await cleanup(result.stale);
       return send(res, 200, { product: withLinks(product, result.links, result.refs) });
@@ -440,11 +431,10 @@ async function handler(req, res) {
 
     if (req.method === "DELETE") {
       const removed = await withDataLock(async () => {
-        const products = await getProducts();
+        const { products, priv } = await getAllData();
         const index = products.findIndex((p) => p.id === id);
         if (index < 0) return null;
         const [gone] = products.splice(index, 1);
-        const priv = await getPrivate();
         applySupplierLinks(priv, gone.id, { supplierLinks: [] });
         applyClientRefs(priv, gone, { clientRefs: {} });
         forgetPrices(priv, gone.id);
@@ -466,6 +456,19 @@ async function handler(req, res) {
     const clientError = /image|Unsupported|JSON/i.test(e.message);
     fail(res, clientError ? 400 : 500, clientError ? e.message : "Server error");
   }
+}
+
+// Product list as the admin panel shows it (with supplier links and client
+// references). Products saved before SKUs existed get theirs here.
+export async function adminProducts(products, priv) {
+  if (assignSkus(products, priv)) {
+    ({ products, priv } = await withDataLock(async () => {
+      const fresh = await getAllData();
+      if (assignSkus(fresh.products, fresh.priv)) await saveProductsAndPrivate(fresh.products, fresh.priv);
+      return fresh;
+    }));
+  }
+  return products.map((p) => adminView(priv, p));
 }
 
 async function cleanup(urls) {

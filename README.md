@@ -64,3 +64,10 @@ Se a tradução automática falhar (limite diário, por exemplo), o produto é s
 Publicado na Vercel (`vercel deploy --prod`). A área restrita depende das funções em `api/` do Upstash Redis e do Vercel Blob, por isso o site precisa ficar na Vercel.
 
 Fotos: [Unsplash](https://unsplash.com) (licença Unsplash).
+
+## Segurança e desempenho
+
+- `vercel.json` define os cabeçalhos de segurança (CSP, `X-Frame-Options`, `nosniff`) e o cache de imagens e bibliotecas.
+- As bibliotecas de PDF e Excel ficam em `assets/vendor/` (jsPDF 2.5.1, jsPDF-AutoTable 3.8.2, ExcelJS 4.4.0), sem depender de sites externos.
+- O painel carrega tudo de uma vez por `/api/bootstrap` e recarrega ao trocar de aba.
+- Trocar a senha de um administrador encerra as sessões abertas dele.

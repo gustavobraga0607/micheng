@@ -74,6 +74,8 @@
       "Description is required": "fin.err.description",
       "Account name is required": "fin.err.accName",
       "The account's currency is different from the entry's": "fin.err.currency",
+      "Payment date is before the account's opening balance": "fin.err.beforeOpening",
+      "Opening date is after payments already recorded": "fin.err.openingAfter",
       "Unsupported file": "fin.err.fileType",
       "File too large": "fin.err.fileTooBigServer",
       "Month is required": "fin.err.month"
@@ -174,16 +176,6 @@
   }
 
   /* ---------- Load ---------- */
-  function load() {
-    if ($("#app-view").hidden) return;
-    return A.api("/api/finance").then(function (data) {
-      accounts = data.accounts || [];
-      entries = data.entries || [];
-      loaded = true;
-      render();
-    }).catch(function (e) { setStatus("#fin-status-msg", errorText(e), "error"); });
-  }
-
   function loadProformas() {
     if (proformas) return Promise.resolve(proformas);
     return A.api("/api/proformas").then(function (d) { proformas = d.proformas || []; return proformas; }).catch(function () { return []; });
@@ -863,7 +855,7 @@
   $("#fin-xlsx").addEventListener("click", function () {
     var btn = this;
     btn.disabled = true;
-    window.ProformaDoc.loadScript("https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js").then(function () {
+    window.ProformaDoc.loadScript("assets/vendor/exceljs.min.js").then(function () {
       var wb = new window.ExcelJS.Workbook();
       var ws = wb.addWorksheet(T("fin.title"));
       var navy = "FF0B2A4F";
@@ -899,7 +891,8 @@
       var h = ws.addRow(headers);
       h.eachCell(function (c) { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: navy } }; });
       rows.forEach(function (r) {
-        var row = ws.addRow(r.map(function (v, i) { return i === 0 && v ? new Date(v + "T00:00:00Z") : v; }));
+        var dateCols = mode === "statement" ? [0] : [0, 9]; // due date and paid date as real dates
+        var row = ws.addRow(r.map(function (v, i) { return dateCols.indexOf(i) > -1 && v ? new Date(v + "T00:00:00Z") : v; }));
         row.getCell(1).numFmt = "dd/mm/yyyy";
       });
       ws.columns.forEach(function (col, i) { col.width = widths[i] || 14; });
@@ -920,13 +913,14 @@
   });
 
   /* ---------- Wiring ---------- */
-  var started = false;
-  document.addEventListener("admin:data", function () {
-    if (!started) { started = true; load(); } // first data after login: shows the overdue badge
+  document.addEventListener("admin:data", function (e) {
+    // The panel's combined load (on login and when changing tabs) brings the finance data and the proformas.
+    if (!e.detail || !e.detail.finance) return;
+    accounts = e.detail.finance.accounts || [];
+    entries = e.detail.finance.entries || [];
+    proformas = e.detail.proformas || null;
+    loaded = true;
+    render();
   });
   document.addEventListener("admin:lang", function () { if (loaded) render(); });
-  document.querySelector('.tab[data-tab="finance"]').addEventListener("click", function () {
-    proformas = null; // proformas may have changed since
-    load();
-  });
 })();

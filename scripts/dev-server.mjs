@@ -12,8 +12,16 @@ const types = {
   ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".json": "application/json",
 };
 
+// The response headers of vercel.json (security headers, CSP, caching) apply here too,
+// so they are exercised by local tests.
+const headerRules = JSON.parse(await fs.readFile(path.join(root, "vercel.json"), "utf8")).headers
+  .map((rule) => ({ test: new RegExp("^" + rule.source + "$"), headers: rule.headers }));
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
+  for (const rule of headerRules) {
+    if (rule.test.test(url.pathname)) for (const h of rule.headers) res.setHeader(h.key, h.value);
+  }
   try {
     if (url.pathname.startsWith("/api/")) {
       const name = url.pathname.slice(5).replace(/[^a-z-]/g, "");

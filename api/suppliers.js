@@ -28,7 +28,7 @@ function clean(body) {
 }
 
 // Adds the ids of the products each supplier is linked to.
-function withProducts(priv) {
+export function withProducts(priv) {
   return priv.suppliers.map((s) => ({
     ...s,
     productIds: Object.keys(priv.productSuppliers).filter((pid) => productLinks(priv, pid).some((l) => l.supplierId === s.id)),

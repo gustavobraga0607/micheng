@@ -301,6 +301,23 @@ export async function saveFinance(data) {
   await writeData(financePath(), ".enc", encrypt(data), "application/octet-stream");
 }
 
+/* ---------- Several data sets in one round trip ---------- */
+
+// Products and admin data (and finance, when asked) read together: one Redis
+// command instead of two or three.
+export async function getAllData({ finance = false } = {}) {
+  if (!useRedis()) {
+    return { products: await getProducts(), priv: await getPrivate(), fin: finance ? await getFinance() : null };
+  }
+  const [p, v, f] = await redis(["MGET", REDIS_PRODUCTS, REDIS_PRIVATE].concat(finance ? [REDIS_FINANCE] : []));
+  return {
+    // A missing key falls back to the single reads, which copy data kept in Blob by earlier versions.
+    products: p != null ? JSON.parse(p) : await getProducts(),
+    priv: v != null ? { ...emptyPrivate(), ...decrypt(v) } : await getPrivate(),
+    fin: finance ? (f != null ? { ...emptyFinance(), ...decrypt(f) } : emptyFinance()) : null,
+  };
+}
+
 /* ---------- Confidential files (bank statements, payment receipts) ----------
    Blob files are public to anyone who has their address, so these are stored
    encrypted (AES-256-GCM: iv + tag + data) and only served, decrypted, by an

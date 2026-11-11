@@ -128,6 +128,7 @@
         if (r.status === 401 && path !== "/api/login") showLogin();
         if (r.status === 503 && path !== "/api/login") throw new Error(T("status.busy"));
         if (r.status === 429) throw new Error(T("login.tooMany"));
+        if (r.status === 409 && data.error === "Changed by someone else") { loadAll(); throw new Error(T("status.conflict")); }
         if (!r.ok) throw new Error(data.error || "Erro " + r.status);
         return data;
       });
@@ -154,10 +155,33 @@
   function showApp() {
     loginView.hidden = true;
     appView.hidden = false;
-    loadProducts();
-    loadSuppliers();
-    loadClients();
-    loadSettings();
+    loadAll();
+  }
+
+  // Everything the panel shows, in one request. Also used to refresh the data
+  // when changing tabs, so each admin sees what the other one saved.
+  var lastLoad = 0;
+  var loadingAll = null;
+  function loadAll() {
+    if (loadingAll) return loadingAll;
+    loadingAll = api("/api/bootstrap").then(function (data) {
+      lastLoad = Date.now();
+      products = data.products || [];
+      suppliers = data.suppliers || [];
+      clients = data.clients || [];
+      renderList();
+      renderSuppliers();
+      renderPicker();
+      renderClients();
+      renderClientRefs();
+      fillSettings(data.settings, true);
+      document.dispatchEvent(new CustomEvent("admin:data", { detail: { proformas: data.proformas || [], finance: data.finance } }));
+    }).catch(function (e) { setStatus(e.message, "error"); })
+      .then(function () { loadingAll = null; });
+    return loadingAll;
+  }
+  function refreshIfStale() {
+    if (!appView.hidden && Date.now() - lastLoad > 20000) loadAll();
   }
 
   /* ---------- Tabs ---------- */
@@ -177,7 +201,7 @@
     window.scrollTo(0, 0);
   }
   document.querySelectorAll(".tab, .tab-gear").forEach(function (tab) {
-    tab.addEventListener("click", function () { showTab(tab.dataset.tab); });
+    tab.addEventListener("click", function () { showTab(tab.dataset.tab); refreshIfStale(); });
   });
   document.querySelectorAll("[data-goto]").forEach(function (btn) {
     btn.addEventListener("click", function () { showTab(btn.dataset.goto); });
@@ -437,6 +461,8 @@
     if (pendingImage) body.image = pendingImage;
     else if (!id && duplicateOf) body.copyImageFrom = duplicateOf.id;
     if (id) {
+      var known = products.filter(function (x) { return x.id === id; })[0];
+      if (known) body.baseUpdatedAt = known.updatedAt; // refused if someone else saved it meanwhile
       body.retranslate = form.elements.retranslate.checked;
       body.translations = { name: {}, description: {} };
       trFields("name").forEach(function (el) { body.translations.name[el.dataset.lang] = el.value; });
@@ -1142,10 +1168,12 @@
       : "";
   }
 
-  function fillSettings(settings) {
-    SET_FIELDS.forEach(function (f) { setForm.elements[f].value = (settings && settings[f]) || ""; });
+  // refresh: data reloaded in the background — a form with unsaved typing is left alone.
+  function fillSettings(settings, refresh) {
+    var dirty = refresh && SET_FIELDS.some(function (f) { return setForm.elements[f].value !== ((companySettings && companySettings[f]) || (f === "currency" ? defaultCurrency : "")); });
+    if (!dirty) SET_FIELDS.forEach(function (f) { setForm.elements[f].value = (settings && settings[f]) || ""; });
     defaultCurrency = (settings && CURRENCIES[settings.currency]) ? settings.currency : "CNY";
-    setForm.elements.currency.value = defaultCurrency;
+    if (!dirty) setForm.elements.currency.value = defaultCurrency;
     renderPicker();
     renderList();
     settingsUpdatedAt = settings && settings.updatedAt;
@@ -1190,6 +1218,7 @@
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
     reloadProducts: loadProducts,
+    reloadAll: loadAll,
     parseDecimal: parseDecimal,
     showTab: showTab
   };

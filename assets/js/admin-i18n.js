@@ -1,6 +1,10 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.conflict": "Outro administrador alterou esta proforma enquanto você editava. Esta é a versão dele; refaça suas alterações se ainda forem necessárias.",
+    "status.conflict": "Outro administrador alterou este cadastro enquanto você editava. Os dados foram atualizados: confira e salve de novo.",
+    "fin.err.beforeOpening": "A data é anterior ao saldo inicial da conta bancária. Use uma data a partir do saldo inicial (ou ajuste a data do saldo inicial da conta).",
+    "fin.err.openingAfter": "Já existem pagamentos nesta conta antes dessa data. Escolha uma data de saldo inicial anterior a eles.",
     "fin.receipts": "Comprovantes",
     "fin.receiptOptional": "Comprovante (opcional)",
     "fin.attachReceipt": "+ Anexar comprovante",
@@ -385,6 +389,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.conflict": "Another administrator changed this proforma while you were editing. This is their version; redo your changes if still needed.",
+    "status.conflict": "Another administrator changed this record while you were editing. The data was refreshed: check it and save again.",
+    "fin.err.beforeOpening": "The date is before the bank account's opening balance. Use a date from the opening balance on (or change the account's opening date).",
+    "fin.err.openingAfter": "There are payments in this account before that date. Choose an earlier opening date.",
     "fin.receipts": "Receipts",
     "fin.receiptOptional": "Receipt (optional)",
     "fin.attachReceipt": "+ Attach receipt",
@@ -769,6 +777,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.conflict": "Otro administrador cambió esta proforma mientras usted editaba. Esta es su versión; rehaga sus cambios si aún son necesarios.",
+    "status.conflict": "Otro administrador cambió este registro mientras usted editaba. Los datos se actualizaron: revise y guarde de nuevo.",
+    "fin.err.beforeOpening": "La fecha es anterior al saldo inicial de la cuenta. Use una fecha a partir del saldo inicial (o ajuste la fecha del saldo inicial).",
+    "fin.err.openingAfter": "Ya hay pagos en esta cuenta antes de esa fecha. Elija una fecha de saldo inicial anterior.",
     "fin.receipts": "Comprobantes",
     "fin.receiptOptional": "Comprobante (opcional)",
     "fin.attachReceipt": "+ Adjuntar comprobante",
@@ -1153,6 +1165,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.conflict": "在您编辑期间，另一位管理员修改了此形式发票。这是对方的版本；如仍需要，请重新修改。",
+    "status.conflict": "在您编辑期间，另一位管理员修改了此记录。数据已刷新，请检查后重新保存。",
+    "fin.err.beforeOpening": "日期早于银行账户的期初余额日期。请使用期初余额之后的日期（或修改账户的期初日期）。",
+    "fin.err.openingAfter": "此账户在该日期之前已有付款记录。请选择更早的期初日期。",
     "fin.receipts": "付款凭证",
     "fin.receiptOptional": "付款凭证（可选）",
     "fin.attachReceipt": "+ 添加凭证",

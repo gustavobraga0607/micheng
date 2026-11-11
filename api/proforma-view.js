@@ -3,7 +3,7 @@
 // margins or suppliers. Photos are always the product's current ones.
 import crypto from "node:crypto";
 import { fail, queryParam } from "./_lib/http.js";
-import { getProducts, getPrivate } from "./_lib/store.js";
+import { getAllData } from "./_lib/store.js";
 import { variantImage } from "./_lib/sku.js";
 
 function sameToken(a, b) {
@@ -11,16 +11,31 @@ function sameToken(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
+// This route is public: limit how fast one address can call it (per server
+// instance, in memory), so guessing link codes or flooding it stays cheap for us.
+const WINDOW_MS = 60000, MAX_PER_WINDOW = 40;
+const hits = new Map();
+function tooMany(req) {
+  const ip = String(req.headers["x-real-ip"] || req.headers["x-forwarded-for"] || "unknown").split(",")[0].trim();
+  const now = Date.now();
+  if (hits.size > 5000) hits.clear();
+  const h = hits.get(ip);
+  if (!h || now - h.start > WINDOW_MS) { hits.set(ip, { start: now, count: 1 }); return false; }
+  h.count += 1;
+  return h.count > MAX_PER_WINDOW;
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "GET") return fail(res, 405, "Method not allowed");
     const token = String(queryParam(req, "t") || "");
     if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return fail(res, 404, "Not found");
-    const priv = await getPrivate();
+    if (tooMany(req)) return fail(res, 429, "Too many requests");
+    const { products, priv } = await getAllData();
     const pf = priv.proformas.find((p) => p.shareToken && sameToken(p.shareToken, token));
     if (!pf) return fail(res, 404, "Not found");
 
-    const byId = new Map((await getProducts()).map((p) => [p.id, p]));
+    const byId = new Map(products.map((p) => [p.id, p]));
     const s = priv.settings || {};
     const items = pf.items.map((i, n) => {
       const product = byId.get(i.productId);

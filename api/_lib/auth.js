@@ -10,8 +10,12 @@ function secret() {
   return process.env.SESSION_SECRET || devSecret;
 }
 
-function sign(value) {
-  return crypto.createHmac("sha256", secret()).update(value).digest("base64url");
+// The signature also depends on the user's current password, so changing a
+// password (or removing an admin) ends that user's open sessions at once.
+function sign(value, user) {
+  const stored = adminAccounts()[user];
+  const credential = stored == null ? "" : crypto.createHash("sha256").update(String(stored)).digest("hex");
+  return crypto.createHmac("sha256", secret() + ":" + credential).update(value).digest("base64url");
 }
 
 function safeEqual(a, b) {
@@ -24,7 +28,7 @@ function safeEqual(a, b) {
 // ones in ADMIN_USERS, a JSON object {"user": "scrypt:<salt>:<hash>"} (a plain
 // password also works there, but hashes keep it out of the settings screen).
 function adminAccounts() {
-  const accounts = {};
+  const accounts = Object.create(null); // no inherited keys: "constructor" is not a user
   if (process.env.ADMIN_PASSWORD) accounts[(process.env.ADMIN_USER || "admin").toLowerCase()] = process.env.ADMIN_PASSWORD;
   if (process.env.ADMIN_USERS) {
     try {
@@ -69,7 +73,7 @@ function isSecure(req) {
 
 export function createSession(req, res, user) {
   const payload = Buffer.from(JSON.stringify({ u: user, exp: Date.now() + MAX_AGE * 1000 })).toString("base64url");
-  const token = payload + "." + sign(payload);
+  const token = payload + "." + sign(payload, user);
   const attrs = ["Path=/", "HttpOnly", "SameSite=Strict", "Max-Age=" + MAX_AGE];
   if (isSecure(req)) attrs.push("Secure");
   res.setHeader("Set-Cookie", COOKIE + "=" + token + "; " + attrs.join("; "));
@@ -85,9 +89,11 @@ export function getSession(req) {
   const token = parseCookies(req)[COOKIE];
   if (!token || token.indexOf(".") < 0) return null;
   const [payload, signature] = token.split(".");
-  if (!safeEqual(signature, sign(payload))) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    const user = String(data.u || "");
+    if (!(user in adminAccounts())) return null; // admin removed
+    if (!safeEqual(signature, sign(payload, user))) return null;
     if (!data.exp || data.exp < Date.now()) return null;
     return data;
   } catch (e) {

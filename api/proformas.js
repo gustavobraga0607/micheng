@@ -6,7 +6,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, getPrivate, savePrivate, oneChangeAtATime } from "./_lib/store.js";
+import { getAllData, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
@@ -99,7 +99,7 @@ function totals(items) {
   return { sale: r(sale), saleWithCost: r(saleWithCost), cost: r(cost), profit: known ? r(saleWithCost - cost) : null, costMissing };
 }
 
-async function applyBody(proforma, body, priv, previous) {
+function applyBody(proforma, body, priv, previous, products) {
   const client = priv.clients.find((c) => c.id === body.clientId);
   proforma.clientId = client ? client.id : (previous && previous.clientId) || null;
   if (client) proforma.client = { name: client.name, address: client.address, phone: client.phone, taxId: client.taxId };
@@ -109,7 +109,7 @@ async function applyBody(proforma, body, priv, previous) {
   proforma.currency = CURRENCIES.includes(body.currency) ? body.currency : proforma.currency || priv.settings.currency || "CNY";
   proforma.language = DOC_LANGS.includes(body.language) ? body.language : proforma.language || "en";
   proforma.terms = text(body.terms, 3000);
-  proforma.items = buildItems(body.items, await getProducts(), priv, previous, proforma.clientId);
+  proforma.items = buildItems(body.items, products, priv, previous, proforma.clientId);
   proforma.totals = totals(proforma.items);
 }
 
@@ -146,39 +146,42 @@ function closeProblems(p) {
   return problems.concat(duplicateProblems(p.items));
 }
 
+// Proformas as the admin panel shows them.
+export function proformaList(priv, products) {
+  // Items saved before SKUs existed show the current code of their product.
+  const byId = new Map(products.map((p) => [p.id, p]));
+  return priv.proformas.map((pf) => ({
+    ...pf,
+    items: pf.items.map((i) => ({
+      ...i,
+      sku: i.sku || skuFor(byId.get(i.productId), i.options.map((o) => o.optionId)),
+      // Drafts saved before references existed show the catalog reference.
+      clientRef: i.clientRef !== undefined || pf.status === "closed" ? i.clientRef || null : catalogRef(priv, pf.clientId, i.productId, i.options),
+    })),
+  }));
+}
+
 async function handler(req, res) {
   try {
     const session = getSession(req);
     if (!session) return fail(res, 401, "Login required");
     if (req.method !== "GET" && req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
 
-    const priv = await getPrivate();
+    const { products, priv } = await getAllData();
     const id = queryParam(req, "id");
     const action = queryParam(req, "action");
 
     if (req.method === "GET") {
       const clientId = queryParam(req, "prices");
       if (clientId) return send(res, 200, { prices: priv.clientPrices[clientId] || {} });
-      // Items saved before SKUs existed show the current code of their product.
-      const products = await getProducts();
-      const byId = new Map(products.map((p) => [p.id, p]));
-      const proformas = priv.proformas.map((pf) => ({
-        ...pf,
-        items: pf.items.map((i) => ({
-          ...i,
-          sku: i.sku || skuFor(byId.get(i.productId), i.options.map((o) => o.optionId)),
-          // Drafts saved before references existed show the catalog reference.
-          clientRef: i.clientRef !== undefined || pf.status === "closed" ? i.clientRef || null : catalogRef(priv, pf.clientId, i.productId, i.options),
-        })),
-      }));
-      return send(res, 200, { proformas });
+      return send(res, 200, { proformas: proformaList(priv, products) });
     }
 
     if (req.method === "POST" && !id) {
       const body = await readJson(req);
       const now = new Date().toISOString();
       const proforma = { id: crypto.randomUUID(), status: "draft", createdAt: now, updatedAt: now, createdBy: session.u };
-      await applyBody(proforma, body, priv, null);
+      applyBody(proforma, body, priv, null, products);
       const dups = duplicateProblems(proforma.items);
       if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
       proforma.number = nextNumber(priv, proforma.date);
@@ -194,8 +197,10 @@ async function handler(req, res) {
     if (req.method === "PUT") {
       if (current.status === "closed") return fail(res, 409, "Closed proformas cannot be edited. Reopen it first.");
       const body = await readJson(req);
+      // Someone else saved this proforma after this editor opened it: do not undo their change.
+      if (body.baseUpdatedAt && current.updatedAt !== body.baseUpdatedAt) return fail(res, 409, "Changed by someone else");
       const proforma = { ...current, updatedAt: new Date().toISOString() };
-      await applyBody(proforma, body, priv, current);
+      applyBody(proforma, body, priv, current, products);
       const dups = duplicateProblems(proforma.items);
       if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
       priv.proformas[index] = proforma;

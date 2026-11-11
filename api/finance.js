@@ -71,8 +71,8 @@ function publicFile(f) {
 function withoutRefs(obj, key) {
   return obj[key] ? { ...obj, [key]: obj[key].map(publicFile) } : obj;
 }
-const accountOut = (a) => withoutRefs(a, "statements");
-const entryOut = (e) => withoutRefs(e, "attachments");
+export const accountOut = (a) => withoutRefs(a, "statements");
+export const entryOut = (e) => withoutRefs(e, "attachments");
 
 function cleanAccount(body, existing) {
   const name = text(body.name, 80);
@@ -113,6 +113,8 @@ function cleanEntry(body, fin, priv, existing) {
   const paidDate = paid ? isoDate(body.paidDate) : null;
   if (paid && !paidDate) return { error: "Payment date is required" };
   if (paid && !account) return { error: "Choose the bank account of the payment" };
+  // Money that moved before the opening balance is already inside that balance.
+  if (paid && paidDate < account.openingDate) return { error: "Payment date is before the account's opening balance" };
 
   // Who pays / receives: a registered client or supplier, or a name typed freely.
   let party = null;
@@ -241,6 +243,8 @@ async function handler(req, res) {
         if (r.error) return fail(res, 400, r.error);
         const used = fin.entries.some((e) => e.accountId === id);
         if (used && r.currency !== current.currency) return fail(res, 409, "Account currency cannot change: it has entries");
+        // Paid entries must stay on or after the opening balance date, or they would drop out of the statement.
+        if (fin.entries.some((e) => e.accountId === id && e.status === "paid" && e.paidDate < r.openingDate)) return fail(res, 409, "Opening date is after payments already recorded");
         fin.accounts[index] = { ...current, ...r, updatedAt: now };
         await saveFinance(fin);
         return send(res, 200, { account: accountOut(fin.accounts[index]) });
@@ -298,6 +302,7 @@ async function handler(req, res) {
         if (!paidDate) return fail(res, 400, "Payment date is required");
         if (!account) return fail(res, 400, "Choose the bank account of the payment");
         if (account.currency !== current.currency) return fail(res, 400, "The account's currency is different from the entry's");
+        if (paidDate < account.openingDate) return fail(res, 400, "Payment date is before the account's opening balance");
         const amount = body.amount == null || body.amount === "" ? current.amount : parseDecimal(body.amount);
         if (!(amount > 0)) return fail(res, 400, "Amount must be greater than zero");
         fin.entries[index] = { ...current, status: "paid", paidDate, accountId: account.id, amount: round2(amount), reconciled: false, updatedAt: now, updatedBy: session.u };
