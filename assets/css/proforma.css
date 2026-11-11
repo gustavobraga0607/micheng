@@ -30,7 +30,8 @@ button { font: inherit; cursor: pointer; }
 .pv-lang { display: flex; border: 1px solid rgba(255,255,255,.35); border-radius: 4px; overflow: hidden; }
 .pv-lang button { background: none; border: 0; color: #fff; padding: 6px 9px; font-size: 12px; font-weight: 600; opacity: .75; }
 .pv-lang button.is-active { background: #fff; color: var(--navy); opacity: 1; }
-.pv-print { background: var(--blue); color: #fff; border: 0; border-radius: 4px; padding: 7px 12px; font-size: 13px; font-weight: 600; }
+.pv-btn { background: var(--blue); color: #fff; border: 0; border-radius: 4px; padding: 7px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.pv-btn:disabled { opacity: .6; cursor: progress; }
 
 main.pv-wrap { padding-top: 24px; padding-bottom: 48px; }
 .pv-loading, .pv-missing { text-align: center; padding: 64px 0; color: var(--muted); }
@@ -102,6 +103,10 @@ main.pv-wrap { padding-top: 24px; padding-bottom: 48px; }
   .pv-item__photo { width: 88px; height: 88px; }
   .pv-item__price { grid-column: 2; text-align: left; }
   .pv-brand small { display: none; }
+  .pv-brand b { display: none; }
+  .pv-actions { gap: 6px; }
+  .pv-btn { padding: 7px 9px; font-size: 12px; }
+  .pv-lang button { padding: 6px 7px; }
   .pv-zoom figure { max-width: calc(100vw - 16px); }
   .pv-zoom__nav { top: auto; bottom: 16px; transform: none; }
 }

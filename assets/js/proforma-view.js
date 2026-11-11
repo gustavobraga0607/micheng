@@ -6,15 +6,15 @@
   var L = {
     en: { title: "Proforma invoice", no: "No.", date: "Date", valid: "Valid until", currency: "Currency", billTo: "Bill to", taxId: "Tax ID",
       phone: "Phone", email: "E-mail", web: "Website", code: "Code", ref: "Your ref.", qty: "Qty", unit: "Unit price", total: "Total",
-      terms: "Terms & notes", hint: "Click a photo to see it in full size.", print: "Print", loading: "Loading…",
+      terms: "Terms & notes", hint: "Click a photo to see it in full size.", print: "Print / PDF", excel: "Download Excel", loading: "Loading…",
       missingTitle: "Proforma not found", missingText: "This link is not valid anymore. Please ask us for a new one.", close: "Close" },
     pt: { title: "Fatura proforma", no: "Nº", date: "Data", valid: "Válida até", currency: "Moeda", billTo: "Cliente", taxId: "Tax ID",
       phone: "Telefone", email: "E-mail", web: "Site", code: "Código", ref: "Sua ref.", qty: "Qtd.", unit: "Preço unit.", total: "Total",
-      terms: "Condições e observações", hint: "Clique em uma foto para vê-la em tamanho real.", print: "Imprimir", loading: "Carregando…",
+      terms: "Condições e observações", hint: "Clique em uma foto para vê-la em tamanho real.", print: "Imprimir / PDF", excel: "Baixar Excel", loading: "Carregando…",
       missingTitle: "Proforma não encontrada", missingText: "Este link não é mais válido. Peça um novo link para nós.", close: "Fechar" },
     es: { title: "Factura proforma", no: "Nº", date: "Fecha", valid: "Válida hasta", currency: "Moneda", billTo: "Cliente", taxId: "Tax ID",
       phone: "Teléfono", email: "Correo", web: "Sitio web", code: "Código", ref: "Su ref.", qty: "Cant.", unit: "Precio unit.", total: "Total",
-      terms: "Condiciones y observaciones", hint: "Haga clic en una foto para verla en tamaño real.", print: "Imprimir", loading: "Cargando…",
+      terms: "Condiciones y observaciones", hint: "Haga clic en una foto para verla en tamaño real.", print: "Imprimir / PDF", excel: "Descargar Excel", loading: "Cargando…",
       missingTitle: "Proforma no encontrada", missingText: "Este enlace ya no es válido. Pídanos uno nuevo.", close: "Cerrar" }
   };
   var LOCALE = { en: "en-US", pt: "pt-BR", es: "es-ES" };
@@ -138,6 +138,32 @@
   });
   $("pv-print").addEventListener("click", function () { window.print(); });
 
+  // The same Excel file the admin exports (without bank details, which the page does not show either).
+  $("pv-xlsx").addEventListener("click", function () {
+    var btn = this;
+    var PD = window.ProformaDoc;
+    var docLang = PD.DOC[lang] ? lang : "en"; // the file uses the page's language
+    var d = {
+      lang: docLang,
+      L: PD.DOC[docLang],
+      settings: { companyName: data.company.name, address: data.company.address, phone: data.company.phone, email: data.company.email, website: data.company.website },
+      cur: CUR[data.currency] || CUR.CNY,
+      items: data.items.map(function (it) {
+        return {
+          n: it.n, code: it.code || "", ref: it.ref || "", name: pick(it.name), description: pick(it.description),
+          options: it.options.map(function (o) { return pick(o.name) + ": " + pick(o.value); }),
+          qty: it.qty, price: it.price || 0, amount: it.amount
+        };
+      }),
+      total: data.total,
+      p: { number: data.number, date: data.date, validUntil: data.validUntil, client: data.client, terms: data.terms },
+      link: location.href
+    };
+    btn.disabled = true;
+    PD.buildXlsx(d).catch(function () { alert("Excel: download failed. Please try again."); })
+      .then(function () { btn.disabled = false; });
+  });
+
   /* ---------- Load ---------- */
   var params = new URLSearchParams(location.search);
   var wanted = params.get("lang");
@@ -152,6 +178,7 @@
       data = d;
       if (!L[wanted]) lang = L[d.language] ? d.language : "en";
       $("pv-doc").hidden = false;
+      $("pv-xlsx").hidden = false;
       render();
     });
 })();
