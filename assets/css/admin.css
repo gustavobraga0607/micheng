@@ -503,3 +503,27 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .sup-flag small { color: var(--muted); font-weight: 400; font-size: 12.5px; }
 .sup-tag { display: inline-block; vertical-align: middle; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: #e3f4e8; color: #1b7f3b; }
 .sup-tag--other { background: #eef1f5; color: var(--muted); }
+
+/* Finance: attached files */
+.fin-files { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; background: var(--bg-soft); }
+.fin-files__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.fin-files__head b { color: var(--navy); font-size: 14px; }
+.fin-files__hint { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+.admin .fin-file-btn { display: inline-flex; cursor: pointer; font-weight: 600; color: var(--navy); }
+.fin-file-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fin-file-list:empty { display: none; }
+.fin-file-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 7px 10px; font-size: 13.5px; }
+.fin-file-list li > a, .fin-file-list li > span { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--blue); min-width: 0; overflow-wrap: anywhere; }
+.fin-file-list li > span { color: var(--text); }
+.fin-file-list li > a:hover { text-decoration: underline; }
+.fin-file-list small { color: var(--muted); font-size: 12px; }
+.fin-file-list .linkbtn { margin-left: auto; font-size: 12.5px; }
+.fin-file-list .is-pending { border-style: dashed; }
+.fin-file-ico { flex: none; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; color: #fff; background: #c62828; border-radius: 3px; padding: 2px 4px; }
+.fin-file-list a .fin-file-ico + *, .fin-file-ico { line-height: 1.2; }
+.fin-files--statements { margin: -6px 0 18px; background: #fff; border-style: dashed; }
+.fin-st-month { display: grid; gap: 4px; }
+.fin-st-month > b { font-size: 13px; color: var(--navy); margin-top: 4px; }
+.admin .fin-files--statements input[type="month"] { padding: 9px 10px; }
+.fin-clip { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.fin-file-ico--img { background: var(--blue); }

@@ -301,6 +301,57 @@ export async function saveFinance(data) {
   await writeData(financePath(), ".enc", encrypt(data), "application/octet-stream");
 }
 
+/* ---------- Confidential files (bank statements, payment receipts) ----------
+   Blob files are public to anyone who has their address, so these are stored
+   encrypted (AES-256-GCM: iv + tag + data) and only served, decrypted, by an
+   API route that requires a login. */
+
+function encryptBuffer(buffer) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", privateKey(), iv);
+  const data = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), data]);
+}
+
+function decryptBuffer(box) {
+  const decipher = crypto.createDecipheriv("aes-256-gcm", privateKey(), box.subarray(0, 12));
+  decipher.setAuthTag(box.subarray(12, 28));
+  return Buffer.concat([decipher.update(box.subarray(28)), decipher.final()]);
+}
+
+// Saves a file encrypted; returns its reference (a Blob URL or a local path).
+export async function saveSecretFile(buffer) {
+  const box = encryptBuffer(buffer);
+  if (!useBlob()) {
+    const dir = path.join(LOCAL_DIR, "files");
+    await fs.mkdir(dir, { recursive: true });
+    const name = crypto.randomUUID() + ".bin";
+    await fs.writeFile(path.join(dir, name), box);
+    return "local:" + name;
+  }
+  const blob = await put("private/files/" + crypto.randomUUID() + ".bin", box, { access: "public", addRandomSuffix: true, contentType: "application/octet-stream" });
+  return blob.url;
+}
+
+export async function readSecretFile(ref) {
+  if (String(ref).startsWith("local:")) {
+    return decryptBuffer(await fs.readFile(path.join(LOCAL_DIR, "files", path.basename(ref.slice(6)))));
+  }
+  const r = await fetch(ref, { cache: "no-store" });
+  if (!r.ok) throw new Error("Could not read the file (" + r.status + ")");
+  return decryptBuffer(Buffer.from(await r.arrayBuffer()));
+}
+
+export async function deleteSecretFile(ref) {
+  if (!ref) return;
+  try {
+    if (String(ref).startsWith("local:")) await fs.unlink(path.join(LOCAL_DIR, "files", path.basename(ref.slice(6))));
+    else await del(ref);
+  } catch (e) {
+    console.warn("Could not delete file", e.message);
+  }
+}
+
 /* ---------- Photos ---------- */
 
 export async function saveImage(id, buffer, contentType) {

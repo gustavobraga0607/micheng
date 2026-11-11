@@ -73,9 +73,104 @@
       "Due date is required": "fin.err.dueDate",
       "Description is required": "fin.err.description",
       "Account name is required": "fin.err.accName",
-      "The account's currency is different from the entry's": "fin.err.currency"
+      "The account's currency is different from the entry's": "fin.err.currency",
+      "Unsupported file": "fin.err.fileType",
+      "File too large": "fin.err.fileTooBigServer",
+      "Month is required": "fin.err.month"
     };
     return map[e.message] ? T(map[e.message]) : /Server error|Erro \d/.test(e.message) ? T("status.error") : e.message;
+  }
+
+  /* ---------- Attached files (statements, receipts) ---------- */
+  var MAX_FILE = 3 * 1024 * 1024;
+  var FILE_ACCEPT = "application/pdf,image/jpeg,image/png,image/webp";
+
+  function fmtSize(n) {
+    return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + " KB" : (n / 1048576).toLocaleString(A.locale(), { maximumFractionDigits: 1 }) + " MB";
+  }
+  // "outubro de 2026" in a sentence; "Outubro de 2026" as a heading.
+  function monthLabel(ym, heading) {
+    var p = String(ym || "").split("-");
+    if (p.length !== 2) return ym;
+    var label = new Date(Number(p[0]), Number(p[1]) - 1, 1).toLocaleDateString(A.locale(), { month: "long", year: "numeric" });
+    return heading ? label.charAt(0).toUpperCase() + label.slice(1) : label;
+  }
+  function asDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(r.result); };
+      r.onerror = function () { reject(new Error(T("fin.err.fileType"))); };
+      r.readAsDataURL(blob);
+    });
+  }
+  // Phone photos of receipts are often several MB: shrink them (JPEG, max 2200 px).
+  function shrinkImage(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, 2200 / Math.max(img.width, img.height));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        var ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(T("fin.err.fileType"))); };
+      img.src = url;
+    });
+  }
+  // File -> { name, data (data URL) }, checking type and size.
+  function readFile(file) {
+    if (FILE_ACCEPT.split(",").indexOf(file.type) < 0) return Promise.reject(new Error(T("fin.err.fileType")));
+    if (file.type !== "application/pdf" && file.size > 1.5 * 1048576) {
+      return shrinkImage(file).then(function (data) {
+        if (data.length * 0.75 > MAX_FILE) throw new Error(T("fin.err.fileTooBig", { name: file.name }));
+        return { name: file.name.replace(/\.\w+$/, "") + ".jpg", data: data };
+      });
+    }
+    if (file.size > MAX_FILE) return Promise.reject(new Error(T("fin.err.fileTooBig", { name: file.name })));
+    return asDataUrl(file).then(function (data) { return { name: file.name, data: data }; });
+  }
+  function uploadFile(target, id, file, month) {
+    return readFile(file).then(function (f) {
+      return A.api("/api/finance?kind=file&target=" + target + "&id=" + encodeURIComponent(id) + (month ? "&month=" + month : ""), { method: "POST", body: f });
+    }).then(function (d) {
+      if (d.account) replaceAccount(d.account);
+      if (d.entry) replaceEntry(d.entry);
+      return d;
+    });
+  }
+  // Several files one after the other; resolves with the error messages.
+  function uploadAll(target, id, files, month) {
+    var errors = [];
+    return files.reduce(function (chain, file) {
+      return chain.then(function () { return uploadFile(target, id, file, month).catch(function (e) { errors.push(errorText(e)); }); });
+    }, Promise.resolve()).then(function () { return errors; });
+  }
+  function deleteFile(id) {
+    return A.api("/api/finance?kind=file&id=" + encodeURIComponent(id), { method: "DELETE" }).then(function (d) {
+      if (d.account) replaceAccount(d.account);
+      if (d.entry) replaceEntry(d.entry);
+      return d;
+    });
+  }
+  function fileUrl(f) { return "/api/finance?kind=file&id=" + encodeURIComponent(f.id); }
+  function fileItem(f) {
+    return '<li><a href="' + esc(fileUrl(f)) + '" target="_blank" rel="noopener"><span class="fin-file-ico' + (f.type === "application/pdf" ? "" : " fin-file-ico--img") + '">' + (f.type === "application/pdf" ? "PDF" : "IMG") + "</span>" + esc(f.name) + "</a>" +
+      "<small>" + esc(fmtSize(f.size) + " · " + new Date(f.uploadedAt).toLocaleDateString(A.locale()) + (f.by ? " · " + f.by : "")) + "</small>" +
+      '<button type="button" class="linkbtn danger" data-file-del="' + esc(f.id) + '">' + esc(T("fin.removeFile")) + "</button></li>";
+  }
+  function pendingItem(file, i, attr) {
+    return '<li class="is-pending"><span><span class="fin-file-ico' + (file.type === "application/pdf" ? "" : " fin-file-ico--img") + '">' + (file.type === "application/pdf" ? "PDF" : "IMG") + "</span>" + esc(file.name) + "</span>" +
+      "<small>" + esc(fmtSize(file.size) + " · " + T("fin.attachOnSave")) + "</small>" +
+      '<button type="button" class="linkbtn danger" ' + attr + '="' + i + '">' + esc(T("fin.removeFile")) + "</button></li>";
+  }
+  function clip(e) {
+    var n = (e.attachments || []).length;
+    return n ? ' <span class="fin-clip" title="' + esc(T("fin.receiptsCount", { n: n })) + '">📎 ' + n + "</span>" : "";
   }
 
   /* ---------- Load ---------- */
@@ -212,7 +307,7 @@
         : '<button type="button" class="btn btn--outline btn--sm" data-pay="' + esc(e.id) + '">' + esc(T(e.type === "in" ? "fin.receive" : "fin.pay")) + "</button>";
       return '<tr data-entry="' + esc(e.id) + '" class="fin-row fin-row--' + stateOf(e) + '">' +
         "<td>" + esc(fmtDate(e.dueDate)) + "</td>" +
-        '<td class="fin-desc"><b><span class="fin-type fin-type--' + e.type + '">' + (e.type === "in" ? "↓" : "↑") + "</span> " + esc(e.description) + "</b>" +
+        '<td class="fin-desc"><b><span class="fin-type fin-type--' + e.type + '">' + (e.type === "in" ? "↓" : "↑") + "</span> " + esc(e.description) + clip(e) + "</b>" +
           (meta.length ? "<small>" + esc(meta.join(" · ")) + "</small>" : "") + "</td>" +
         "<td><small>" + esc(acc ? acc.name : "—") + "</small></td>" +
         '<td class="num"><b class="' + (e.type === "in" ? "is-ok" : "is-neg") + '">' + esc((e.type === "in" ? "+ " : "− ") + money(e.amount, e.currency)) + "</b></td>" +
@@ -265,7 +360,7 @@
       shown += 1;
       rows.push('<tr data-entry="' + esc(e.id) + '" class="' + (e.reconciled ? "is-reconciled" : "") + '">' +
         "<td>" + esc(fmtDate(e.paidDate)) + "</td>" +
-        '<td class="fin-desc"><b>' + esc(e.description) + "</b><small>" + esc([e.party && e.party.name, e.category, e.proformaNumber, e.document].filter(Boolean).join(" · ")) + "</small></td>" +
+        '<td class="fin-desc"><b>' + esc(e.description) + clip(e) + "</b><small>" + esc([e.party && e.party.name, e.category, e.proformaNumber, e.document].filter(Boolean).join(" · ")) + "</small></td>" +
         '<td class="num is-ok">' + (e.type === "in" ? esc(money(e.amount, a.currency)) : "") + "</td>" +
         '<td class="num is-neg">' + (e.type === "out" ? esc(money(e.amount, a.currency)) : "") + "</td>" +
         '<td class="num"><b class="' + (running < 0 ? "is-neg" : "") + '">' + esc(signed(running, a.currency)) + "</b></td>" +
@@ -301,7 +396,7 @@
         "<label><span>" + esc(T("fin.bankBalance")) + '</span><input type="text" name="balance" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>' +
         '<button type="submit" class="btn btn--primary">' + esc(T("fin.compare")) + "</button></div>" +
         (checkRows ? '<ul class="fin-checks">' + checkRows + "</ul>" : "") +
-      "</form>";
+      "</form>" + statementFilesBox(a, to);
 
     var head = "<thead><tr><th>" + esc(T("fin.date")) + "</th><th>" + esc(T("fin.description").replace(" *", "")) + '</th><th class="num">' + esc(T("fin.inflow")) +
       '</th><th class="num">' + esc(T("fin.outflow")) + '</th><th class="num">' + esc(T("fin.balance")) + "</th><th>" + esc(T("fin.reconciledShort")) + "</th></tr></thead>";
@@ -312,10 +407,34 @@
     $("#fin-empty").textContent = T("fin.noMoves");
   }
 
+  // Monthly statement files of the bank (PDF), kept for the record.
+  function statementFilesBox(a, to) {
+    var d = new Date();
+    d.setDate(1); d.setMonth(d.getMonth() - 1); // default: last month (statements come after the month ends)
+    var month = to ? to.slice(0, 7) : d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    var files = (a.statements || []).slice().sort(function (x, y) { return y.month.localeCompare(x.month) || y.uploadedAt.localeCompare(x.uploadedAt); });
+    var groups = [];
+    files.forEach(function (f) {
+      var g = groups[groups.length - 1];
+      if (!g || g.month !== f.month) groups.push(g = { month: f.month, files: [] });
+      g.files.push(f);
+    });
+    return '<div class="fin-files fin-files--statements">' +
+      '<div class="fin-files__head"><b>' + esc(T("fin.statements")) + '</b><span class="fin-files__hint">' + esc(T("fin.statementsHint")) + "</span></div>" +
+      '<div class="fin-check__row"><label><span>' + esc(T("fin.statementMonth")) + '</span><input type="month" id="fin-st-month" value="' + esc(month) + '" /></label>' +
+      '<label class="btn btn--outline fin-file-btn"><input type="file" id="fin-st-file" accept="' + FILE_ACCEPT + '" multiple hidden /><span>' + esc(T("fin.attachStatement")) + "</span></label></div>" +
+      (groups.length ? groups.map(function (g) {
+        return '<div class="fin-st-month"><b>' + esc(monthLabel(g.month, true)) + '</b><ul class="fin-file-list">' + g.files.map(fileItem).join("") + "</ul></div>";
+      }).join("") : '<p class="fin-files__hint">' + esc(T("fin.noStatements")) + "</p>") +
+      "</div>";
+  }
+
   /* ---------- Events: toolbar, list, statement ---------- */
   $("#fin-modes").addEventListener("click", function (e) {
     var b = e.target.closest("[data-mode]");
     if (!b) return;
+    // The statement always shows one account; back in the lists, show all of them again.
+    if (mode === "statement" && b.dataset.mode !== "statement") $("#fin-account").value = "";
     mode = b.dataset.mode;
     render();
   });
@@ -348,7 +467,25 @@
   });
 
   $("#fin-statement-box").addEventListener("click", function (e) {
-    if (e.target.closest("[data-open-accounts]")) openAccounts();
+    if (e.target.closest("[data-open-accounts]")) return openAccounts();
+    var del = e.target.closest("[data-file-del]");
+    if (del && confirm(T("fin.confirmRemoveFile"))) {
+      deleteFile(del.getAttribute("data-file-del")).then(function () { render(); setStatus("#fin-status-msg", T("fin.fileRemoved"), "ok"); })
+        .catch(function (err) { setStatus("#fin-status-msg", errorText(err), "error"); });
+    }
+  });
+  $("#fin-statement-box").addEventListener("change", function (e) {
+    if (e.target.id !== "fin-st-file") return;
+    var a = accountById($("#fin-account").value);
+    var month = $("#fin-st-month").value;
+    var files = Array.prototype.slice.call(e.target.files || []);
+    if (!a || !files.length) return;
+    if (!/^\d{4}-\d{2}$/.test(month)) return setStatus("#fin-status-msg", T("fin.err.month"), "error");
+    setStatus("#fin-status-msg", T("fin.uploading"));
+    uploadAll("account", a.id, files, month).then(function (errors) {
+      render();
+      setStatus("#fin-status-msg", errors.length ? errors.join(" ") : T("fin.statementSaved", { month: monthLabel(month) }), errors.length ? "error" : "ok");
+    });
   });
   $("#fin-statement-box").addEventListener("submit", function (e) {
     e.preventDefault();
@@ -388,6 +525,33 @@
   /* ---------- Entry form (new / edit) ---------- */
   var ef = $("#fin-entry-form");
   var editingEntry = null;
+  var pendingEntryFiles = []; // chosen for a new entry: sent once it is saved
+
+  function renderEntryFiles() {
+    var current = editingEntry && entries.filter(function (x) { return x.id === editingEntry.id; })[0];
+    $("#fin-entry-files").innerHTML = ((current && current.attachments) || []).map(fileItem).join("") +
+      pendingEntryFiles.map(function (f, i) { return pendingItem(f, i, "data-pending-del"); }).join("");
+  }
+  $("#fin-entry-file").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    if (!editingEntry) { pendingEntryFiles = pendingEntryFiles.concat(files); return renderEntryFiles(); }
+    setStatus("#fin-entry-status", T("fin.uploading"));
+    uploadAll("entry", editingEntry.id, files).then(function (errors) {
+      renderEntryFiles();
+      render();
+      setStatus("#fin-entry-status", errors.length ? errors.join(" ") : T("fin.uploaded"), errors.length ? "error" : "ok");
+    });
+  });
+  $("#fin-entry-files").addEventListener("click", function (e) {
+    var p = e.target.getAttribute("data-pending-del");
+    if (p != null) { pendingEntryFiles.splice(Number(p), 1); return renderEntryFiles(); }
+    var id = e.target.getAttribute("data-file-del");
+    if (!id || !confirm(T("fin.confirmRemoveFile"))) return;
+    deleteFile(id).then(function () { renderEntryFiles(); render(); setStatus("#fin-entry-status", T("fin.fileRemoved"), "ok"); })
+      .catch(function (err) { setStatus("#fin-entry-status", errorText(err), "error"); });
+  });
 
   function categories(type) {
     var base = T(type === "in" ? "fin.catsIn" : "fin.catsOut").split("|");
@@ -465,6 +629,8 @@
     syncPaid();
     fillProformas(entry);
     $("#fin-entry-delete").hidden = !entry;
+    pendingEntryFiles = [];
+    renderEntryFiles();
     openDialog($("#fin-entry-dlg"));
     ef.elements.description.focus();
   }
@@ -525,10 +691,17 @@
     btn.disabled = true;
     A.api(id ? "/api/finance?kind=entry&id=" + encodeURIComponent(id) : "/api/finance?kind=entry", { method: id ? "PUT" : "POST", body: body })
       .then(function (d) {
-        (d.entries || [d.entry]).forEach(replaceEntry);
-        closeDialog($("#fin-entry-dlg"));
-        render();
-        setStatus("#fin-status-msg", T(d.entries && d.entries.length > 1 ? "fin.savedMany" : "fin.saved", { n: d.entries ? d.entries.length : 1 }), "ok");
+        var saved = d.entries || [d.entry];
+        saved.forEach(replaceEntry);
+        var msg = T(d.entries && d.entries.length > 1 ? "fin.savedMany" : "fin.saved", { n: d.entries ? d.entries.length : 1 });
+        // Receipts chosen for a new entry go to it (the first one, when it repeats monthly).
+        var files = pendingEntryFiles;
+        pendingEntryFiles = [];
+        return (files.length ? uploadAll("entry", saved[0].id, files) : Promise.resolve([])).then(function (errors) {
+          closeDialog($("#fin-entry-dlg"));
+          render();
+          setStatus("#fin-status-msg", errors.length ? msg + " " + errors.join(" ") : msg, errors.length ? "error" : "ok");
+        });
       })
       .catch(function (err) { setStatus("#fin-entry-status", errorText(err), "error"); })
       .then(function () { btn.disabled = false; });
@@ -551,6 +724,20 @@
   /* ---------- Mark as paid / received ---------- */
   var pf = $("#fin-pay-form");
   var payingEntry = null;
+  var pendingPayFiles = [];
+
+  function renderPayFiles() {
+    $("#fin-pay-files").innerHTML = pendingPayFiles.map(function (f, i) { return pendingItem(f, i, "data-pay-del"); }).join("");
+  }
+  $("#fin-pay-file").addEventListener("change", function (e) {
+    pendingPayFiles = pendingPayFiles.concat(Array.prototype.slice.call(e.target.files || []));
+    e.target.value = "";
+    renderPayFiles();
+  });
+  $("#fin-pay-files").addEventListener("click", function (e) {
+    var i = e.target.getAttribute("data-pay-del");
+    if (i != null) { pendingPayFiles.splice(Number(i), 1); renderPayFiles(); }
+  });
 
   function openPay(id) {
     var e = entries.filter(function (x) { return x.id === id; })[0];
@@ -562,6 +749,8 @@
     pf.elements.paidDate.value = today();
     pf.elements.amount.value = String(e.amount).replace(".", ",");
     pf.elements.accountId.innerHTML = accountOptions(e.currency, e.accountId);
+    pendingPayFiles = [];
+    renderPayFiles();
     $("#fin-pay-save").disabled = !accounts.some(function (a) { return a.currency === e.currency; });
     if ($("#fin-pay-save").disabled) setStatus("#fin-pay-status", T("fin.noAccountFor", { cur: (A.CURRENCIES[e.currency] || A.CURRENCIES.CNY).label }), "error");
     openDialog($("#fin-pay-dlg"));
@@ -577,9 +766,14 @@
       body: { paidDate: pf.elements.paidDate.value, accountId: pf.elements.accountId.value, amount: pf.elements.amount.value } })
       .then(function (d) {
         replaceEntry(d.entry);
-        closeDialog($("#fin-pay-dlg"));
-        render();
-        setStatus("#fin-status-msg", T(e.type === "in" ? "fin.receivedOk" : "fin.paidOk"), "ok");
+        var files = pendingPayFiles;
+        pendingPayFiles = [];
+        return (files.length ? uploadAll("entry", d.entry.id, files) : Promise.resolve([])).then(function (errors) {
+          closeDialog($("#fin-pay-dlg"));
+          render();
+          var msg = T(e.type === "in" ? "fin.receivedOk" : "fin.paidOk");
+          setStatus("#fin-status-msg", errors.length ? msg + " " + errors.join(" ") : msg, errors.length ? "error" : "ok");
+        });
       })
       .catch(function (err) { setStatus("#fin-pay-status", errorText(err), "error"); })
       .then(function () { btn.disabled = false; });

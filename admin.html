@@ -402,6 +402,13 @@
           <label><span data-t="fin.account">Conta bancária</span><select name="accountId"></select></label>
         </div>
         <label><span data-t="fin.notes">Observações</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+        <div class="fin-files">
+          <div class="fin-files__head"><b data-t="fin.receipts">Comprovantes</b>
+            <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="fin-entry-file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden /><span data-t="fin.attachReceipt">+ Anexar comprovante</span></label>
+          </div>
+          <ul class="fin-file-list" id="fin-entry-files"></ul>
+          <p class="fin-files__hint" data-t="fin.filesHint">PDF ou foto (JPG, PNG), até 3 MB cada. Os arquivos ficam guardados criptografados.</p>
+        </div>
         <div class="form-actions">
           <button type="submit" class="btn btn--primary btn--lg" id="fin-entry-save" data-t="fin.save">Salvar</button>
           <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
@@ -421,6 +428,12 @@
           <label><span data-t="fin.amount">Valor *</span><input type="text" name="amount" inputmode="decimal" autocomplete="off" /></label>
         </div>
         <label><span data-t="fin.account">Conta bancária</span><select name="accountId"></select></label>
+        <div class="fin-files">
+          <div class="fin-files__head"><b data-t="fin.receiptOptional">Comprovante (opcional)</b>
+            <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="fin-pay-file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple hidden /><span data-t="fin.attachReceipt">+ Anexar comprovante</span></label>
+          </div>
+          <ul class="fin-file-list" id="fin-pay-files"></ul>
+        </div>
         <div class="form-actions">
           <button type="submit" class="btn btn--primary" id="fin-pay-save" data-t="fin.confirm">Confirmar</button>
           <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
