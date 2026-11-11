@@ -182,6 +182,7 @@
         <form id="supplier-form" novalidate>
           <input type="hidden" name="id" />
           <label><span data-t="sup.company">Empresa *</span><input type="text" name="company" maxlength="120" required /></label>
+          <label class="check sup-flag"><input type="checkbox" name="productSupplier" checked /> <span><b data-t="sup.productSupplier">Fornecedor de produtos</b><small data-t="sup.productSupplierHint">Aparece no cadastro de produtos. Desmarque para fornecedores de despesas, como aluguel, frete ou serviços.</small></span></label>
           <label><span data-t="sup.contact">Pessoa de contato</span><input type="text" name="contact" maxlength="120" /></label>
           <div class="form-row">
             <label><span data-t="sup.phone">Telefone / WhatsApp</span><input type="text" name="phone" maxlength="60" /></label>
@@ -202,7 +203,14 @@
       <section class="panel">
         <div class="list-head">
           <h2><span data-t="sup.listTitle">Fornecedores cadastrados</span> <span class="count" id="supplier-count">0</span></h2>
-          <input type="search" id="supplier-list-search" data-t-placeholder="sup.search" />
+          <div class="list-tools">
+            <select id="supplier-kind">
+              <option value="" data-t="sup.kindAll">Todos</option>
+              <option value="products" data-t="sup.kindProducts">Fornecedores de produtos</option>
+              <option value="other" data-t="sup.kindOther">Outros (despesas)</option>
+            </select>
+            <input type="search" id="supplier-list-search" data-t-placeholder="sup.search" />
+          </div>
         </div>
         <ul class="plist" id="supplier-list"></ul>
         <p class="empty" id="supplier-empty" data-t="sup.empty" hidden>Nenhum fornecedor cadastrado ainda.</p>

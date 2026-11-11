@@ -798,11 +798,13 @@
   function renderPicker() {
     var picker = $("#supplier-picker");
     var q = $("#supplier-search").value.trim().toLowerCase();
-    $("#supplier-picker-empty").hidden = suppliers.length > 0;
-    $("#supplier-search").hidden = suppliers.length === 0;
-    picker.hidden = suppliers.length === 0;
+    // Only product suppliers (not expense ones such as rent), plus any already linked to this product.
+    var candidates = suppliers.filter(function (s) { return s.productSupplier !== false || selectedSuppliers.has(s.id); });
+    $("#supplier-picker-empty").hidden = candidates.length > 0;
+    $("#supplier-search").hidden = candidates.length === 0;
+    picker.hidden = candidates.length === 0;
     $("#supplier-selected").textContent = selectedSuppliers.size ? T("form.suppliersSelected", { n: selectedSuppliers.size }) : "";
-    var shown = suppliers.filter(function (s) {
+    var shown = candidates.filter(function (s) {
       return !q || (s.company + " " + s.city + " " + s.contact).toLowerCase().indexOf(q) > -1;
     });
     // Ticked suppliers first, so the choice stays visible.
@@ -900,6 +902,7 @@
     resetSupplierForm();
     supForm.elements.id.value = s.id;
     SUP_FIELDS.forEach(function (f) { supForm.elements[f].value = s[f] || ""; });
+    supForm.elements.productSupplier.checked = s.productSupplier !== false;
     updateSupplierMode();
     setSupplierStatus("");
     renderSuppliers();
@@ -913,6 +916,7 @@
     var id = supForm.elements.id.value;
     var body = {};
     SUP_FIELDS.forEach(function (f) { body[f] = supForm.elements[f].value; });
+    body.productSupplier = supForm.elements.productSupplier.checked;
     var ok = body.company.trim() !== "";
     supForm.elements.company.classList.toggle("is-invalid", !ok);
     if (!ok) return setSupplierStatus(T("sup.required"), "error");
@@ -948,7 +952,10 @@
     $("#supplier-count").textContent = suppliers.length;
     $("#tab-count-suppliers").textContent = suppliers.length;
     $("#supplier-empty").hidden = suppliers.length > 0;
+    var kind = $("#supplier-kind").value;
     var shown = suppliers.filter(function (s) {
+      var forProducts = s.productSupplier !== false;
+      if ((kind === "products" && !forProducts) || (kind === "other" && forProducts)) return false;
       return !q || SUP_FIELDS.some(function (f) { return String(s[f] || "").toLowerCase().indexOf(q) > -1; });
     });
     $("#supplier-list").innerHTML = shown.map(function (s) {
@@ -960,7 +967,8 @@
       if (s.website) contact.push('<a href="' + escapeHtml(safeUrl(s.website)) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(s.website) + "</a>");
       var linked = (s.productIds || []).map(productName).filter(Boolean);
       return '<li class="pitem sitem' + (s.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(s.id) + '">' +
-        "<div><h3>" + escapeHtml(s.company) + "</h3>" +
+        "<div><h3>" + escapeHtml(s.company) + ' <span class="sup-tag' + (s.productSupplier === false ? " sup-tag--other" : "") + '">' +
+          escapeHtml(T(s.productSupplier === false ? "sup.tagOther" : "sup.tagProducts")) + "</span></h3>" +
         (s.city ? '<p class="pitem__lang">' + escapeHtml(s.city) + "</p>" : "") +
         (contact.length ? '<p class="sitem__contact">' + contact.join(" · ") + "</p>" : "") +
         (s.notes ? '<p class="sitem__notes">' + escapeHtml(s.notes) + "</p>" : "") +
@@ -973,6 +981,7 @@
   }
 
   $("#supplier-list-search").addEventListener("input", renderSuppliers);
+  $("#supplier-kind").addEventListener("change", renderSuppliers);
 
   $("#supplier-list").addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-act]");
