@@ -172,7 +172,9 @@
     form.elements.currency.value = p ? p.currency : A.defaultCurrency();
     form.elements.language.value = p ? p.language : (["en", "pt", "es"].indexOf(A.lang()) > -1 ? A.lang() : "en");
     form.elements.terms.value = p ? p.terms || "" : "";
-    form.elements.incoterm.value = p ? p.incoterm || "" : "";
+    // Proformas made before the Incoterm field existed take the one saved on their invoice, if any.
+    form.elements.incoterm.value = p ? p.incoterm || (p.invoice && p.invoice.incoterm) || "" : "";
+    form.elements.incoterm.classList.remove("is-invalid");
     amending = false;
     rows = p ? p.items.map(rowFromItem) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
@@ -1141,6 +1143,7 @@
     });
   });
   form.elements.currency.addEventListener("change", function () { renderItems(); });
+  form.elements.incoterm.addEventListener("change", function () { form.elements.incoterm.classList.remove("is-invalid"); });
 
   /* ---------- Save / close / reopen / delete ---------- */
   function body() {
@@ -1218,6 +1221,12 @@
         var list = (r.data.problems || []).map(problemText);
         if (r.status === 503) list = [T("status.busy")];
         setStatus(list.length ? list.join(" ") : r.data.error, "error");
+        // Missing Incoterm: point at the field.
+        if ((r.data.problems || []).indexOf("incoterm") > -1) {
+          form.elements.incoterm.classList.add("is-invalid");
+          form.elements.incoterm.scrollIntoView({ behavior: "smooth", block: "center" });
+          form.elements.incoterm.focus();
+        }
         return;
       }
       accept(r.data.proforma);
