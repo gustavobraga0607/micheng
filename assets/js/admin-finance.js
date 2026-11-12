@@ -914,7 +914,7 @@
         var blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         var link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = (T("fin.title") + " - " + title + " - " + today()).replace(/[\\/:*?"<>|]+/g, " ") + ".xlsx";
+        link.download = window.ProformaDoc.safeName(T("fin.title") + " - " + title + " - " + today(), "xlsx");
         document.body.appendChild(link);
         link.click();
         setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 1000);

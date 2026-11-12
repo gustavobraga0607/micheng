@@ -554,3 +554,7 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .dec-table tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 700; color: var(--navy); }
 .dec-table .fin-desc small { display: block; color: var(--muted); }
 .admin .dec-table .dec-input { width: 120px; }
+
+/* PDF of an order: choose the price */
+.pdf-choice { display: grid; gap: 10px; margin: 14px 0 10px; }
+.pdf-choice__note { font-size: 12.5px; color: var(--muted); }

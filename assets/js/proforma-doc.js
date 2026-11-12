@@ -4,15 +4,18 @@
   "use strict";
 
   var DOC = {
-    en: { title: "PROFORMA INVOICE", no: "No.", date: "Date", valid: "Valid until", billTo: "Bill to", taxId: "Tax ID", phone: "Phone",
+    en: { refTitle: "PROFORMA — REFERENCE PRICE", refMark: "REFERENCE DOCUMENT – NO FISCAL VALUE", refNote: "Reference prices only. This is not an invoice and has no fiscal value.",
+      title: "PROFORMA INVOICE", no: "No.", date: "Date", valid: "Valid until", billTo: "Bill to", taxId: "Tax ID", phone: "Phone",
       email: "E-mail", web: "Website", item: "#", code: "Code", ref: "Your ref.", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
       total: "TOTAL", bank: "Bank details", beneficiary: "Beneficiary", bankName: "Bank", account: "Account No.", swift: "SWIFT / BIC",
       bankAddress: "Bank address", terms: "Terms & notes", page: "Page", currency: "Currency", photos: "Click here to view the photos in full size" },
-    pt: { title: "FATURA PROFORMA", no: "Nº", date: "Data", valid: "Válida até", billTo: "Cliente", taxId: "Tax ID", phone: "Telefone",
+    pt: { refTitle: "PROFORMA — PREÇO DE REFERÊNCIA", refMark: "DOCUMENTO DE REFERÊNCIA – SEM VALOR FISCAL", refNote: "Somente preços de referência. Não é fatura e não tem valor fiscal.",
+      title: "FATURA PROFORMA", no: "Nº", date: "Data", valid: "Válida até", billTo: "Cliente", taxId: "Tax ID", phone: "Telefone",
       email: "E-mail", web: "Site", item: "#", code: "Código", ref: "Sua ref.", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
       total: "TOTAL", bank: "Dados bancários", beneficiary: "Beneficiário", bankName: "Banco", account: "Conta", swift: "SWIFT / BIC",
       bankAddress: "Endereço do banco", terms: "Condições e observações", page: "Página", currency: "Moeda", photos: "Clique aqui para visualizar as fotos em tamanho real" },
-    es: { title: "FACTURA PROFORMA", no: "Nº", date: "Fecha", valid: "Válida hasta", billTo: "Cliente", taxId: "Tax ID", phone: "Teléfono",
+    es: { refTitle: "PROFORMA — PRECIO DE REFERENCIA", refMark: "DOCUMENTO DE REFERENCIA – SIN VALOR FISCAL", refNote: "Solo precios de referencia. No es factura y no tiene valor fiscal.",
+      title: "FACTURA PROFORMA", no: "Nº", date: "Fecha", valid: "Válida hasta", billTo: "Cliente", taxId: "Tax ID", phone: "Teléfono",
       email: "Correo", web: "Sitio web", item: "#", code: "Código", ref: "Su ref.", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
       total: "TOTAL", bank: "Datos bancarios", beneficiary: "Beneficiario", bankName: "Banco", account: "Cuenta", swift: "SWIFT / BIC",
       bankAddress: "Dirección del banco", terms: "Condiciones y observaciones", page: "Página", currency: "Moneda", photos: "Haga clic aquí para ver las fotos en tamaño real" }
@@ -36,8 +39,15 @@
     if (!iso) return "";
     return new Date(iso + "T00:00:00").toLocaleDateString(d.lang === "en" ? "en-GB" : d.lang === "pt" ? "pt-BR" : "es-ES");
   }
+  // File names in plain letters: some browsers drop a downloaded file's name
+  // (it becomes "download") when it has accents or other non-ASCII characters.
+  function safeName(text, ext) {
+    var name = String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\x20-\x7e]+/g, "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").replace(/[ -]+$/, "").trim();
+    return (name || "document") + "." + ext;
+  }
   function fileName(p, ext) {
-    return (p.number + (p.client ? " - " + p.client.name : "")).replace(/[\\/:*?"<>|]+/g, " ").trim() + "." + ext;
+    return safeName(p.number + (p.client ? " - " + p.client.name : ""), ext);
   }
 
   // Builds and downloads the Excel file of a proforma. d: { lang, L (DOC texts),
@@ -188,5 +198,5 @@
     });
   }
 
-  window.ProformaDoc = { DOC: DOC, loadScript: loadScript, fmt: fmt, docDate: docDate, fileName: fileName, buildXlsx: buildXlsx };
+  window.ProformaDoc = { DOC: DOC, loadScript: loadScript, fmt: fmt, docDate: docDate, fileName: fileName, safeName: safeName, buildXlsx: buildXlsx };
 })();

@@ -375,6 +375,18 @@
       </section>
     </main>
 
+    <!-- PDF of an order: sale price or reference price -->
+    <dialog class="mdl mdl--sm" id="pf-pdf-dlg">
+      <div class="mdl__head"><h2 data-t="pf.pdfChoose">Gerar PDF da proforma</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+      <p class="fin-pay-what" data-t="pf.pdfChooseHint">Qual preço usar?</p>
+      <div class="pdf-choice">
+        <button type="button" class="btn btn--primary btn--lg" data-pdf="sale" data-t="pf.pdfSale">Preço de venda</button>
+        <button type="button" class="btn btn--outline btn--lg" data-pdf="ref" id="pf-pdf-ref" data-t="pf.pdfRef">Preço de referência</button>
+      </div>
+      <p class="pdf-choice__note" data-t="pf.pdfRefNote">A versão com preço de referência sai identificada como documento de referência, sem valor fiscal e sem dados bancários.</p>
+      <p class="status is-error" id="pf-pdf-missing"></p>
+    </dialog>
+
     <!-- Entry form -->
     <dialog class="mdl" id="fin-entry-dlg">
       <form id="fin-entry-form" class="crud-form" novalidate>

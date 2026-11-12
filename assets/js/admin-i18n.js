@@ -1,6 +1,12 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.pdfChoose": "Gerar PDF da proforma",
+    "pf.pdfChooseHint": "Qual preço usar neste PDF?",
+    "pf.pdfSale": "Preço de venda",
+    "pf.pdfRef": "Preço de referência",
+    "pf.pdfRefNote": "A versão com preço de referência sai identificada como documento de referência, sem valor fiscal e sem dados bancários.",
+    "pf.pdfRefMissing": "Para usar o preço de referência, preencha-o em todos os itens (faltam: {items}).",
     "dec.title": "Preço de Referência",
     "dec.internal": "Controle interno",
     "dec.hint": "Preço de referência deste cliente, por item. Fica guardado para este cliente e carrega sozinho nos próximos pedidos fechados. Não altera a proforma, o PDF nem a página do cliente.",
@@ -421,6 +427,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.pdfChoose": "Generate the proforma PDF",
+    "pf.pdfChooseHint": "Which price should this PDF use?",
+    "pf.pdfSale": "Sale price",
+    "pf.pdfRef": "Reference price",
+    "pf.pdfRefNote": "The reference price version is marked as a reference document, with no fiscal value and no bank details.",
+    "pf.pdfRefMissing": "To use the reference price, fill it in for every item (missing: {items}).",
     "dec.title": "Reference Price",
     "dec.internal": "Internal control",
     "dec.hint": "This client's reference price, per item. It is kept for this client and loads into their next confirmed orders. It does not change the proforma, its PDF or the client page.",
@@ -841,6 +853,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.pdfChoose": "Generar PDF de la proforma",
+    "pf.pdfChooseHint": "¿Qué precio usar en este PDF?",
+    "pf.pdfSale": "Precio de venta",
+    "pf.pdfRef": "Precio de referencia",
+    "pf.pdfRefNote": "La versión con precio de referencia sale identificada como documento de referencia, sin valor fiscal y sin datos bancarios.",
+    "pf.pdfRefMissing": "Para usar el precio de referencia, complételo en todos los ítems (faltan: {items}).",
     "dec.title": "Precio de Referencia",
     "dec.internal": "Control interno",
     "dec.hint": "Precio de referencia de este cliente, por ítem. Se guarda para este cliente y se carga solo en los próximos pedidos cerrados. No cambia la proforma, el PDF ni la página del cliente.",
@@ -1261,6 +1279,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.pdfChoose": "生成形式发票 PDF",
+    "pf.pdfChooseHint": "此 PDF 使用哪个价格？",
+    "pf.pdfSale": "销售价",
+    "pf.pdfRef": "参考价格",
+    "pf.pdfRefNote": "参考价格版本会标明为参考文件，无财务效力，且不含银行信息。",
+    "pf.pdfRefMissing": "要使用参考价格，请为所有项目填写（缺少：{items}）。",
     "dec.title": "参考价格",
     "dec.internal": "内部控制",
     "dec.hint": "该客户的单项参考价格。为该客户保存，并自动带入其后续确认的订单。不会改变形式发票、PDF 或客户页面。",

@@ -414,7 +414,7 @@
         doc.text(L.note + " · " + p.number, M, 203);
         doc.text(L.page + " " + k + "/" + pages, W - M, 203, { align: "right" });
       }
-      doc.save((L.title + " - " + p.number).replace(/[\\/:*?"<>|]+/g, " ") + ".pdf");
+      doc.save(PD.safeName(L.title + " - " + p.number, "pdf"));
     });
   }
 
@@ -977,7 +977,8 @@
   }
 
   // Everything the documents show — nothing internal (cost, margin, supplier).
-  function docData(p) {
+  // ref: the "reference price" version (clearly marked as such, see exportPdf).
+  function docData(p, ref) {
     var lang = p.language || "en";
     var settings = A.settings();
     var cur = A.CURRENCIES[p.currency] || A.CURRENCIES.CNY;
@@ -995,18 +996,20 @@
       var code = i.sku || (current ? skuOf({ productId: i.productId, options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}) }) : "");
       // Always the product's current photo (the variant's own one when it has it).
       var image = rowImage({ options: i.options.reduce(function (m, o) { m[o.attrId] = o.optionId; return m; }, {}), snapshot: i.product }, current);
-      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, description: description, options: opts, image: image, qty: i.qty, price: i.price || 0, amount: round((i.price || 0) * i.qty) };
+      var unit = ref ? i.declared || 0 : i.price || 0;
+      return { n: n + 1, code: code, ref: i.clientRef || "", name: name, description: description, options: opts, image: image, qty: i.qty, price: unit, amount: round(unit * i.qty) };
     });
-    return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: p.totals.sale, p: p, link: viewUrl(p) };
+    var total = ref ? round(items.reduce(function (t, it) { return t + it.amount; }, 0)) : p.totals.sale;
+    return { lang: lang, L: DOC[lang] || DOC.en, settings: settings, cur: cur, items: items, total: total, p: p, link: ref ? "" : viewUrl(p), reference: Boolean(ref) };
   }
 
-  function exportPdf(p) {
+  function exportPdf(p, ref) {
     return Promise.all([
       loadScript("assets/vendor/jspdf.umd.min.js")
     ]).then(function () {
       return loadScript("assets/vendor/jspdf.plugin.autotable.min.js");
     }).then(function () {
-      var d = docData(p);
+      var d = docData(p, ref);
       return Promise.all([imageData("assets/img/logo.svg", 240, "image/png")].concat(d.items.map(function (it) {
         return imageData(it.image, 160);
       }))).then(function (imgs) { return { d: d, logo: imgs[0], thumbs: imgs.slice(1) }; });
@@ -1032,12 +1035,15 @@
       doc.text(info, M + 20, infoY);
 
       doc.setTextColor.apply(doc, navy); doc.setFont("helvetica", "bold"); doc.setFontSize(17);
-      doc.text(L.title, W - M, y + 6, { align: "right" });
+      if (d.reference) {
+        doc.setFontSize(13);
+        doc.text(doc.splitTextToSize(L.refTitle, 85), W - M, y + 5, { align: "right" });
+      } else doc.text(L.title, W - M, y + 6, { align: "right" });
       doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(30, 40, 50);
       var meta = [L.no + " " + d.p.number, L.date + ": " + docDate(d.p.date, d)];
       if (d.p.validUntil) meta.push(L.valid + ": " + docDate(d.p.validUntil, d));
       meta.push(L.currency + ": " + d.cur.label);
-      doc.text(meta, W - M, y + 13, { align: "right" });
+      doc.text(meta, W - M, y + (d.reference ? 17 : 13), { align: "right" });
       y = Math.max(infoY + info.length * 4 + 6, y + 32);
 
       // Link to the web page with the photos in full size.
@@ -1167,17 +1173,29 @@
       if (s.bankAddress) bank = bank.concat(doc.splitTextToSize(L.bankAddress + ": " + s.bankAddress, W - 2 * M));
       if (s.bankNotes) bank = bank.concat(doc.splitTextToSize(s.bankNotes, W - 2 * M));
       section(L.terms, d.p.terms ? doc.splitTextToSize(d.p.terms, W - 2 * M) : []);
-      section(L.bank, bank);
+      if (d.reference) section(L.refMark, doc.splitTextToSize(L.refNote, W - 2 * M)); // never bank details here
+      else section(L.bank, bank);
 
-      // Footer on every page
+      // Footer on every page (and, on the reference version, the watermark)
       var pages = doc.getNumberOfPages();
       for (var i = 1; i <= pages; i++) {
         doc.setPage(i);
+        if (d.reference) {
+          doc.saveGraphicsState();
+          doc.setGState(new doc.GState({ opacity: 0.13 }));
+          doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(198, 40, 40);
+          // Centred on the page along a 35° diagonal (jsPDF rotates around the text's start point).
+          var a = 35 * Math.PI / 180, half = doc.getTextWidth(L.refMark) / 2;
+          doc.text(L.refMark, W / 2 - half * Math.cos(a), 150 + half * Math.sin(a), { angle: 35 });
+          doc.restoreGraphicsState();
+          doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(198, 40, 40);
+          doc.text(L.refMark, W / 2, 284, { align: "center" });
+        }
         doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted); doc.setFont("helvetica", "normal");
         doc.text((s.companyName || "Shenzhen Micheng International Trading") + " · " + d.p.number, M, 290);
         doc.text(L.page + " " + i + "/" + pages, W - M, 290, { align: "right" });
       }
-      doc.save(fileName(d.p, "pdf"));
+      doc.save(d.reference ? PD.safeName(d.p.number + (d.p.client ? " - " + d.p.client.name : "") + " - " + L.refTitle.split("— ")[1], "pdf") : fileName(d.p, "pdf"));
     });
   }
 
@@ -1196,7 +1214,27 @@
       setStatus(T("pf.exportError") + " " + e.message, "error");
     }).then(function () { btn.disabled = false; });
   }
-  $("#pf-pdf").addEventListener("click", function () { runExport("pdf"); });
+  $("#pf-pdf").addEventListener("click", function () {
+    var hasRef = isClosed() && editing.items.some(function (i) { return i.declared != null; });
+    if (!hasRef) return runExport("pdf");
+    var missing = editing.items.map(function (i, n) { return i.declared == null ? n + 1 : null; }).filter(Boolean);
+    $("#pf-pdf-ref").disabled = missing.length > 0;
+    $("#pf-pdf-missing").textContent = missing.length ? T("pf.pdfRefMissing", { items: missing.join(", ") }) : "";
+    var dlg = $("#pf-pdf-dlg");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  });
+  $("#pf-pdf-dlg").addEventListener("click", function (e) {
+    var dlg = this;
+    var choice = e.target.closest("[data-pdf]");
+    if (e.target === dlg || e.target.closest("[data-close]") || choice) dlg.close();
+    if (!choice) return;
+    if (choice.getAttribute("data-pdf") === "sale") return runExport("pdf");
+    var btn = $("#pf-pdf");
+    btn.disabled = true;
+    setStatus(T("pf.exporting"));
+    exportPdf(editing, true).then(function () { setStatus(""); }, function (err) { setStatus(T("pf.exportError") + " " + err.message, "error"); })
+      .then(function () { btn.disabled = false; });
+  });
   $("#pf-xlsx").addEventListener("click", function () { runExport("xlsx"); });
 
   /* ---------- Wiring ---------- */
