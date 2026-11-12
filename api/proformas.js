@@ -148,6 +148,77 @@ function closeProblems(p) {
   return problems.concat(duplicateProblems(p.items));
 }
 
+/* ---------- Change log ----------
+   Each order keeps a record of what happened to it: closed, reopened, items
+   added, removed or changed after closing, discounted prices. */
+const MAX_LOG = 300;
+
+// What identifies an item in the log (texts in every language, so the panel
+// shows them in the language being used).
+function logItem(i) {
+  return {
+    id: i.id,
+    sku: i.sku || null,
+    name: (i.product && i.product.name) || {},
+    options: (i.options || []).map((o) => o.optionLabel || {}),
+  };
+}
+
+function addLog(proforma, by, kind, changes) {
+  const entry = { at: new Date().toISOString(), by, kind };
+  if (changes) entry.changes = changes;
+  proforma.log = (proforma.log || []).concat(entry).slice(-MAX_LOG);
+}
+
+// Differences between the items before and after a change, by item id.
+// Same product with the same options.
+function sameConfig(a, b) {
+  return a.productId === b.productId &&
+    a.options.map((o) => o.optionId).sort().join(",") === b.options.map((o) => o.optionId).sort().join(",");
+}
+
+function itemChanges(before, after) {
+  const old = new Map(before.map((i) => [i.id, i]));
+  const now = new Map(after.map((i) => [i.id, i]));
+  const changes = [];
+  for (const i of before) {
+    const n = now.get(i.id);
+    if (!n || !sameConfig(i, n)) changes.push({ type: "removed", item: logItem(i), qty: i.qty, price: i.price });
+  }
+  for (const i of after) {
+    const o = old.get(i.id);
+    if (!o || !sameConfig(o, i)) { changes.push({ type: "added", item: logItem(i), qty: i.qty, price: i.price }); continue; }
+    if (o.qty !== i.qty) changes.push({ type: "qty", item: logItem(i), from: o.qty, to: i.qty });
+    if (o.price !== i.price) changes.push({ type: "price", item: logItem(i), from: o.price, to: i.price });
+  }
+  return changes;
+}
+
+// Sale prices (and the client's references) of an order are remembered for the client.
+function rememberPrices(priv, proforma, items, now) {
+  const prices = (priv.clientPrices[proforma.clientId] = priv.clientPrices[proforma.clientId] || {});
+  for (const item of items) {
+    const memo = { price: item.price, currency: proforma.currency, proformaId: proforma.id, number: proforma.number, at: now };
+    prices[priceKey(item.productId, item.options)] = memo; // exact options
+    prices[item.productId] = memo; // any options (fallback)
+    if (item.clientRef) {
+      const product = (priv.clientRefs[item.productId] = priv.clientRefs[item.productId] || {});
+      const map = (product[proforma.clientId] = product[proforma.clientId] || {});
+      map[item.options.map((o) => o.optionId).sort().join(",")] = item.clientRef;
+    }
+  }
+}
+
+// Discounted prices kept for the client load into items that have none (same currency only).
+function loadDiscounts(priv, proforma, items) {
+  const declared = priv.clientDeclared[proforma.clientId] || {};
+  return items.map((item) => {
+    if (item.declared != null) return item;
+    const memo = declared[priceKey(item.productId, item.options)] || declared[item.productId];
+    return memo && memo.currency === proforma.currency ? { ...item, declared: memo.value } : item;
+  });
+}
+
 // Proformas as the admin panel shows them.
 export function proformaList(priv, products) {
   // Items saved before SKUs existed show the current code of their product.
@@ -216,25 +287,9 @@ async function handler(req, res) {
       if (problems.length) return send(res, 422, { error: "Cannot close", problems });
       const now = new Date().toISOString();
       const proforma = { ...current, status: "closed", closedAt: now, closedBy: session.u, updatedAt: now };
-      const prices = (priv.clientPrices[proforma.clientId] = priv.clientPrices[proforma.clientId] || {});
-      for (const item of proforma.items) {
-        const memo = { price: item.price, currency: proforma.currency, proformaId: proforma.id, number: proforma.number, at: now };
-        prices[priceKey(item.productId, item.options)] = memo; // exact options
-        prices[item.productId] = memo; // any options (fallback)
-        // A reference typed on the proforma is remembered in the product catalog.
-        if (item.clientRef) {
-          const product = (priv.clientRefs[item.productId] = priv.clientRefs[item.productId] || {});
-          const map = (product[proforma.clientId] = product[proforma.clientId] || {});
-          map[item.options.map((o) => o.optionId).sort().join(",")] = item.clientRef;
-        }
-      }
-      // Declared values kept for this client load into the new order (same currency only).
-      const declared = priv.clientDeclared[proforma.clientId] || {};
-      proforma.items = proforma.items.map((item) => {
-        if (item.declared != null) return item;
-        const memo = declared[priceKey(item.productId, item.options)] || declared[item.productId];
-        return memo && memo.currency === proforma.currency ? { ...item, declared: memo.value } : item;
-      });
+      rememberPrices(priv, proforma, proforma.items, now);
+      proforma.items = loadDiscounts(priv, proforma, proforma.items);
+      addLog(proforma, session.u, "closed", null);
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });
@@ -262,6 +317,38 @@ async function handler(req, res) {
         return { ...item, declared: value };
       });
       const proforma = { ...current, items, updatedAt: now };
+      const changed = current.items.map((before, n) => ({ before, after: items[n] }))
+        .filter((x) => x.before.declared !== x.after.declared)
+        .map((x) => ({ type: "discount", item: logItem(x.after), from: x.before.declared == null ? null : x.before.declared, to: x.after.declared == null ? null : x.after.declared }));
+      if (changed.length) addLog(proforma, session.u, "discount", changed);
+      priv.proformas[index] = proforma;
+      await savePrivate(priv);
+      return send(res, 200, { proforma });
+    }
+
+    // Changes to the items of a closed order (add, remove, quantity, price),
+    // without reopening it. Every change goes to the order's log.
+    if (req.method === "POST" && action === "amend") {
+      if (current.status !== "closed") return fail(res, 409, "Only orders can be amended");
+      const body = await readJson(req);
+      if (body.baseUpdatedAt && current.updatedAt !== body.baseUpdatedAt) return fail(res, 409, "Changed by someone else");
+      const oldById = new Map(current.items.map((i) => [i.id, i]));
+      // A row switched to another product or options starts without the old discounted price.
+      const items = buildItems(body.items, products, priv, current, current.clientId).map((i) => {
+        const o = oldById.get(i.id);
+        return o && !sameConfig(o, i) ? { ...i, declared: null } : i;
+      });
+      const problems = closeProblems({ ...current, items });
+      if (problems.length) return send(res, 422, { error: "Cannot amend", problems });
+      const changes = itemChanges(current.items, items);
+      if (!changes.length) return send(res, 200, { proforma: current });
+      const now = new Date().toISOString();
+      const proforma = { ...current, updatedAt: now };
+      proforma.items = loadDiscounts(priv, proforma, items);
+      proforma.totals = totals(proforma.items);
+      const touched = new Set(changes.filter((c) => c.type !== "removed").map((c) => c.item.id));
+      rememberPrices(priv, proforma, proforma.items.filter((i) => touched.has(i.id)), now);
+      addLog(proforma, session.u, "items", changes);
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });
@@ -279,6 +366,7 @@ async function handler(req, res) {
 
     if (req.method === "POST" && action === "reopen") {
       const proforma = { ...current, status: "draft", closedAt: null, updatedAt: new Date().toISOString() };
+      addLog(proforma, session.u, "reopened", null);
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });

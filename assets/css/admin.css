@@ -558,3 +558,17 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 /* PDF of an order: choose the price */
 .pdf-choice { display: grid; gap: 10px; margin: 14px 0 10px; }
 .pdf-choice__note { font-size: 12.5px; color: var(--muted); }
+
+/* Amending a closed order + change log */
+.pf-amend-tools { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-amend-note { font-size: 13px; color: #8a5a00; background: #fff4e0; border: 1px solid #f3dcb0; border-radius: 4px; padding: 8px 12px; margin: -4px 0 12px; }
+.pf-log { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 18px; }
+.pf-log h3 { margin: 0 0 12px; font-size: 16px; color: var(--navy); }
+.pf-log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pf-log__entry { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; }
+.pf-log__meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; font-size: 14px; }
+.pf-log__meta b { color: var(--navy); }
+.pf-log__meta span { color: var(--muted); font-size: 12.5px; }
+.pf-log__entry ul { margin: 4px 0 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 2px; }
+.pf-log__change--added { color: #1b7f3b; }
+.pf-log__change--removed { color: #c62828; }

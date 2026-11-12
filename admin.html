@@ -317,7 +317,13 @@
           <div class="pf-items-head">
             <h3 data-t="pf.items">Itens</h3>
             <span class="lock" data-t="pf.internalNote">Custo, margem e lucro não aparecem no PDF nem no Excel</span>
+            <div class="pf-amend-tools">
+              <button type="button" class="btn btn--outline btn--sm" id="pf-amend" data-t="amend.start" hidden>Alterar itens do pedido</button>
+              <button type="button" class="btn btn--outline btn--sm" id="pf-amend-cancel" data-t="amend.cancel" hidden>Cancelar alterações</button>
+              <button type="button" class="btn btn--primary btn--sm" id="pf-amend-save" data-t="amend.save" hidden>Salvar alterações do pedido</button>
+            </div>
           </div>
+          <p class="pf-amend-note" id="pf-amend-note" data-t="amend.note" hidden>Alterando os itens de um pedido fechado: adicione, exclua ou mude quantidades e salve. Cada alteração fica registrada no histórico, no fim da página.</p>
           <div id="pf-items"></div>
           <button type="button" class="btn btn--outline attrs__add" id="pf-add-item">+ <span data-t="pf.addItem">Adicionar produto</span></button>
 
@@ -328,6 +334,12 @@
             <div class="pf-totals" id="pf-totals"></div>
           </div>
         </form>
+
+        <!-- What happened to this proforma / order -->
+        <section class="pf-log" id="pf-log" hidden>
+          <h3 data-t="log.title">Histórico de alterações</h3>
+          <ol id="pf-log-list"></ol>
+        </section>
       </section>
     </main>
 

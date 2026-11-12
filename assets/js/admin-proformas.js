@@ -36,6 +36,9 @@
   }
   function currency() { return form.elements.currency.value || A.defaultCurrency(); }
   function isClosed() { return Boolean(editing && editing.status === "closed"); }
+  // Items can be edited on a proforma, or on an order while "Alterar itens" is on.
+  var amending = false;
+  function isLocked() { return isClosed() && !amending; }
 
   // Same key as the server (api/proformas.js priceKey).
   function priceKey(productId, optionIds) {
@@ -148,6 +151,15 @@
     }).catch(function () { clientPrices = {}; });
   }
 
+  // Editor row from a saved item.
+  function rowFromItem(i) {
+    var opts = {};
+    i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
+    return { id: i.id, productId: i.productId, sku: i.sku, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
+      qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false,
+      clientRef: i.clientRef || "", refManual: false };
+  }
+
   function openEditor(p) {
     editing = p || null;
     decState = { id: null, values: {} };
@@ -160,13 +172,8 @@
     form.elements.currency.value = p ? p.currency : A.defaultCurrency();
     form.elements.language.value = p ? p.language : (["en", "pt", "es"].indexOf(A.lang()) > -1 ? A.lang() : "en");
     form.elements.terms.value = p ? p.terms || "" : "";
-    rows = p ? p.items.map(function (i) {
-      var opts = {};
-      i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
-      return { id: i.id, productId: i.productId, sku: i.sku, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
-        qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false,
-        clientRef: i.clientRef || "", refManual: false };
-    }) : [];
+    amending = false;
+    rows = p ? p.items.map(rowFromItem) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
       renderHeader();
       renderItems();
@@ -187,12 +194,85 @@
     }
     $("#pf-save").hidden = closed;
     $("#pf-close").hidden = closed;
-    $("#pf-reopen").hidden = !closed;
+    $("#pf-reopen").hidden = !closed || amending;
+    $("#pf-amend").hidden = !closed || amending;
+    $("#pf-amend-save").hidden = $("#pf-amend-cancel").hidden = $("#pf-amend-note").hidden = !amending;
+    $("#pf-pdf").disabled = $("#pf-xlsx").disabled = amending; // documents come from the saved order
     $("#pf-delete").hidden = !editing;
-    $("#pf-add-item").hidden = closed;
+    $("#pf-add-item").hidden = isLocked();
     form.querySelectorAll(".pf-fields input, .pf-fields select, textarea").forEach(function (el) { el.disabled = closed; });
     renderOrder();
+    renderLog();
   }
+
+  /* ---------- Change log (end of the page) ---------- */
+  function logItemText(it) {
+    var lang = A.lang();
+    var pick = function (o) { return (o && (o[lang] || o.en || o.pt)) || ""; };
+    var opts = (it.options || []).map(pick).filter(Boolean).join(" · ");
+    return (it.sku ? it.sku + " " : "") + pick(it.name) + (opts ? " (" + opts + ")" : "");
+  }
+  function logChangeText(c, cur) {
+    var name = logItemText(c.item);
+    var m = function (v) { return v == null ? "—" : A.money(v, cur); };
+    if (c.type === "added") return T("log.added", { item: name, qty: c.qty, price: m(c.price) });
+    if (c.type === "removed") return T("log.removed", { item: name, qty: c.qty, price: m(c.price) });
+    if (c.type === "qty") return T("log.qty", { item: name, from: c.from, to: c.to });
+    if (c.type === "price") return T("log.price", { item: name, from: m(c.from), to: m(c.to) });
+    if (c.type === "discount") return T("log.discount", { item: name, from: m(c.from), to: m(c.to) });
+    return "";
+  }
+  function renderLog() {
+    var log = (editing && editing.log) || [];
+    $("#pf-log").hidden = !log.length;
+    if (!log.length) return;
+    $("#pf-log-list").innerHTML = log.slice().reverse().map(function (e) {
+      var when = new Date(e.at).toLocaleString(A.locale(), { dateStyle: "short", timeStyle: "short" });
+      var lines = (e.changes || []).map(function (c) { return '<li class="pf-log__change pf-log__change--' + esc(c.type) + '">' + esc(logChangeText(c, editing.currency)) + "</li>"; }).join("");
+      return '<li class="pf-log__entry"><div class="pf-log__meta"><b>' + esc(T("log.kind." + e.kind)) + "</b><span>" + esc(when) + (e.by ? " · " + esc(e.by) : "") + "</span></div>" +
+        (lines ? "<ul>" + lines + "</ul>" : "") + "</li>";
+    }).join("");
+  }
+
+  /* ---------- Amending the items of a closed order ---------- */
+  function setAmending(on) {
+    amending = on;
+    if (!on) {
+      // Back to the saved items (Cancel) or to what the server returned (Save).
+      rows = editing.items.map(rowFromItem);
+    }
+    renderHeader();
+    renderItems();
+  }
+  $("#pf-amend").addEventListener("click", function () { setStatus(""); setAmending(true); });
+  $("#pf-amend-cancel").addEventListener("click", function () { setStatus(""); setAmending(false); });
+  $("#pf-amend-save").addEventListener("click", function () {
+    var btn = this;
+    var dupMsg = duplicateMessage(duplicateRows());
+    if (dupMsg) return setStatus(dupMsg, "error");
+    var dups = duplicateRows();
+    var bad = null;
+    rows.forEach(function (r, i) {
+      if (!r.productId) return;
+      var problem = rowProblem(r, i, dups);
+      if (problem && !bad) bad = problem;
+      if (!problem) r.editing = false;
+    });
+    if (bad) { renderItems(); return setStatus(bad, "error"); }
+    if (!rows.some(function (r) { return r.productId; })) return setStatus(T("pf.problem.items"), "error");
+    btn.disabled = true;
+    A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=amend", { method: "POST", body: { items: body().items, baseUpdatedAt: editing.updatedAt } })
+      .then(function (data) {
+        var changed = data.proforma.updatedAt !== editing.updatedAt;
+        accept(data.proforma);
+        setAmending(false);
+        setStatus(T(changed ? "amend.saved" : "amend.nothing"), "ok");
+      }, function (e) {
+        if (e.message === T("status.conflict")) conflicted = true;
+        setStatus(e.message, "error");
+      })
+      .then(function () { btn.disabled = false; });
+  });
 
   /* ---------- Order (closed proforma): income and expenses ----------
      The entries are ordinary finance entries linked to the order, so they also
@@ -479,7 +559,7 @@
   }
 
   function renderItems() {
-    var closed = isClosed();
+    var closed = isLocked();
     var dups = duplicateRows();
     var products = A.products();
     var dis = closed ? " disabled" : "";
