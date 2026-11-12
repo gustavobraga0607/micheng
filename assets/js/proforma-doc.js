@@ -4,17 +4,17 @@
   "use strict";
 
   var DOC = {
-    en: { refTitle: "PROFORMA — REFERENCE PRICE", refMark: "REFERENCE DOCUMENT – NO FISCAL VALUE", refNote: "Reference prices only. This is not an invoice and has no fiscal value.",
+    en: { refTitle: "PROFORMA — DISCOUNTED PRICE", refMark: "REFERENCE DOCUMENT – NO FISCAL VALUE", refNote: "Discounted prices. This is not an invoice and has no fiscal value.",
       title: "PROFORMA INVOICE", no: "No.", date: "Date", valid: "Valid until", billTo: "Bill to", taxId: "Tax ID", phone: "Phone",
       email: "E-mail", web: "Website", item: "#", code: "Code", ref: "Your ref.", description: "Description", qty: "Qty", unit: "Unit price", amount: "Amount",
       total: "TOTAL", bank: "Bank details", beneficiary: "Beneficiary", bankName: "Bank", account: "Account No.", swift: "SWIFT / BIC",
       bankAddress: "Bank address", terms: "Terms & notes", page: "Page", currency: "Currency", photos: "Click here to view the photos in full size" },
-    pt: { refTitle: "PROFORMA — PREÇO DE REFERÊNCIA", refMark: "DOCUMENTO DE REFERÊNCIA – SEM VALOR FISCAL", refNote: "Somente preços de referência. Não é fatura e não tem valor fiscal.",
+    pt: { refTitle: "PROFORMA — PREÇO COM DESCONTO", refMark: "DOCUMENTO DE REFERÊNCIA – SEM VALOR FISCAL", refNote: "Preços com desconto. Não é fatura e não tem valor fiscal.",
       title: "FATURA PROFORMA", no: "Nº", date: "Data", valid: "Válida até", billTo: "Cliente", taxId: "Tax ID", phone: "Telefone",
       email: "E-mail", web: "Site", item: "#", code: "Código", ref: "Sua ref.", description: "Descrição", qty: "Qtd.", unit: "Preço unit.", amount: "Valor",
       total: "TOTAL", bank: "Dados bancários", beneficiary: "Beneficiário", bankName: "Banco", account: "Conta", swift: "SWIFT / BIC",
       bankAddress: "Endereço do banco", terms: "Condições e observações", page: "Página", currency: "Moeda", photos: "Clique aqui para visualizar as fotos em tamanho real" },
-    es: { refTitle: "PROFORMA — PRECIO DE REFERENCIA", refMark: "DOCUMENTO DE REFERENCIA – SIN VALOR FISCAL", refNote: "Solo precios de referencia. No es factura y no tiene valor fiscal.",
+    es: { refTitle: "PROFORMA — PRECIO CON DESCUENTO", refMark: "DOCUMENTO DE REFERENCIA – SIN VALOR FISCAL", refNote: "Precios con descuento. No es factura y no tiene valor fiscal.",
       title: "FACTURA PROFORMA", no: "Nº", date: "Fecha", valid: "Válida hasta", billTo: "Cliente", taxId: "Tax ID", phone: "Teléfono",
       email: "Correo", web: "Sitio web", item: "#", code: "Código", ref: "Su ref.", description: "Descripción", qty: "Cant.", unit: "Precio unit.", amount: "Importe",
       total: "TOTAL", bank: "Datos bancarios", beneficiary: "Beneficiario", bankName: "Banco", account: "Cuenta", swift: "SWIFT / BIC",
@@ -72,7 +72,7 @@
       ws.getCell("A1").value = s.companyName || "Shenzhen Micheng International Trading Co., Ltd.";
       ws.getCell("A1").font = { bold: true, size: 13, color: { argb: navy } };
       ws.mergeCells("D1:" + col(C.last) + "1");
-      ws.getCell("D1").value = L.title;
+      ws.getCell("D1").value = d.reference ? L.refTitle : L.title;
       ws.getCell("D1").font = { bold: true, size: 15, color: { argb: navy } };
       ws.getCell("D1").alignment = { horizontal: "right" };
 
@@ -177,6 +177,13 @@
         y += lines.length + 2;
       }
       section(L.terms, d.p.terms ? d.p.terms.split("\n") : []);
+      if (d.reference) {
+        // Same marking as the PDF version, and never bank details.
+        section(L.refMark, [L.refNote]);
+        ws.getCell(y - 3, 1).font = { bold: true, color: { argb: "FFC62828" } };
+        ws.headerFooter = { oddFooter: "&C&\"Arial,Bold\"&KC62828" + L.refMark };
+        return save(d.reference ? safeName(d.p.number + (d.p.client ? " - " + d.p.client.name : "") + " - " + L.refTitle.split("— ")[1], "xlsx") : fileName(d.p, "xlsx"));
+      }
       var bank = [];
       if (s.bankBeneficiary) bank.push(L.beneficiary + ": " + s.bankBeneficiary);
       if (s.bankName) bank.push(L.bankName + ": " + s.bankName);
@@ -186,15 +193,19 @@
       if (s.bankNotes) bank = bank.concat(s.bankNotes.split("\n"));
       section(L.bank, bank);
 
-      return wb.xlsx.writeBuffer().then(function (buf) {
-        var blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName(d.p, "xlsx");
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-      });
+      return save(fileName(d.p, "xlsx"));
+
+      function save(name) {
+        return wb.xlsx.writeBuffer().then(function (buf) {
+          var blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        });
+      }
     });
   }
 

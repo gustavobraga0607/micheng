@@ -361,12 +361,12 @@
   // Internal report (PDF): sale price and declared value side by side. It is a
   // control sheet, not an invoice: no bank details and a clear "internal" title.
   var DEC_DOC = {
-    pt: { title: "CONTROLE INTERNO", sub: "Preço de Referência do pedido", note: "Documento de uso interno. Não é fatura nem proforma.", order: "Pedido", client: "Cliente", date: "Data", currency: "Moeda",
-      item: "Item", qty: "Qtd.", sale: "Preço de venda", declared: "Preço de Referência", totalSale: "Total venda", totalDeclared: "Total Referência", diff: "Diferença", totals: "Totais", page: "Página" },
-    en: { title: "INTERNAL CONTROL", sub: "Reference Price of the order", note: "Internal document. Not an invoice or a proforma.", order: "Order", client: "Client", date: "Date", currency: "Currency",
-      item: "Item", qty: "Qty", sale: "Sale price", declared: "Reference Price", totalSale: "Sale total", totalDeclared: "Reference total", diff: "Difference", totals: "Totals", page: "Page" },
-    es: { title: "CONTROL INTERNO", sub: "Precio de Referencia del pedido", note: "Documento de uso interno. No es factura ni proforma.", order: "Pedido", client: "Cliente", date: "Fecha", currency: "Moneda",
-      item: "Ítem", qty: "Cant.", sale: "Precio de venta", declared: "Precio de Referencia", totalSale: "Total venta", totalDeclared: "Total Referencia", diff: "Diferencia", totals: "Totales", page: "Página" }
+    pt: { title: "CONTROLE INTERNO", sub: "Preço com desconto do pedido", note: "Documento de uso interno. Não é fatura nem proforma.", order: "Pedido", client: "Cliente", date: "Data", currency: "Moeda",
+      item: "Item", qty: "Qtd.", sale: "Preço de venda", declared: "Preço com desconto", totalSale: "Total venda", totalDeclared: "Total com desconto", diff: "Diferença", totals: "Totais", page: "Página" },
+    en: { title: "INTERNAL CONTROL", sub: "Discounted price of the order", note: "Internal document. Not an invoice or a proforma.", order: "Order", client: "Client", date: "Date", currency: "Currency",
+      item: "Item", qty: "Qty", sale: "Sale price", declared: "Discounted price", totalSale: "Sale total", totalDeclared: "Discounted total", diff: "Difference", totals: "Totals", page: "Page" },
+    es: { title: "CONTROL INTERNO", sub: "Precio con descuento del pedido", note: "Documento de uso interno. No es factura ni proforma.", order: "Pedido", client: "Cliente", date: "Fecha", currency: "Moneda",
+      item: "Ítem", qty: "Cant.", sale: "Precio de venta", declared: "Precio con descuento", totalSale: "Total venta", totalDeclared: "Total con descuento", diff: "Diferencia", totals: "Totales", page: "Página" }
   };
 
   function exportDeclared(p) {
@@ -1199,8 +1199,8 @@
     });
   }
 
-  function exportXlsx(p) {
-    return PD.buildXlsx(docData(p));
+  function exportXlsx(p, ref) {
+    return PD.buildXlsx(docData(p, ref));
   }
 
   // Exports the saved version (drafts are saved first).
@@ -1214,28 +1214,34 @@
       setStatus(T("pf.exportError") + " " + e.message, "error");
     }).then(function () { btn.disabled = false; });
   }
-  $("#pf-pdf").addEventListener("click", function () {
+  // An order with discounted prices: ask which price the document uses (PDF or Excel).
+  var exportKind = "pdf";
+  function askOrExport(kind) {
     var hasRef = isClosed() && editing.items.some(function (i) { return i.declared != null; });
-    if (!hasRef) return runExport("pdf");
+    if (!hasRef) return runExport(kind);
+    exportKind = kind;
     var missing = editing.items.map(function (i, n) { return i.declared == null ? n + 1 : null; }).filter(Boolean);
     $("#pf-pdf-ref").disabled = missing.length > 0;
     $("#pf-pdf-missing").textContent = missing.length ? T("pf.pdfRefMissing", { items: missing.join(", ") }) : "";
+    $("#pf-pdf-title").textContent = T(kind === "pdf" ? "pf.pdfChoose" : "pf.xlsxChoose");
     var dlg = $("#pf-pdf-dlg");
     if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
-  });
+  }
+  $("#pf-pdf").addEventListener("click", function () { askOrExport("pdf"); });
+  $("#pf-xlsx").addEventListener("click", function () { askOrExport("xlsx"); });
   $("#pf-pdf-dlg").addEventListener("click", function (e) {
     var dlg = this;
     var choice = e.target.closest("[data-pdf]");
     if (e.target === dlg || e.target.closest("[data-close]") || choice) dlg.close();
     if (!choice) return;
-    if (choice.getAttribute("data-pdf") === "sale") return runExport("pdf");
-    var btn = $("#pf-pdf");
+    if (choice.getAttribute("data-pdf") === "sale") return runExport(exportKind);
+    var btn = $(exportKind === "pdf" ? "#pf-pdf" : "#pf-xlsx");
     btn.disabled = true;
     setStatus(T("pf.exporting"));
-    exportPdf(editing, true).then(function () { setStatus(""); }, function (err) { setStatus(T("pf.exportError") + " " + err.message, "error"); })
+    (exportKind === "pdf" ? exportPdf(editing, true) : exportXlsx(editing, true))
+      .then(function () { setStatus(""); }, function (err) { setStatus(T("pf.exportError") + " " + err.message, "error"); })
       .then(function () { btn.disabled = false; });
   });
-  $("#pf-xlsx").addEventListener("click", function () { runExport("xlsx"); });
 
   /* ---------- Wiring ---------- */
   document.addEventListener("admin:data", function (e) {
