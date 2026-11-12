@@ -361,12 +361,12 @@
   // Internal report (PDF): sale price and declared value side by side. It is a
   // control sheet, not an invoice: no bank details and a clear "internal" title.
   var DEC_DOC = {
-    pt: { title: "CONTROLE INTERNO", sub: "Valor Fatura do pedido", note: "Documento de uso interno. Não é fatura nem proforma.", order: "Pedido", client: "Cliente", date: "Data", currency: "Moeda",
-      item: "Item", qty: "Qtd.", sale: "Preço de venda", declared: "Valor Fatura", totalSale: "Total venda", totalDeclared: "Total Fatura", diff: "Diferença", totals: "Totais", page: "Página" },
-    en: { title: "INTERNAL CONTROL", sub: "Invoice Value of the order", note: "Internal document. Not an invoice or a proforma.", order: "Order", client: "Client", date: "Date", currency: "Currency",
-      item: "Item", qty: "Qty", sale: "Sale price", declared: "Invoice Value", totalSale: "Sale total", totalDeclared: "Invoice total", diff: "Difference", totals: "Totals", page: "Page" },
-    es: { title: "CONTROL INTERNO", sub: "Valor Factura del pedido", note: "Documento de uso interno. No es factura ni proforma.", order: "Pedido", client: "Cliente", date: "Fecha", currency: "Moneda",
-      item: "Ítem", qty: "Cant.", sale: "Precio de venta", declared: "Valor Factura", totalSale: "Total venta", totalDeclared: "Total Factura", diff: "Diferencia", totals: "Totales", page: "Página" }
+    pt: { title: "CONTROLE INTERNO", sub: "Preço de Referência do pedido", note: "Documento de uso interno. Não é fatura nem proforma.", order: "Pedido", client: "Cliente", date: "Data", currency: "Moeda",
+      item: "Item", qty: "Qtd.", sale: "Preço de venda", declared: "Preço de Referência", totalSale: "Total venda", totalDeclared: "Total Referência", diff: "Diferença", totals: "Totais", page: "Página" },
+    en: { title: "INTERNAL CONTROL", sub: "Reference Price of the order", note: "Internal document. Not an invoice or a proforma.", order: "Order", client: "Client", date: "Date", currency: "Currency",
+      item: "Item", qty: "Qty", sale: "Sale price", declared: "Reference Price", totalSale: "Sale total", totalDeclared: "Reference total", diff: "Difference", totals: "Totals", page: "Page" },
+    es: { title: "CONTROL INTERNO", sub: "Precio de Referencia del pedido", note: "Documento de uso interno. No es factura ni proforma.", order: "Pedido", client: "Cliente", date: "Fecha", currency: "Moneda",
+      item: "Ítem", qty: "Cant.", sale: "Precio de venta", declared: "Precio de Referencia", totalSale: "Total venta", totalDeclared: "Total Referencia", diff: "Diferencia", totals: "Totales", page: "Página" }
   };
 
   function exportDeclared(p) {
