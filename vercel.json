@@ -37,6 +37,24 @@
       ]
     },
     {
+      "source": "/((?!api/|assets/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(js|css)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/assets/img/(.*)",
       "headers": [
         {

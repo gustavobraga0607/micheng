@@ -678,3 +678,10 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
   .otab { padding: 10px 10px; font-size: 14px; }
 }
 .pf-editor:not(.is-order) .pf-log { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 18px; }
+
+/* Unexpected error bar */
+.app-error { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 1000; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  max-width: 720px; margin: 0 auto; padding: 12px 14px; border-radius: 8px; background: #c62828; color: #fff; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.app-error span { flex: 1 1 240px; }
+.app-error button { border: 1px solid rgba(255,255,255,.7); background: transparent; color: #fff; border-radius: 4px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; }
+.app-error .app-error__x { border: 0; font-size: 22px; line-height: 1; padding: 2px 6px; }

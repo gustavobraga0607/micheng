@@ -1,6 +1,43 @@
 (function () {
   "use strict";
 
+  /* ---------- Unexpected errors: shown on screen instead of failing silently ---------- */
+  var ERR_TEXT = {
+    pt: ["Algo deu errado nesta tela.", "Recarregar"], en: ["Something went wrong on this screen.", "Reload"],
+    es: ["Algo salió mal en esta pantalla.", "Recargar"], zh: ["此页面出现错误。", "重新加载"]
+  };
+  function showError(msg) {
+    var lang = (document.documentElement.lang || "pt").slice(0, 2);
+    var tx = ERR_TEXT[lang] || ERR_TEXT.pt;
+    var bar = document.getElementById("app-error");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "app-error";
+      bar.className = "app-error";
+      bar.setAttribute("role", "alert");
+      document.body.appendChild(bar);
+    }
+    bar.innerHTML = "";
+    var t = document.createElement("span");
+    t.textContent = tx[0] + " " + String(msg || "").slice(0, 160);
+    var reload = document.createElement("button");
+    reload.type = "button"; reload.textContent = tx[1];
+    reload.addEventListener("click", function () { location.reload(); });
+    var close = document.createElement("button");
+    close.type = "button"; close.className = "app-error__x"; close.textContent = "×"; close.setAttribute("aria-label", "×");
+    close.addEventListener("click", function () { bar.remove(); });
+    bar.appendChild(t); bar.appendChild(reload); bar.appendChild(close);
+  }
+  window.addEventListener("error", function (e) {
+    if (e.target && e.target !== window && e.target.tagName) return; // a missing image is not an app error
+    showError(e.message);
+  }, true);
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e.reason;
+    if (r && /Login required|Failed to fetch|NetworkError|Load failed/.test(r.message || "")) return;
+    showError(r && r.message ? r.message : r);
+  });
+
   var LANGS = ["pt", "en", "es", "zh"];
   var MAX_SIDE = 1600; // photos are resized in the browser before upload
 
