@@ -572,3 +572,21 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .pf-log__entry ul { margin: 4px 0 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 2px; }
 .pf-log__change--added { color: #1b7f3b; }
 .pf-log__change--removed { color: #c62828; }
+
+/* Commercial invoice */
+.mdl--wide { width: min(900px, calc(100vw - 24px)); }
+.inv-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1px dashed #cfd8e3; border-radius: 6px; background: #fff; }
+.inv-bar.is-ready { border-style: solid; border-color: #b9dfc4; background: #f3faf5; }
+.inv-bar > div:first-child { display: grid; gap: 1px; }
+.inv-bar b { color: var(--navy); }
+.inv-bar span { font-size: 13px; color: var(--muted); }
+.inv-bar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-items td { white-space: nowrap; vertical-align: middle; }
+.inv-items .fin-desc { white-space: normal; min-width: 200px; }
+.inv-items .fin-desc small { display: block; color: var(--muted); }
+.admin .inv-mini { display: grid; gap: 2px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.admin .inv-mini input { width: 120px; padding: 7px 9px; font-size: 14px; }
+.stamp { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.stamp__preview { width: 220px; height: 120px; border: 1px dashed #cfd8e3; border-radius: 6px; display: grid; place-items: center; background: #fff; overflow: hidden; color: var(--muted); font-size: 13px; text-align: center; padding: 6px; }
+.stamp__preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.stamp__actions { display: flex; align-items: center; gap: 14px; }

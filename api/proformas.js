@@ -6,7 +6,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getAllData, savePrivate, oneChangeAtATime } from "./_lib/store.js";
+import { getAllData, getFinance, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
@@ -219,6 +219,63 @@ function loadDiscounts(priv, proforma, items) {
   });
 }
 
+/* ---------- Commercial invoice ----------
+   Generated once the order is fully paid. Holds what the documents need besides
+   the order itself (Regulamento Aduaneiro, art. 557): packages, weights, countries,
+   Incoterm, ports, freight and other costs, payment terms, NCM per item. */
+const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"];
+const TRANSPORTS = ["sea", "air", "road", "rail", "multimodal"];
+
+// Money received for an order, in its currency (paid income entries linked to it).
+export function receivedFor(fin, pf) {
+  return Math.round(fin.entries
+    .filter((e) => e.proformaId === pf.id && e.type === "in" && e.status === "paid" && e.currency === pf.currency)
+    .reduce((t, e) => t + e.amount, 0) * 100) / 100;
+}
+
+function cleanInvoice(body, pf) {
+  const n = (v) => (v === "" || v == null ? null : num(v));
+  const inv = {
+    number: text(body.number, 40),
+    date: isoDate(body.date),
+    incoterm: INCOTERMS.includes(body.incoterm) ? body.incoterm : null,
+    incotermPlace: text(body.incotermPlace, 80),
+    transport: TRANSPORTS.includes(body.transport) ? body.transport : null,
+    portLoading: text(body.portLoading, 80),
+    portDischarge: text(body.portDischarge, 80),
+    originCountry: text(body.originCountry, 60),
+    acquisitionCountry: text(body.acquisitionCountry, 60),
+    provenanceCountry: text(body.provenanceCountry, 60),
+    paymentTerms: text(body.paymentTerms, 500),
+    buyer: text(body.buyer, 500),
+    packagesQty: Number.isInteger(Number(body.packagesQty)) && Number(body.packagesQty) > 0 ? Number(body.packagesQty) : null,
+    packagesKind: text(body.packagesKind, 80),
+    marks: text(body.marks, 300),
+    grossWeight: n(body.grossWeight),
+    netWeight: n(body.netWeight),
+    volumeM3: n(body.volumeM3),
+    freight: n(body.freight),
+    insurance: n(body.insurance),
+    otherCosts: n(body.otherCosts),
+    otherCostsLabel: text(body.otherCostsLabel, 80),
+    notes: text(body.notes, 1000),
+    items: {},
+  };
+  const raw = body.items && typeof body.items === "object" ? body.items : {};
+  for (const i of pf.items) {
+    const r = raw[i.id] || {};
+    inv.items[i.id] = { ncm: text(r.ncm, 12).replace(/[^\d.]/g, ""), unit: text(r.unit, 20) || "PCS" };
+  }
+  const missing = [];
+  for (const k of ["number", "date", "incoterm", "incotermPlace", "transport", "portLoading", "portDischarge", "originCountry", "acquisitionCountry",
+    "provenanceCountry", "paymentTerms", "packagesQty", "packagesKind", "grossWeight", "netWeight", "volumeM3"]) {
+    if (inv[k] == null || inv[k] === "") missing.push(k);
+  }
+  if (!missing.length && !(inv.grossWeight > 0 && inv.netWeight > 0 && inv.volumeM3 > 0)) missing.push("weights");
+  if (!missing.length && inv.netWeight > inv.grossWeight) missing.push("netOverGross");
+  return { inv, missing };
+}
+
 // Proformas as the admin panel shows them.
 export function proformaList(priv, products) {
   // Items saved before SKUs existed show the current code of their product.
@@ -349,6 +406,23 @@ async function handler(req, res) {
       const touched = new Set(changes.filter((c) => c.type !== "removed").map((c) => c.item.id));
       rememberPrices(priv, proforma, proforma.items.filter((i) => touched.has(i.id)), now);
       addLog(proforma, session.u, "items", changes);
+      priv.proformas[index] = proforma;
+      await savePrivate(priv);
+      return send(res, 200, { proforma });
+    }
+
+    // Commercial invoice: saves its data (the panel then makes the PDF). Only for
+    // orders whose payments were all received.
+    if (req.method === "POST" && action === "invoice") {
+      if (current.status !== "closed") return fail(res, 409, "Only orders have invoices");
+      const received = receivedFor(await getFinance(), current);
+      if (received + 0.005 < current.totals.sale) return send(res, 409, { error: "Not fully paid", received, total: current.totals.sale });
+      const { inv, missing } = cleanInvoice(await readJson(req), current);
+      if (missing.length) return send(res, 422, { error: "Invoice data missing", missing });
+      const now = new Date().toISOString();
+      const first = !current.invoice;
+      const proforma = { ...current, invoice: { ...inv, savedAt: now, savedBy: session.u }, updatedAt: now };
+      addLog(proforma, session.u, first ? "invoice" : "invoiceUpdated", [{ type: "invoice", number: inv.number }]);
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });

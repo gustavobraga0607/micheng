@@ -213,6 +213,7 @@ const emptyPrivate = () => ({
   settings: {},
   proformas: [],
   clientPrices: {}, // clientId -> { priceKey: { price, currency, proformaId, at } }
+  stamp: null, // company stamp and signature image (encrypted file), used on invoices
   clientDeclared: {}, // clientId -> { priceKey: { value, currency, number, at } }: declared values, internal control
   proformaSeq: {}, // year -> last proforma number used
   clientRefs: {}, // productId -> clientId -> { comboKey ("" = no variants): client's reference }

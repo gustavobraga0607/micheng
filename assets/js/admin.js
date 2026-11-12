@@ -1151,7 +1151,7 @@
 
   /* ---------- Settings tab (company details for proformas) ---------- */
   var setForm = $("#settings-form");
-  var SET_FIELDS = ["currency", "companyName", "address", "phone", "email", "website",
+  var SET_FIELDS = ["currency", "companyName", "companyTaxId", "address", "phone", "email", "website",
     "bankBeneficiary", "bankName", "bankAccount", "bankSwift", "bankAddress", "bankNotes"];
   var settingsUpdatedAt = null;
   var companySettings = {};
@@ -1178,9 +1178,64 @@
     renderList();
     settingsUpdatedAt = settings && settings.updatedAt;
     companySettings = settings || {};
+    renderStamp();
     renderSettingsUpdated();
     document.dispatchEvent(new CustomEvent("admin:data"));
   }
+
+  /* ----- Stamp and signature image (used on invoices) ----- */
+  var stampShown = null; // uploadedAt of the image on screen
+  function setStampStatus(msg, kind) {
+    var el = $("#stamp-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+  // The image as a data URL (for the PDF), or null when there is none.
+  function stampDataUrl() {
+    if (!companySettings.stamp) return Promise.resolve(null);
+    return fetch("/api/settings?kind=stamp", { credentials: "same-origin", cache: "no-store" }).then(function (r) {
+      if (!r.ok) return null;
+      return r.blob().then(function (b) {
+        return new Promise(function (resolve) {
+          var fr = new FileReader();
+          fr.onload = function () { resolve(fr.result); };
+          fr.onerror = function () { resolve(null); };
+          fr.readAsDataURL(b);
+        });
+      });
+    }).catch(function () { return null; });
+  }
+  function renderStamp() {
+    var st = companySettings.stamp;
+    $("#stamp-remove").hidden = !st;
+    if (!st) { stampShown = null; $("#stamp-preview").innerHTML = '<span>' + escapeHtml(T("set.stampNone")) + "</span>"; return; }
+    if (stampShown === st.uploadedAt) return;
+    stampShown = st.uploadedAt;
+    stampDataUrl().then(function (url) {
+      $("#stamp-preview").innerHTML = url ? '<img src="' + escapeHtml(url) + '" alt="" />' : '<span>' + escapeHtml(T("set.stampNone")) + "</span>";
+    });
+  }
+  $("#stamp-file").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!/^image\/(png|jpeg)$/.test(file.type)) return setStampStatus(T("set.stampType"), "error");
+    if (file.size > 1.5 * 1048576) return setStampStatus(T("set.stampBig"), "error");
+    setStampStatus(T("fin.uploading"));
+    var fr = new FileReader();
+    fr.onload = function () {
+      api("/api/settings?kind=stamp", { method: "POST", body: { data: fr.result } })
+        .then(function (d) { companySettings = d.settings; renderStamp(); setStampStatus(T("set.stampSaved"), "ok"); })
+        .catch(function (err) { setStampStatus(/Unsupported/.test(err.message) ? T("set.stampType") : err.message, "error"); });
+    };
+    fr.readAsDataURL(file);
+  });
+  $("#stamp-remove").addEventListener("click", function () {
+    if (!confirm(T("set.stampConfirm"))) return;
+    api("/api/settings?kind=stamp", { method: "DELETE" })
+      .then(function (d) { companySettings = d.settings; renderStamp(); setStampStatus(T("set.stampRemoved"), "ok"); })
+      .catch(function (err) { setStampStatus(err.message, "error"); });
+  });
 
   function loadSettings() {
     api("/api/settings").then(function (data) { fillSettings(data.settings); })
@@ -1215,6 +1270,7 @@
     suppliers: function () { return suppliers; },
     clients: function () { return clients; },
     settings: function () { return companySettings; },
+    stampDataUrl: stampDataUrl,
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
     reloadProducts: loadProducts,

@@ -213,6 +213,7 @@
     return (it.sku ? it.sku + " " : "") + pick(it.name) + (opts ? " (" + opts + ")" : "");
   }
   function logChangeText(c, cur) {
+    if (c.type === "invoice") return T("log.invoiceNumber", { number: c.number });
     var name = logItemText(c.item);
     var m = function (v) { return v == null ? "—" : A.money(v, cur); };
     if (c.type === "added") return T("log.added", { item: name, qty: c.qty, price: m(c.price) });
@@ -334,7 +335,7 @@
         "<div><span>" + esc(T("ord.result")) + "</span>" + (sameCurrency
           ? '<b class="' + (result < 0 ? "is-neg" : "is-ok") + '">' + esc((result < 0 ? "− " : "") + A.money(Math.abs(result), cur)) + "</b>"
           : "<b>—</b><small>" + esc(T("ord.mixedCurrencies")) + "</small>") + "</div>" +
-      "</div>" +
+      "</div>" + invoiceBar(received, total, cur) +
       (list.length
         ? '<div class="pf-table-wrap"><table class="pf-table fin-table"><tbody>' + rows + "</tbody></table></div>"
         : '<p class="ord__empty">' + esc(T("ord.empty")) + "</p>") +
@@ -434,9 +435,286 @@
     }
   });
 
+  /* ----- Commercial invoice (once the order is fully paid) ----- */
+  function invoiceBar(received, total, cur) {
+    var inv = editing.invoice;
+    var paid = received + 0.005 >= total;
+    var info = inv
+      ? T("inv.done", { number: inv.number, date: fmtDate(inv.date) })
+      : paid ? T("inv.ready") : T("inv.waiting", { value: A.money(round(total - received), cur) });
+    var buttons = inv
+      ? '<button type="button" class="btn btn--outline btn--sm" data-inv="edit">' + esc(T("inv.edit")) + "</button>" +
+        '<button type="button" class="btn btn--primary btn--sm" data-inv="pdf">' + esc(T("inv.download")) + "</button>"
+      : '<button type="button" class="btn btn--primary btn--sm" data-inv="edit"' + (paid ? "" : " disabled") + ">" + esc(T("inv.create")) + "</button>";
+    return '<div class="inv-bar' + (paid ? " is-ready" : "") + '"><div><b>' + esc(T("inv.title")) + "</b><span>" + esc(info) + "</span></div>" +
+      '<div class="inv-bar__actions">' + buttons + "</div></div>";
+  }
+
+  var inf = $("#inv-form");
+  var INV_FIELDS = ["number", "date", "transport", "incoterm", "incotermPlace", "portLoading", "portDischarge", "originCountry", "acquisitionCountry",
+    "provenanceCountry", "paymentTerms", "buyer", "packagesQty", "packagesKind", "volumeM3", "grossWeight", "netWeight", "marks",
+    "freight", "insurance", "otherCosts", "otherCostsLabel", "notes"];
+  var INV_NUMERIC = ["volumeM3", "grossWeight", "netWeight", "freight", "insurance", "otherCosts"];
+
+  function openInvoice() {
+    var inv = editing.invoice || {};
+    var lang = editing.language || "en";
+    var china = { en: "China", pt: "China", es: "China" }[lang] || "China";
+    var defaults = {
+      number: "INV-" + editing.number.replace(/^PF-/, ""), date: today(), transport: "sea", incoterm: "FOB", incotermPlace: "Shenzhen",
+      portLoading: "Shenzhen, China", portDischarge: "", originCountry: china, acquisitionCountry: china, provenanceCountry: china,
+      paymentTerms: editing.terms || "", buyer: "", packagesQty: "", packagesKind: "", volumeM3: "", grossWeight: "", netWeight: "", marks: "",
+      freight: "", insurance: "", otherCosts: "", otherCostsLabel: "", notes: ""
+    };
+    INV_FIELDS.forEach(function (f) {
+      var v = inv[f] != null && inv[f] !== "" ? inv[f] : defaults[f];
+      inf.elements[f].value = INV_NUMERIC.indexOf(f) > -1 && v !== "" ? String(v).replace(".", ",") : v;
+      inf.elements[f].classList.remove("is-invalid");
+    });
+    var items = inv.items || {};
+    $("#inv-items").innerHTML = editing.items.map(function (i, n) {
+      var it = items[i.id] || {};
+      var opts = i.options.map(function (o) { return (o.optionLabel && (o.optionLabel[A.lang()] || o.optionLabel.en)) || ""; }).filter(Boolean).join(" · ");
+      return "<tr><td>" + (n + 1) + '</td><td class="fin-desc"><b>' + (i.sku ? '<span class="sku">' + esc(i.sku) + "</span> " : "") + esc(pname(i.product)) + "</b>" +
+        (opts ? "<small>" + esc(opts) + "</small>" : "") + '</td><td class="num">' + esc(String(i.qty)) + "</td>" +
+        '<td><label class="inv-mini"><span>NCM</span><input type="text" maxlength="12" inputmode="numeric" data-inv-ncm="' + esc(i.id) + '" value="' + esc(it.ncm || "") + '" placeholder="0000.00.00" /></label></td>' +
+        '<td><label class="inv-mini"><span>' + esc(T("inv.unit")) + '</span><input type="text" maxlength="20" data-inv-unit="' + esc(i.id) + '" value="' + esc(it.unit || "PCS") + '" /></label></td></tr>';
+    }).join("");
+    $("#inv-stamp-warn").hidden = Boolean(A.settings().stamp);
+    $("#inv-stamp-warn").textContent = T("inv.noStamp");
+    setInvStatus("");
+    var dlg = $("#inv-dlg");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+  function setInvStatus(msg, kind) {
+    var el = $("#inv-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+  $("#inv-dlg").addEventListener("click", function (e) {
+    if (e.target === this || e.target.closest("[data-close]")) this.close();
+  });
+
+  inf.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var body = {};
+    INV_FIELDS.forEach(function (f) { body[f] = inf.elements[f].value; });
+    body.items = {};
+    editing.items.forEach(function (i) {
+      body.items[i.id] = { ncm: $('[data-inv-ncm="' + i.id + '"]').value, unit: $('[data-inv-unit="' + i.id + '"]').value };
+    });
+    var required = ["number", "date", "incotermPlace", "portLoading", "portDischarge", "originCountry", "acquisitionCountry", "provenanceCountry",
+      "paymentTerms", "packagesQty", "packagesKind", "volumeM3", "grossWeight", "netWeight"];
+    var missing = required.filter(function (f) {
+      var v = String(body[f] || "").trim();
+      if (!v) return true;
+      if (f === "packagesQty") return !/^\d+$/.test(v) || Number(v) < 1;
+      if (INV_NUMERIC.indexOf(f) > -1) return !(toNum(v) > 0);
+      return false;
+    });
+    INV_FIELDS.forEach(function (f) { inf.elements[f].classList.toggle("is-invalid", missing.indexOf(f) > -1); });
+    if (missing.length) return setInvStatus(T("inv.missing"), "error");
+    if (toNum(body.netWeight) > toNum(body.grossWeight)) {
+      inf.elements.netWeight.classList.add("is-invalid");
+      return setInvStatus(T("inv.netOverGross"), "error");
+    }
+    var btn = $("#inv-save");
+    btn.disabled = true;
+    setInvStatus(T("pf.exporting"));
+    A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=invoice", { method: "POST", body: body })
+      .then(function (data) {
+        accept(data.proforma);
+        return exportInvoice(data.proforma).then(function () {
+          $("#inv-dlg").close();
+          setStatus(T("inv.generated", { number: data.proforma.invoice.number }), "ok");
+        });
+      })
+      .catch(function (err) {
+        setInvStatus(/Not fully paid/.test(err.message) ? T("inv.notPaid") : /Invoice data missing/.test(err.message) ? T("inv.missing") : err.message, "error");
+      })
+      .then(function () { btn.disabled = false; });
+  });
+
+  // Commercial invoice PDF, with the information the Brazilian customs (RFB) ask
+  // for (Regulamento Aduaneiro, art. 557) and the company's stamp and signature.
+  var INV_DOC = {
+    en: { title: "COMMERCIAL INVOICE", no: "Invoice No.", date: "Date", order: "Order", currency: "Currency", exporter: "Exporter / Seller", importer: "Importer / Consignee",
+      buyer: "Buyer / Acquirer", taxId: "Tax ID", phone: "Phone", email: "E-mail", shipping: "Shipping", incoterm: "Incoterm", transport: "Mode of transport",
+      portLoading: "Port of loading", portDischarge: "Port of destination", origin: "Country of origin", acquisition: "Country of acquisition", provenance: "Country of provenance",
+      payment: "Payment terms and currency", item: "#", code: "Code", ncm: "NCM / HS", description: "Description of goods", qty: "Qty", unit: "Unit",
+      unitPrice: "Unit price", amount: "Amount", subtotal: "Total goods", freight: "Freight", insurance: "Insurance", other: "Other expenses", total: "TOTAL",
+      packages: "Packages", packagesQty: "Number and kind of packages", marks: "Marks and numbers", gross: "Gross weight", net: "Net weight", volume: "Volume",
+      notes: "Notes", declaration: "We certify that this invoice is true and correct and that the goods described above are of {origin} origin.",
+      sign: "Authorized signature", page: "Page",
+      tr: { sea: "Sea", air: "Air", road: "Road", rail: "Rail", multimodal: "Multimodal" } },
+    pt: { title: "FATURA COMERCIAL", no: "Fatura nº", date: "Data", order: "Pedido", currency: "Moeda", exporter: "Exportador / Vendedor", importer: "Importador / Consignatário",
+      buyer: "Adquirente / Encomendante", taxId: "Tax ID", phone: "Telefone", email: "E-mail", shipping: "Embarque", incoterm: "Incoterm", transport: "Via de transporte",
+      portLoading: "Porto de embarque", portDischarge: "Porto de destino", origin: "País de origem", acquisition: "País de aquisição", provenance: "País de procedência",
+      payment: "Condições e moeda de pagamento", item: "#", code: "Código", ncm: "NCM", description: "Especificação das mercadorias", qty: "Qtd.", unit: "Unid.",
+      unitPrice: "Preço unit.", amount: "Valor", subtotal: "Total das mercadorias", freight: "Frete", insurance: "Seguro", other: "Outras despesas", total: "TOTAL",
+      packages: "Volumes", packagesQty: "Quantidade e espécie dos volumes", marks: "Marcas e numeração", gross: "Peso bruto", net: "Peso líquido", volume: "Cubagem",
+      notes: "Observações", declaration: "Declaramos que esta fatura é verdadeira e correta e que as mercadorias acima descritas são de origem {origin}.",
+      sign: "Assinatura autorizada", page: "Página",
+      tr: { sea: "Marítima", air: "Aérea", road: "Rodoviária", rail: "Ferroviária", multimodal: "Multimodal" } },
+    es: { title: "FACTURA COMERCIAL", no: "Factura nº", date: "Fecha", order: "Pedido", currency: "Moneda", exporter: "Exportador / Vendedor", importer: "Importador / Consignatario",
+      buyer: "Adquirente / Comprador", taxId: "Tax ID", phone: "Teléfono", email: "Correo", shipping: "Embarque", incoterm: "Incoterm", transport: "Vía de transporte",
+      portLoading: "Puerto de embarque", portDischarge: "Puerto de destino", origin: "País de origen", acquisition: "País de adquisición", provenance: "País de procedencia",
+      payment: "Condiciones y moneda de pago", item: "#", code: "Código", ncm: "NCM", description: "Descripción de las mercancías", qty: "Cant.", unit: "Unid.",
+      unitPrice: "Precio unit.", amount: "Importe", subtotal: "Total mercancías", freight: "Flete", insurance: "Seguro", other: "Otros gastos", total: "TOTAL",
+      packages: "Bultos", packagesQty: "Cantidad y tipo de bultos", marks: "Marcas y numeración", gross: "Peso bruto", net: "Peso neto", volume: "Cubicaje",
+      notes: "Observaciones", declaration: "Certificamos que esta factura es verdadera y correcta y que las mercancías descritas son de origen {origin}.",
+      sign: "Firma autorizada", page: "Página",
+      tr: { sea: "Marítima", air: "Aérea", road: "Terrestre", rail: "Ferroviaria", multimodal: "Multimodal" } }
+  };
+
+  function exportInvoice(p) {
+    var inv = p.invoice;
+    return loadScript("assets/vendor/jspdf.umd.min.js").then(function () {
+      return loadScript("assets/vendor/jspdf.plugin.autotable.min.js");
+    }).then(function () {
+      var d = docData(p);
+      return Promise.all([imageData("assets/img/logo.svg", 240, "image/png"), A.stampDataUrl()]).then(function (imgs) {
+        return { d: d, logo: imgs[0], stamp: imgs[1] };
+      });
+    }).then(function (r) {
+      var d = r.d, lang = d.lang, L = INV_DOC[lang] || INV_DOC.en, s = d.settings, client = p.client || {};
+      var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+      var W = 210, M = 14, navy = [11, 42, 79], muted = [91, 104, 120], text = [30, 40, 50];
+      var num2 = function (n) { return fmt(n, d); };
+      var y = M;
+
+      // Header: exporter (left) and invoice data (right)
+      if (r.logo) doc.addImage(r.logo.data, "PNG", M, y, 15, 15);
+      doc.setTextColor.apply(doc, navy); doc.setFont("helvetica", "bold"); doc.setFontSize(10.5);
+      var nameLines = doc.splitTextToSize(s.companyName || "Shenzhen Micheng International Trading Co., Ltd.", 100);
+      doc.text(nameLines, M + 19, y + 4.5);
+      var info = [];
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.3);
+      if (s.address) info = info.concat(doc.splitTextToSize(s.address, 100));
+      if (s.companyTaxId) info.push(L.taxId + ": " + s.companyTaxId);
+      if (s.phone) info.push(L.phone + ": " + s.phone);
+      if (s.email) info.push(L.email + ": " + s.email);
+      doc.setTextColor.apply(doc, muted);
+      var infoY = y + 4.5 + nameLines.length * 4.4;
+      doc.text(info, M + 19, infoY);
+      doc.setTextColor.apply(doc, navy); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
+      doc.text(L.title, W - M, y + 6, { align: "right" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text);
+      doc.text([L.no + " " + inv.number, L.date + ": " + docDate(inv.date, d), L.order + ": " + p.number, L.currency + ": " + d.cur.label], W - M, y + 12, { align: "right" });
+      y = Math.max(infoY + info.length * 3.8 + 4, y + 30);
+
+      // Boxes: importer | shipping
+      function box(x, w, title, lines, top) {
+        doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251);
+        var h = 8 + lines.length * 4;
+        doc.roundedRect(x, top, w, h, 1.2, 1.2, "FD");
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted);
+        doc.text(title.toUpperCase(), x + 3, top + 4.5);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor.apply(doc, text);
+        doc.text(lines, x + 3, top + 9);
+        return h;
+      }
+      var half = (W - 2 * M - 4) / 2;
+      doc.setFontSize(8.6);
+      var imp = [client.name || ""].concat(client.address ? doc.splitTextToSize(client.address, half - 6) : []);
+      if (client.taxId) imp.push(L.taxId + ": " + client.taxId);
+      if (client.phone) imp.push(L.phone + ": " + client.phone);
+      var ship = [L.incoterm + ": " + inv.incoterm + " " + inv.incotermPlace, L.transport + ": " + (L.tr[inv.transport] || inv.transport),
+        L.portLoading + ": " + inv.portLoading, L.portDischarge + ": " + inv.portDischarge];
+      var hA = box(M, half, L.importer, imp, y), hB = box(M + half + 4, half, L.shipping, ship, y);
+      y += Math.max(hA, hB) + 3;
+      if (inv.buyer) y += box(M, W - 2 * M, L.buyer, doc.splitTextToSize(inv.buyer, W - 2 * M - 6), y) + 3;
+
+      var third = (W - 2 * M - 8) / 3;
+      var hC = Math.max(box(M, third, L.origin, [inv.originCountry], y), box(M + third + 4, third, L.acquisition, [inv.acquisitionCountry], y),
+        box(M + 2 * (third + 4), third, L.provenance, [inv.provenanceCountry], y));
+      y += hC + 3;
+      y += box(M, W - 2 * M, L.payment, doc.splitTextToSize(inv.paymentTerms + " — " + d.cur.label, W - 2 * M - 6), y) + 4;
+
+      // Items: description in full (name, description, options)
+      var items = inv.items || {};
+      var body = p.items.map(function (i, n) {
+        var it = d.items[n];
+        var extra = items[i.id] || {};
+        var desc = [it.name].concat(it.description ? [it.description] : []).concat(it.options).join("\n");
+        return [n + 1, it.code || "", extra.ncm || "", desc, num2(it.qty).replace(/[.,]00$/, ""), extra.unit || "PCS", num2(it.price), num2(it.amount)];
+      });
+      doc.autoTable({
+        startY: y, margin: { left: M, right: M }, theme: "grid", rowPageBreak: "avoid",
+        head: [[L.item, L.code, L.ncm, L.description, L.qty, L.unit, L.unitPrice + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
+        body: body,
+        styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8, valign: "middle", lineColor: [220, 226, 234], textColor: text },
+        headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", halign: "center" },
+        columnStyles: { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: 15, halign: "center" }, 2: { cellWidth: 19, halign: "center" },
+          3: { cellWidth: "auto" }, 4: { cellWidth: 13, halign: "right" }, 5: { cellWidth: 12, halign: "center" }, 6: { cellWidth: 21, halign: "right" }, 7: { cellWidth: 24, halign: "right" } }
+      });
+      y = doc.lastAutoTable.finalY + 2;
+
+      // Totals (goods + freight, insurance and other expenses when included)
+      var lines = [[L.subtotal, p.totals.sale]];
+      if (inv.freight) lines.push([L.freight, inv.freight]);
+      if (inv.insurance) lines.push([L.insurance, inv.insurance]);
+      if (inv.otherCosts) lines.push([L.other + (inv.otherCostsLabel ? " (" + inv.otherCostsLabel + ")" : ""), inv.otherCosts]);
+      var grand = round(lines.reduce(function (t, l) { return t + l[1]; }, 0));
+      if (y + 8 + lines.length * 5 > 270) { doc.addPage(); y = M; }
+      doc.setFontSize(8.8); doc.setTextColor.apply(doc, text); doc.setFont("helvetica", "normal");
+      lines.forEach(function (l) { doc.text(l[0], W - M - 75, y + 4); doc.text(d.cur.symbol + " " + num2(l[1]), W - M - 2, y + 4, { align: "right" }); y += 5; });
+      doc.setFillColor.apply(doc, navy); doc.rect(W - M - 78, y, 78, 8, "F");
+      doc.setTextColor(255); doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+      doc.text(L.total + " " + inv.incoterm + " " + inv.incotermPlace, W - M - 75, y + 5.4);
+      doc.text(d.cur.symbol + " " + num2(grand), W - M - 2, y + 5.4, { align: "right" });
+      y += 13;
+
+      // Packages and weights
+      var pk = [L.packagesQty + ": " + inv.packagesQty + " " + inv.packagesKind,
+        L.gross + ": " + num2(inv.grossWeight) + " kg   ·   " + L.net + ": " + num2(inv.netWeight) + " kg   ·   " + L.volume + ": " + fmt3(inv.volumeM3, d) + " m³"];
+      if (inv.marks) pk.push(L.marks + ": " + inv.marks);
+      if (y + 12 + pk.length * 4 > 270) { doc.addPage(); y = M; }
+      y += box(M, W - 2 * M, L.packages, pk, y) + 3;
+      if (inv.notes) {
+        var nl = doc.splitTextToSize(inv.notes, W - 2 * M - 6);
+        if (y + 12 + nl.length * 4 > 270) { doc.addPage(); y = M; }
+        y += box(M, W - 2 * M, L.notes, nl, y) + 3;
+      }
+
+      // Declaration, stamp and signature
+      if (y + 48 > 285) { doc.addPage(); y = M; }
+      doc.setFont("helvetica", "italic"); doc.setFontSize(8.3); doc.setTextColor.apply(doc, muted);
+      doc.text(doc.splitTextToSize(L.declaration.replace("{origin}", inv.originCountry), W - 2 * M), M, y + 4);
+      var sx = W - M - 70, sy = y + 10;
+      if (r.stamp) {
+        var props = doc.getImageProperties(r.stamp);
+        var sw = 52, sh = sw * props.height / props.width;
+        if (sh > 30) { sh = 30; sw = sh * props.width / props.height; }
+        doc.addImage(r.stamp, props.fileType || "PNG", sx + (70 - sw) / 2, sy, sw, sh);
+      }
+      doc.setDrawColor(150, 160, 170); doc.line(sx, sy + 32, W - M, sy + 32);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor.apply(doc, text);
+      doc.text(s.companyName || "Shenzhen Micheng International Trading Co., Ltd.", sx + 35, sy + 36.5, { align: "center", maxWidth: 70 });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted);
+      doc.text(L.sign, sx + 35, sy + 40.5, { align: "center" });
+
+      var pages = doc.getNumberOfPages();
+      for (var k = 1; k <= pages; k++) {
+        doc.setPage(k); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted); doc.setFont("helvetica", "normal");
+        doc.text((s.companyName || "Shenzhen Micheng International Trading") + " · " + inv.number, M, 290);
+        doc.text(L.page + " " + k + "/" + pages, W - M, 290, { align: "right" });
+      }
+      doc.save(PD.safeName(inv.number + (client.name ? " - " + client.name : ""), "pdf"));
+    });
+  }
+  // Up to 3 decimals, in the document's language (1.85 in English, 1,85 in Portuguese).
+  function fmt3(n, d) { return Number(n).toLocaleString(d.lang === "en" ? "en-US" : d.lang === "pt" ? "pt-BR" : "es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 3 }); }
+
   $("#pf-order").addEventListener("click", function (e) {
     var F = window.Finance;
     if (!F || !editing) return;
+    var invBtn = e.target.closest("[data-inv]");
+    if (invBtn) {
+      if (invBtn.getAttribute("data-inv") === "edit") return openInvoice();
+      setStatus(T("pf.exporting"));
+      return exportInvoice(editing).then(function () { setStatus(""); }, function (err) { setStatus(T("pf.exportError") + " " + err.message, "error"); });
+    }
     var add = e.target.closest("[data-ord-new]");
     var pay = e.target.closest("[data-ord-pay]");
     var row = e.target.closest("[data-ord-entry]");

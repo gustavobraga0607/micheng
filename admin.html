@@ -387,6 +387,80 @@
       </section>
     </main>
 
+    <!-- Commercial invoice of an order -->
+    <dialog class="mdl mdl--wide" id="inv-dlg">
+      <form id="inv-form" class="crud-form" novalidate>
+        <div class="mdl__head"><h2 data-t="inv.title">Invoice comercial</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+        <p class="hint" data-t="inv.hint">Confira os dados antes de gerar. Itens, quantidades e preços vêm do pedido.</p>
+        <fieldset class="group">
+          <legend data-t="inv.document">Documento</legend>
+          <div class="form-row form-row--3">
+            <label><span data-t="inv.number">Nº da invoice *</span><input type="text" name="number" maxlength="40" /></label>
+            <label><span data-t="inv.date">Data *</span><input type="date" name="date" /></label>
+            <label><span data-t="inv.transport">Via de transporte *</span>
+              <select name="transport">
+                <option value="sea" data-t="inv.tr.sea">Marítima</option><option value="air" data-t="inv.tr.air">Aérea</option>
+                <option value="road" data-t="inv.tr.road">Rodoviária</option><option value="rail" data-t="inv.tr.rail">Ferroviária</option>
+                <option value="multimodal" data-t="inv.tr.multimodal">Multimodal</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row form-row--3">
+            <label><span data-t="inv.incoterm">Incoterm *</span>
+              <select name="incoterm"><option>EXW</option><option>FCA</option><option>FAS</option><option selected>FOB</option><option>CFR</option><option>CIF</option><option>CPT</option><option>CIP</option><option>DAP</option><option>DPU</option><option>DDP</option></select>
+            </label>
+            <label><span data-t="inv.incotermPlace">Local do Incoterm *</span><input type="text" name="incotermPlace" maxlength="80" placeholder="Shenzhen" /></label>
+            <span></span>
+          </div>
+          <div class="form-row">
+            <label><span data-t="inv.portLoading">Porto / local de embarque *</span><input type="text" name="portLoading" maxlength="80" placeholder="Shenzhen, China" /></label>
+            <label><span data-t="inv.portDischarge">Porto / local de destino *</span><input type="text" name="portDischarge" maxlength="80" /></label>
+          </div>
+          <div class="form-row form-row--3">
+            <label><span data-t="inv.origin">País de origem *</span><input type="text" name="originCountry" maxlength="60" /></label>
+            <label><span data-t="inv.acquisition">País de aquisição *</span><input type="text" name="acquisitionCountry" maxlength="60" /></label>
+            <label><span data-t="inv.provenance">País de procedência *</span><input type="text" name="provenanceCountry" maxlength="60" /></label>
+          </div>
+          <label><span data-t="inv.paymentTerms">Condições e moeda de pagamento *</span><textarea name="paymentTerms" rows="2" maxlength="500"></textarea></label>
+          <label><span data-t="inv.buyer">Adquirente ou encomendante (se diferente do importador)</span><textarea name="buyer" rows="2" maxlength="500"></textarea></label>
+        </fieldset>
+        <fieldset class="group">
+          <legend data-t="inv.packages">Volumes e pesos</legend>
+          <div class="form-row form-row--3">
+            <label><span data-t="inv.packagesQty">Quantidade de volumes *</span><input type="text" name="packagesQty" inputmode="numeric" autocomplete="off" /></label>
+            <label><span data-t="inv.packagesKind">Espécie dos volumes *</span><input type="text" name="packagesKind" maxlength="80" data-t-placeholder="inv.packagesKindPh" /></label>
+            <label><span data-t="inv.volume">Cubagem (m³) *</span><input type="text" name="volumeM3" inputmode="decimal" autocomplete="off" /></label>
+          </div>
+          <div class="form-row form-row--3">
+            <label><span data-t="inv.gross">Peso bruto (kg) *</span><input type="text" name="grossWeight" inputmode="decimal" autocomplete="off" /></label>
+            <label><span data-t="inv.net">Peso líquido (kg) *</span><input type="text" name="netWeight" inputmode="decimal" autocomplete="off" /></label>
+            <span></span>
+          </div>
+          <label><span data-t="inv.marks">Marcas e numeração dos volumes</span><input type="text" name="marks" maxlength="300" data-t-placeholder="inv.marksPh" /></label>
+        </fieldset>
+        <fieldset class="group">
+          <legend data-t="inv.costs">Frete, seguro e outras despesas (se incluídos no preço)</legend>
+          <div class="form-row form-row--3">
+            <label><span data-t="inv.freight">Frete</span><input type="text" name="freight" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>
+            <label><span data-t="inv.insurance">Seguro</span><input type="text" name="insurance" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>
+            <label><span data-t="inv.otherCosts">Outras despesas</span><input type="text" name="otherCosts" inputmode="decimal" autocomplete="off" placeholder="0,00" /></label>
+          </div>
+          <label><span data-t="inv.otherCostsLabel">Natureza das outras despesas</span><input type="text" name="otherCostsLabel" maxlength="80" /></label>
+        </fieldset>
+        <fieldset class="group">
+          <legend data-t="inv.items">Itens: NCM e unidade</legend>
+          <div class="pf-table-wrap"><table class="pf-table inv-items"><tbody id="inv-items"></tbody></table></div>
+        </fieldset>
+        <label><span data-t="inv.notes">Observações</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+        <p class="status is-error" id="inv-stamp-warn" hidden></p>
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary btn--lg" id="inv-save" data-t="inv.generate">Salvar e gerar PDF</button>
+          <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
+        </div>
+        <p class="status" id="inv-status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+
     <!-- PDF of an order: sale price or reference price -->
     <dialog class="mdl mdl--sm" id="pf-pdf-dlg">
       <div class="mdl__head"><h2 id="pf-pdf-title">Gerar PDF da proforma</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
@@ -523,7 +597,10 @@
           </fieldset>
           <fieldset class="group">
             <legend data-t="set.company">Empresa</legend>
-            <label><span data-t="set.companyName">Nome</span><input type="text" name="companyName" maxlength="160" placeholder="Shenzhen Micheng International Trading Co., Ltd." /></label>
+            <div class="form-row">
+              <label><span data-t="set.companyName">Nome</span><input type="text" name="companyName" maxlength="160" placeholder="Shenzhen Micheng International Trading Co., Ltd." /></label>
+              <label><span data-t="set.companyTaxId">Registro / Tax ID (USCC)</span><input type="text" name="companyTaxId" maxlength="80" /></label>
+            </div>
             <label><span data-t="set.address">Endereço</span><textarea name="address" rows="2" maxlength="500"></textarea></label>
             <div class="form-row form-row--3">
               <label><span data-t="set.phone">Telefone</span><input type="text" name="phone" maxlength="60" /></label>
@@ -543,6 +620,18 @@
             </div>
             <label><span data-t="set.bankAddress">Endereço do banco</span><textarea name="bankAddress" rows="2" maxlength="500"></textarea></label>
             <label><span data-t="set.bankNotes">Outras informações</span><textarea name="bankNotes" rows="2" maxlength="1000" data-t-placeholder="set.bankNotesPh"></textarea></label>
+          </fieldset>
+          <fieldset class="group">
+            <legend data-t="set.stamp">Carimbo e assinatura</legend>
+            <p class="hint" data-t="set.stampHint">Imagem do carimbo com a assinatura da empresa, usada nas invoices. Prefira PNG com fundo transparente (até 1,5 MB). Fica guardada criptografada.</p>
+            <div class="stamp">
+              <div class="stamp__preview" id="stamp-preview"><span data-t="set.stampNone">Nenhuma imagem enviada.</span></div>
+              <div class="stamp__actions">
+                <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="stamp-file" accept="image/png,image/jpeg" hidden /><span data-t="set.stampUpload">Enviar imagem</span></label>
+                <button type="button" class="linkbtn danger" id="stamp-remove" data-t="set.stampRemove" hidden>Remover</button>
+              </div>
+            </div>
+            <p class="status" id="stamp-status" role="status" aria-live="polite"></p>
           </fieldset>
           <div class="form-actions">
             <button type="submit" class="btn btn--primary btn--lg" id="settings-save" data-t="set.save">Salvar parâmetros</button>
