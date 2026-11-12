@@ -398,6 +398,15 @@
       </section>
     </main>
 
+    <!-- Purchase orders (one per supplier of an order) -->
+    <dialog class="mdl" id="po-dlg">
+      <div class="mdl__head"><h2 data-t="po.title">Pedidos de compra</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+      <p class="hint" data-t="po.hint">Um pedido por fornecedor, com os itens deste pedido, quantidades e preços de compra. O PDF sai em chinês, com o link para o fornecedor ver as fotos.</p>
+      <ul class="po-list" id="po-list"></ul>
+      <p class="status is-error" id="po-warn"></p>
+      <p class="status" id="po-status" role="status" aria-live="polite"></p>
+    </dialog>
+
     <!-- Commercial invoice of an order -->
     <dialog class="mdl mdl--wide" id="inv-dlg">
       <form id="inv-form" class="crud-form" novalidate>

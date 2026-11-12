@@ -15,9 +15,20 @@
     es: { title: "Factura proforma", no: "Nº", date: "Fecha", valid: "Válida hasta", currency: "Moneda", billTo: "Cliente", taxId: "Tax ID",
       phone: "Teléfono", email: "Correo", web: "Sitio web", code: "Código", ref: "Su ref.", qty: "Cant.", unit: "Precio unit.", total: "Total",
       terms: "Condiciones y observaciones", hint: "Haga clic en una foto para verla en tamaño real.", print: "Imprimir / PDF", excel: "Descargar Excel", loading: "Cargando…",
-      missingTitle: "Proforma no encontrada", missingText: "Este enlace ya no es válido. Pídanos uno nuevo.", close: "Cerrar" }
+      missingTitle: "Proforma no encontrada", missingText: "Este enlace ya no es válido. Pídanos uno nuevo.", close: "Cerrar" },
+    zh: { title: "形式发票", no: "编号", date: "日期", valid: "有效期至", currency: "币种", billTo: "客户", taxId: "税号",
+      phone: "电话", email: "邮箱", web: "网站", code: "编码", ref: "客户编号", qty: "数量", unit: "单价", total: "合计",
+      terms: "条款与备注", hint: "点击图片可查看大图。", print: "打印 / PDF", excel: "下载 Excel", loading: "加载中…",
+      missingTitle: "未找到", missingText: "此链接已失效，请联系我们获取新链接。", close: "关闭" }
   };
-  var LOCALE = { en: "en-US", pt: "pt-BR", es: "es-ES" };
+  // Purchase order (a supplier's link): other title and labels.
+  var PO = {
+    en: { title: "Purchase order", supplier: "Supplier", buyer: "Buyer", unit: "Unit cost" },
+    pt: { title: "Pedido de compra", supplier: "Fornecedor", buyer: "Comprador", unit: "Preço de compra" },
+    es: { title: "Orden de compra", supplier: "Proveedor", buyer: "Comprador", unit: "Precio de compra" },
+    zh: { title: "采购订单", supplier: "供应商", buyer: "采购方", unit: "采购单价" }
+  };
+  var LOCALE = { en: "en-US", pt: "pt-BR", es: "es-ES", zh: "zh-CN" };
   var CUR = { CNY: { label: "RMB", symbol: "¥" }, USD: { label: "USD", symbol: "US$" }, EUR: { label: "EUR", symbol: "€" }, BRL: { label: "BRL", symbol: "R$" } };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -25,7 +36,11 @@
   var lang = "en";
   var zoomAt = -1;
 
-  function t(key) { return (L[lang] || L.en)[key]; }
+  function t(key) {
+    var po = data && data.kind === "po" && (PO[lang] || PO.en);
+    if (po && po[key]) return po[key];
+    return (L[lang] || L.en)[key];
+  }
   function pick(obj) { obj = obj || {}; return obj[lang] || obj.en || obj.pt || obj.es || obj.zh || ""; }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -35,7 +50,7 @@
   function num(n, digits) {
     return Number(n || 0).toLocaleString(LOCALE[lang], { minimumFractionDigits: digits, maximumFractionDigits: digits == null ? 3 : digits });
   }
-  function money(n) { var c = CUR[data.currency] || CUR.CNY; return c.symbol + " " + num(n, 2); }
+  function money(n) { var c = CUR[data.currency] || CUR.CNY; return n == null ? "—" : c.symbol + " " + num(n, 2); }
   function date(iso) { return iso ? new Date(iso + "T00:00:00").toLocaleDateString(LOCALE[lang]) : ""; }
   function caption(it) {
     var opts = it.options.map(function (o) { return pick(o.value); }).filter(Boolean).join(" · ");
@@ -62,7 +77,14 @@
     $("pv-meta").innerHTML = meta.map(function (m) { return "<dt>" + esc(m[0]) + "</dt><dd>" + esc(m[1]) + "</dd>"; }).join("");
 
     var cl = data.client;
-    $("pv-client").hidden = !cl;
+    // Purchase order: the supplier in place of the client.
+    if (data.kind === "po" && data.supplier) {
+      var sp = data.supplier;
+      var spl = [sp.contact, sp.city, sp.phone && t("phone") + ": " + sp.phone, sp.wechat && "WeChat: " + sp.wechat, sp.email && t("email") + ": " + sp.email].filter(Boolean);
+      cl = null;
+      $("pv-client").hidden = false;
+      $("pv-client").innerHTML = "<span>" + esc(t("supplier")) + "</span><b>" + esc(sp.name) + "</b>" + (spl.length ? "<p>" + esc(spl.join("\n")) + "</p>" : "");
+    } else $("pv-client").hidden = !cl;
     if (cl) {
       var lines = [cl.address, cl.country, cl.phone && t("phone") + ": " + cl.phone, cl.taxId && t("taxId") + ": " + cl.taxId].filter(Boolean);
       $("pv-client").innerHTML = "<span>" + esc(t("billTo")) + "</span><b>" + esc(cl.name) + "</b>" + (lines.length ? "<p>" + esc(lines.join("\n")) + "</p>" : "");
@@ -179,7 +201,7 @@
       data = d;
       if (!L[wanted]) lang = L[d.language] ? d.language : "en";
       $("pv-doc").hidden = false;
-      $("pv-xlsx").hidden = false;
+      $("pv-xlsx").hidden = d.kind === "po"; // the Excel file is the client's proforma
       render();
     });
 })();

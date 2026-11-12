@@ -640,3 +640,13 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
   .pf-actions, .ord__actions, .inv-bar__actions { gap: 8px; }
   .pf-amend-tools { margin-left: 0; width: 100%; }
 }
+
+/* Purchase orders */
+.ord__po { font-size: 13px; align-self: center; margin-right: 6px; }
+.po-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+.po-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-soft); }
+.po-list li > div { display: grid; gap: 2px; min-width: 0; }
+.po-list li b { color: var(--navy); }
+.po-list li small { color: var(--muted); font-size: 12.5px; }
+.po-list li small.is-low { color: #b26a00; }
+@media (max-width: 560px) { .po-list li { flex-direction: column; align-items: stretch; } }

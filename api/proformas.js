@@ -300,6 +300,19 @@ function cleanInvoice(body, pf) {
   return { inv, missing };
 }
 
+/* ---------- Purchase orders (one per supplier of an order) ---------- */
+
+// Suppliers of an order in the order their first item appears; the purchase
+// order number is the order's number plus the supplier's position: BR-2026-016-P1.
+export function poSuppliers(pf) {
+  const ids = [];
+  for (const i of pf.items) if (i.supplierId && !ids.includes(i.supplierId)) ids.push(i.supplierId);
+  return ids;
+}
+export function poNumber(pf, supplierId) {
+  return pf.number + "-P" + (poSuppliers(pf).indexOf(supplierId) + 1);
+}
+
 // Proformas as the admin panel shows them.
 export function proformaList(priv, products) {
   // Items saved before SKUs existed show the current code of their product.
@@ -449,6 +462,22 @@ async function handler(req, res) {
       const first = !current.invoice;
       const proforma = { ...current, invoice: { ...inv, savedAt: now, savedBy: session.u }, updatedAt: now };
       addLog(proforma, session.u, first ? "invoice" : "invoiceUpdated", [{ type: "invoice", number: inv.number }]);
+      priv.proformas[index] = proforma;
+      await savePrivate(priv);
+      return send(res, 200, { proforma });
+    }
+
+    // Purchase order of one supplier: creates the link of its photo page (once)
+    // and records it in the order's history. The panel makes the PDF.
+    if (req.method === "POST" && action === "po") {
+      if (current.status !== "closed") return fail(res, 409, "Only orders have purchase orders");
+      const body = await readJson(req);
+      const supplierId = String(body.supplierId || "");
+      if (!current.items.some((i) => i.supplierId === supplierId)) return fail(res, 404, "Supplier not in this order");
+      const supplier = priv.suppliers.find((x) => x.id === supplierId);
+      const proforma = { ...current, poTokens: { ...(current.poTokens || {}) } };
+      if (!proforma.poTokens[supplierId]) proforma.poTokens[supplierId] = crypto.randomBytes(18).toString("base64url");
+      addLog(proforma, session.u, "po", [{ type: "po", number: poNumber(current, supplierId), supplier: supplier ? supplier.company : "" }]);
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });

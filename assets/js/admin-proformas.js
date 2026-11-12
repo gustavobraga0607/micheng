@@ -217,6 +217,7 @@
   }
   function logChangeText(c, cur) {
     if (c.type === "invoice") return T("log.invoiceNumber", { number: c.number });
+    if (c.type === "po") return T("log.poNumber", { number: c.number, supplier: c.supplier });
     var name = logItemText(c.item);
     var m = function (v) { return v == null ? "—" : A.money(v, cur); };
     if (c.type === "added") return T("log.added", { item: name, qty: c.qty, price: m(c.price) });
@@ -326,7 +327,8 @@
     }).join("");
     box.innerHTML =
       '<div class="ord__head"><div><h3>' + esc(T("ord.title")) + '</h3><p>' + esc(T("ord.hint")) + "</p></div>" +
-        '<div class="ord__actions"><button type="button" class="btn btn--outline fin-btn-out" data-ord-new="out">' + esc(T("ord.addOut")) + "</button>" +
+        '<div class="ord__actions"><button type="button" class="linkbtn ord__po" data-po-open>' + esc(T("po.open")) + "</button>" +
+        '<button type="button" class="btn btn--outline fin-btn-out" data-ord-new="out">' + esc(T("ord.addOut")) + "</button>" +
         '<button type="button" class="btn btn--primary" data-ord-new="in">' + esc(T("ord.addIn")) + "</button></div></div>" +
       '<div class="ord__nums">' +
         "<div><span>" + esc(T("ord.total")) + "</span><b>" + esc(A.money(total, cur)) + "</b></div>" +
@@ -730,9 +732,220 @@
   // Up to 3 decimals, in the document's language (1.85 in English, 1,85 in Portuguese).
   function fmt3(n, d) { return Number(n).toLocaleString(d.lang === "en" ? "en-US" : d.lang === "pt" ? "pt-BR" : "es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 3 }); }
 
+  /* ----- Purchase orders: one PDF (in Chinese) per supplier of the order ----- */
+  function poGroups() {
+    var groups = [], bySup = {};
+    editing.items.forEach(function (i, n) {
+      if (!i.supplierId) return;
+      if (!bySup[i.supplierId]) { bySup[i.supplierId] = { supplierId: i.supplierId, items: [] }; groups.push(bySup[i.supplierId]); }
+      bySup[i.supplierId].items.push({ item: i, n: n + 1 });
+    });
+    return groups;
+  }
+  function openPo() {
+    var groups = poGroups();
+    var cur = editing.currency;
+    $("#po-list").innerHTML = groups.length ? groups.map(function (g, k) {
+      var s = supplierById(g.supplierId);
+      var noCost = g.items.filter(function (x) { return x.item.cost == null; }).length;
+      var total = round(g.items.reduce(function (t, x) { return t + (x.item.cost || 0) * x.item.qty; }, 0));
+      return '<li><div><b>' + esc(s ? s.company : "?") + '</b><small>' + esc(editing.number + "-P" + (k + 1) + " · " + T("po.items", { n: g.items.length }) + " · " + A.money(total, cur)) + "</small>" +
+        (noCost ? '<small class="is-low">' + esc(T("po.noCost", { n: noCost })) + "</small>" : "") + "</div>" +
+        '<button type="button" class="btn btn--primary btn--sm" data-po="' + esc(g.supplierId) + '">' + esc(T("po.pdf")) + "</button></li>";
+    }).join("") : '<li class="muted">' + esc(T("po.none")) + "</li>";
+    var orphans = editing.items.map(function (i, n) { return i.supplierId ? null : n + 1; }).filter(Boolean);
+    $("#po-warn").textContent = orphans.length ? T("po.orphans", { items: orphans.join(", ") }) : "";
+    $("#po-status").textContent = "";
+    var dlg = $("#po-dlg");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+  $("#po-dlg").addEventListener("click", function (e) {
+    if (e.target === this || e.target.closest("[data-close]")) return this.close();
+    var b = e.target.closest("[data-po]");
+    if (!b) return;
+    b.disabled = true;
+    var st = $("#po-status");
+    st.className = "status"; st.textContent = T("po.making");
+    A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=po", { method: "POST", body: { supplierId: b.getAttribute("data-po") } })
+      .then(function (data) { accept(data.proforma); return exportPo(data.proforma, b.getAttribute("data-po")); })
+      .then(function () { st.className = "status is-ok"; st.textContent = T("po.done"); }, function (err) { st.className = "status is-error"; st.textContent = err.message; })
+      .then(function () { b.disabled = false; });
+  });
+
+  // Chinese font for the purchase orders (Noto Sans SC, loaded only when needed).
+  var cjkFonts = null;
+  function loadCjkFonts() {
+    if (cjkFonts) return cjkFonts;
+    function b64(url) {
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error("font " + r.status);
+        return r.arrayBuffer();
+      }).then(function (buf) {
+        var bytes = new Uint8Array(buf), out = "", step = 0x8000;
+        for (var i = 0; i < bytes.length; i += step) out += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+        return btoa(out);
+      });
+    }
+    cjkFonts = Promise.all([b64("assets/vendor/fonts/NotoSansSC-Regular.ttf"), b64("assets/vendor/fonts/NotoSansSC-Bold.ttf")])
+      .catch(function (e) { cjkFonts = null; throw e; });
+    return cjkFonts;
+  }
+
+  function exportPo(p, supplierId) {
+    var s0 = A.settings();
+    var sup = supplierById(supplierId) || {};
+    var token = p.poTokens && p.poTokens[supplierId];
+    var link = token ? location.origin + "/proforma?t=" + encodeURIComponent(token) + "&lang=zh" : "";
+    var group = p.items.filter(function (i) { return i.supplierId === supplierId; });
+    var number = p.number + "-P" + (poGroupsOf(p).indexOf(supplierId) + 1);
+    var cur = A.CURRENCIES[p.currency] || A.CURRENCIES.CNY;
+    var zh = function (o) { return (o && (o.zh || o.en || o.pt)) || ""; };
+    var fmt2 = function (n) { return Number(n).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    return loadScript("assets/vendor/jspdf.umd.min.js").then(function () {
+      return loadScript("assets/vendor/jspdf.plugin.autotable.min.js");
+    }).then(function () {
+      return Promise.all([loadCjkFonts(), imageData("assets/img/logo.svg", 240, "image/png"), A.stampDataUrl()].concat(group.map(function (i) {
+        var prod = productById(i.productId);
+        var opts = {}; i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
+        return imageData(rowImage({ options: opts, snapshot: i.product }, prod), 160);
+      })));
+    }).then(function (r) {
+      var fonts = r[0], logo = r[1], stamp = r[2], thumbs = r.slice(3);
+      var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+      doc.addFileToVFS("NotoSansSC-Regular.ttf", fonts[0]); doc.addFont("NotoSansSC-Regular.ttf", "NotoSC", "normal");
+      doc.addFileToVFS("NotoSansSC-Bold.ttf", fonts[1]); doc.addFont("NotoSansSC-Bold.ttf", "NotoSC", "bold");
+      var W = 210, M = 14, navy = [11, 42, 79], muted = [91, 104, 120], text = [30, 40, 50];
+      var y = M;
+      // Header: buyer (us) and the purchase order data
+      if (logo) doc.addImage(logo.data, "PNG", M, y, 15, 15);
+      doc.setFont("NotoSC", "bold"); doc.setFontSize(10.5); doc.setTextColor.apply(doc, navy);
+      var nameLines = doc.splitTextToSize(s0.companyName || "Shenzhen Micheng International Trading Co., Ltd.", 100);
+      doc.text(nameLines, M + 19, y + 4.5);
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(8.3); doc.setTextColor.apply(doc, muted);
+      var info = [];
+      if (s0.address) info = info.concat(doc.splitTextToSize(s0.address, 100));
+      if (s0.phone) info.push("电话 Tel: " + s0.phone);
+      if (s0.email) info.push("邮箱 Email: " + s0.email);
+      var infoY = y + 4.5 + nameLines.length * 4.4;
+      doc.text(info, M + 19, infoY);
+      doc.setFont("NotoSC", "bold"); doc.setFontSize(18); doc.setTextColor.apply(doc, navy);
+      doc.text("采购订单", W - M, y + 6, { align: "right" });
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(8); doc.setTextColor.apply(doc, muted);
+      doc.text("PURCHASE ORDER", W - M, y + 10.5, { align: "right" });
+      doc.setFontSize(9); doc.setTextColor.apply(doc, text);
+      doc.text(["订单编号 No.: " + number, "日期 Date: " + today(), "币种 Currency: " + cur.label], W - M, y + 16, { align: "right" });
+      y = Math.max(infoY + info.length * 3.8 + 5, y + 32);
+
+      // Supplier
+      var sl = [sup.company || ""];
+      if (sup.contact) sl.push("联系人 Contact: " + sup.contact);
+      if (sup.phone) sl.push("电话 Tel: " + sup.phone);
+      if (sup.wechat) sl.push("微信 WeChat: " + sup.wechat);
+      if (sup.email) sl.push("邮箱 Email: " + sup.email);
+      if (sup.city) sl.push("地址 Address: " + sup.city);
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(9);
+      sl = [].concat.apply([], sl.map(function (l) { return doc.splitTextToSize(l, W - 2 * M - 8); }));
+      var bh = 9 + sl.length * 4.4;
+      doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251); doc.roundedRect(M, y, W - 2 * M, bh, 1.2, 1.2, "FD");
+      doc.setFont("NotoSC", "bold"); doc.setFontSize(8); doc.setTextColor.apply(doc, muted); doc.text("供应商 SUPPLIER", M + 4, y + 5);
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text); doc.text(sl, M + 4, y + 10);
+      y += bh + 5;
+
+      // Link to the photos
+      if (link) {
+        doc.setFont("NotoSC", "bold"); doc.setFontSize(10); doc.setTextColor(26, 111, 216);
+        var lt = "» 点击查看产品图片（Click to view the product photos）";
+        doc.textWithLink(lt, M, y + 1, { url: link });
+        doc.setDrawColor(26, 111, 216); doc.setLineWidth(0.25); doc.line(M, y + 1.8, M + doc.getTextWidth(lt), y + 1.8); doc.setLineWidth(0.2);
+        y += 7;
+      }
+
+      // Items: name in bold, then description and specifications, all in Chinese
+      var descW = W - 2 * M - (8 + 20 + 18 + 16 + 22 + 25);
+      var inner = descW - 4;
+      var bodyRows = group.map(function (i, k) {
+        doc.setFont("NotoSC", "bold"); doc.setFontSize(8.5);
+        var nameL = doc.splitTextToSize(zh(i.product && i.product.name), inner);
+        doc.setFont("NotoSC", "normal");
+        var rest = [];
+        var d = zh(i.product && i.product.description);
+        if (d) rest = rest.concat(doc.splitTextToSize(d, inner));
+        i.options.forEach(function (o) { rest = rest.concat(doc.splitTextToSize(zh(o.attrName) + "：" + zh(o.optionLabel), inner)); });
+        return { k: k, bold: nameL.length, text: nameL.concat(rest).join("\n"),
+          row: [k + 1, "", i.sku || "", null, String(i.qty), i.cost == null ? "—" : fmt2(i.cost), i.cost == null ? "—" : fmt2(round(i.cost * i.qty))] };
+      });
+      doc.autoTable({
+        startY: y, margin: { left: M, right: M }, theme: "grid", rowPageBreak: "avoid",
+        head: [["序号", "图片", "编码", "产品名称及规格 (Product & specifications)", "数量", "单价 (" + cur.label + ")", "金额 (" + cur.label + ")"]],
+        body: bodyRows.map(function (b) { var r = b.row.slice(); r[3] = b.text; return r; }),
+        styles: { font: "NotoSC", fontSize: 8.5, cellPadding: 2, valign: "middle", lineColor: [220, 226, 234], textColor: text },
+        headStyles: { font: "NotoSC", fontStyle: "bold", fillColor: navy, textColor: 255, halign: "center", fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 20, minCellHeight: 20 }, 2: { cellWidth: 18, halign: "center" }, 3: { cellWidth: descW },
+          4: { cellWidth: 16, halign: "right" }, 5: { cellWidth: 22, halign: "right" }, 6: { cellWidth: 25, halign: "right" } },
+        willDrawCell: function (h) {
+          if (h.section === "body" && h.column.index === 3) { h.cell.poLines = h.cell.text.slice(); h.cell.text = []; }
+        },
+        didDrawCell: function (h) {
+          if (h.section !== "body") return;
+          if (h.column.index === 1 && thumbs[h.row.index]) {
+            doc.addImage(thumbs[h.row.index].data, "JPEG", h.cell.x + 2, h.cell.y + (h.cell.height - 16) / 2, 16, 16);
+            if (link) doc.link(h.cell.x, h.cell.y, h.cell.width, h.cell.height, { url: link });
+          }
+          if (h.column.index === 3) {
+            var lines = h.cell.poLines || [], bold = bodyRows[h.row.index].bold;
+            var lh = 8.5 * doc.getLineHeightFactor() / doc.internal.scaleFactor;
+            var top = h.cell.y + (h.cell.height - lines.length * lh) / 2;
+            lines.forEach(function (line, n) {
+              doc.setFont("NotoSC", n < bold ? "bold" : "normal"); doc.setFontSize(8.5);
+              if (n < bold) doc.setTextColor.apply(doc, text); else doc.setTextColor(84, 96, 112);
+              doc.text(line, h.cell.x + 2, top + lh * n, { baseline: "top" });
+            });
+            doc.setFont("NotoSC", "normal"); doc.setTextColor.apply(doc, text);
+          }
+        }
+      });
+      y = doc.lastAutoTable.finalY;
+      var total = round(group.reduce(function (t, i) { return t + (i.cost || 0) * i.qty; }, 0));
+      doc.setFillColor.apply(doc, navy); doc.rect(W - M - 70, y + 3, 70, 9, "F");
+      doc.setTextColor(255); doc.setFont("NotoSC", "bold"); doc.setFontSize(10);
+      doc.text("合计 TOTAL", W - M - 66, y + 9);
+      doc.text(cur.symbol + " " + fmt2(total), W - M - 3, y + 9, { align: "right" });
+      y += 18;
+
+      // Notes and signature
+      if (y + 55 > 285) { doc.addPage(); y = M; }
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text);
+      doc.text(doc.splitTextToSize("备注：请按以上产品、规格和数量生产，并请确认本订单及交货日期。如有任何疑问，请及时与我们联系。", W - 2 * M), M, y);
+      doc.setFontSize(8); doc.setTextColor.apply(doc, muted);
+      doc.text(doc.splitTextToSize("Notes: please produce the products, specifications and quantities above, and confirm this order and the delivery date.", W - 2 * M), M, y + 10);
+      var sx = W - M - 70, sy = y + 18;
+      if (stamp) {
+        var pr = doc.getImageProperties(stamp), sw = 46, sh = sw * pr.height / pr.width;
+        if (sh > 28) { sh = 28; sw = sh * pr.width / pr.height; }
+        doc.addImage(stamp, pr.fileType || "PNG", sx + (70 - sw) / 2, sy, sw, sh);
+      }
+      doc.setDrawColor(150, 160, 170); doc.line(sx, sy + 30, W - M, sy + 30);
+      doc.setFont("NotoSC", "bold"); doc.setFontSize(8.5); doc.setTextColor.apply(doc, text);
+      doc.text("采购方（盖章/签字）Buyer", sx + 35, sy + 34.5, { align: "center" });
+      var pages = doc.getNumberOfPages();
+      for (var k = 1; k <= pages; k++) {
+        doc.setPage(k); doc.setFont("NotoSC", "normal"); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted);
+        doc.text((s0.companyName || "Shenzhen Micheng International Trading") + " · " + number, M, 290);
+        doc.text("第 " + k + "/" + pages + " 页", W - M, 290, { align: "right" });
+      }
+      doc.save(PD.safeName("PO " + number + " - " + (sup.company || ""), "pdf"));
+    });
+  }
+  function poGroupsOf(p) {
+    var ids = [];
+    p.items.forEach(function (i) { if (i.supplierId && ids.indexOf(i.supplierId) < 0) ids.push(i.supplierId); });
+    return ids;
+  }
+
   $("#pf-order").addEventListener("click", function (e) {
     var F = window.Finance;
     if (!F || !editing) return;
+    if (e.target.closest("[data-po-open]")) return openPo();
     var invBtn = e.target.closest("[data-inv]");
     if (invBtn) {
       if (invBtn.getAttribute("data-inv") === "edit") return openInvoice();
