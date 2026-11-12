@@ -227,7 +227,7 @@ function loadDiscounts(priv, proforma, items) {
 /* ---------- Commercial invoice ----------
    Generated once the order is fully paid. Holds what the documents need besides
    the order itself (Regulamento Aduaneiro, art. 557): packages, weights, countries,
-   Incoterm, ports, freight and other costs, payment terms, NCM per item. */
+   Incoterm, ports, freight and other costs, payment terms, unit per item. */
 const TRANSPORTS = ["sea", "air", "road", "rail", "multimodal"];
 
 // Money received for an order, in its currency (paid income entries linked to it).
