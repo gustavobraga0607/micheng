@@ -1,6 +1,10 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.incoterm": "Incoterm *",
+    "pf.incotermPlace": "Local do Incoterm *",
+    "pf.problem.incoterm": "Informe o Incoterm e o local.",
+    "inv.incotermFromOrder": "Incoterm do pedido: {value}",
     "set.companyTaxId": "Registro / Tax ID (USCC)",
     "set.stamp": "Carimbo e assinatura",
     "set.stampHint": "Imagem do carimbo com a assinatura da empresa, usada nas invoices. Prefira PNG com fundo transparente (até 1,5 MB). Fica guardada criptografada.",
@@ -46,7 +50,7 @@ window.ADMIN_I18N = {
     "inv.insurance": "Seguro",
     "inv.otherCosts": "Outras despesas",
     "inv.otherCostsLabel": "Natureza das outras despesas",
-    "inv.items": "Itens: NCM e unidade",
+    "inv.items": "Itens: unidade",
     "inv.unit": "Unidade",
     "inv.notes": "Observações",
     "inv.generate": "Salvar e gerar PDF",
@@ -506,6 +510,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.incoterm": "Incoterm *",
+    "pf.incotermPlace": "Incoterm place *",
+    "pf.problem.incoterm": "Enter the Incoterm and its place.",
+    "inv.incotermFromOrder": "Order Incoterm: {value}",
     "set.companyTaxId": "Registration / Tax ID (USCC)",
     "set.stamp": "Stamp and signature",
     "set.stampHint": "Image of the company stamp with the signature, used on invoices. Prefer a PNG with a transparent background (up to 1.5 MB). Stored encrypted.",
@@ -551,7 +559,7 @@ window.ADMIN_I18N = {
     "inv.insurance": "Insurance",
     "inv.otherCosts": "Other expenses",
     "inv.otherCostsLabel": "Nature of the other expenses",
-    "inv.items": "Items: NCM and unit",
+    "inv.items": "Items: unit",
     "inv.unit": "Unit",
     "inv.notes": "Notes",
     "inv.generate": "Save and generate PDF",
@@ -1011,6 +1019,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.incoterm": "Incoterm *",
+    "pf.incotermPlace": "Lugar del Incoterm *",
+    "pf.problem.incoterm": "Indique el Incoterm y el lugar.",
+    "inv.incotermFromOrder": "Incoterm del pedido: {value}",
     "set.companyTaxId": "Registro / Tax ID (USCC)",
     "set.stamp": "Sello y firma",
     "set.stampHint": "Imagen del sello con la firma de la empresa, usada en las facturas. Prefiera PNG con fondo transparente (hasta 1,5 MB). Se guarda cifrada.",
@@ -1056,7 +1068,7 @@ window.ADMIN_I18N = {
     "inv.insurance": "Seguro",
     "inv.otherCosts": "Otros gastos",
     "inv.otherCostsLabel": "Naturaleza de los otros gastos",
-    "inv.items": "Ítems: NCM y unidad",
+    "inv.items": "Ítems: unidad",
     "inv.unit": "Unidad",
     "inv.notes": "Observaciones",
     "inv.generate": "Guardar y generar PDF",
@@ -1516,6 +1528,10 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.incoterm": "贸易术语 *",
+    "pf.incotermPlace": "术语地点 *",
+    "pf.problem.incoterm": "请填写贸易术语和地点。",
+    "inv.incotermFromOrder": "订单贸易术语：{value}",
     "set.companyTaxId": "统一社会信用代码",
     "set.stamp": "公章和签名",
     "set.stampHint": "带签名的公司公章图片，用于商业发票。建议使用透明背景的 PNG（不超过 1.5 MB）。加密保存。",
@@ -1561,7 +1577,7 @@ window.ADMIN_I18N = {
     "inv.insurance": "保险",
     "inv.otherCosts": "其他费用",
     "inv.otherCostsLabel": "其他费用说明",
-    "inv.items": "项目：NCM 和单位",
+    "inv.items": "项目：单位",
     "inv.unit": "单位",
     "inv.notes": "备注",
     "inv.generate": "保存并生成 PDF",

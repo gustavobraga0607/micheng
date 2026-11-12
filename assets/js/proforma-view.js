@@ -58,6 +58,7 @@
     var meta = [[t("no"), data.number], [t("date"), date(data.date)]];
     if (data.validUntil) meta.push([t("valid"), date(data.validUntil)]);
     meta.push([t("currency"), (CUR[data.currency] || CUR.CNY).label]);
+    if (data.incoterm) meta.push(["Incoterm", data.incoterm]);
     $("pv-meta").innerHTML = meta.map(function (m) { return "<dt>" + esc(m[0]) + "</dt><dd>" + esc(m[1]) + "</dd>"; }).join("");
 
     var cl = data.client;
@@ -156,7 +157,7 @@
         };
       }),
       total: data.total,
-      p: { number: data.number, date: data.date, validUntil: data.validUntil, client: data.client, terms: data.terms },
+      p: { number: data.number, date: data.date, validUntil: data.validUntil, client: data.client, terms: data.terms, incoterm: data.incoterm || "" },
       link: location.href
     };
     btn.disabled = true;

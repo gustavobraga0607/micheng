@@ -312,6 +312,10 @@
                 <option value="en">English</option><option value="pt">Português</option><option value="es">Español</option>
               </select>
             </label>
+            <label><span data-t="pf.incoterm">Incoterm *</span>
+              <select name="incoterm"><option value="">—</option><option>EXW</option><option>FCA</option><option>FAS</option><option>FOB</option><option>CFR</option><option>CIF</option><option>CPT</option><option>CIP</option><option>DAP</option><option>DPU</option><option>DDP</option></select>
+            </label>
+            <label><span data-t="pf.incotermPlace">Local do Incoterm *</span><input type="text" name="incotermPlace" maxlength="80" placeholder="Shenzhen" /></label>
           </div>
 
           <div class="pf-items-head">
@@ -405,7 +409,8 @@
               </select>
             </label>
           </div>
-          <div class="form-row form-row--3">
+          <p class="inv-incoterm" id="inv-incoterm-fixed"></p>
+          <div class="form-row form-row--3" id="inv-incoterm-fields" hidden>
             <label><span data-t="inv.incoterm">Incoterm *</span>
               <select name="incoterm"><option>EXW</option><option>FCA</option><option>FAS</option><option selected>FOB</option><option>CFR</option><option>CIF</option><option>CPT</option><option>CIP</option><option>DAP</option><option>DPU</option><option>DDP</option></select>
             </label>
@@ -448,7 +453,7 @@
           <label><span data-t="inv.otherCostsLabel">Natureza das outras despesas</span><input type="text" name="otherCostsLabel" maxlength="80" /></label>
         </fieldset>
         <fieldset class="group">
-          <legend data-t="inv.items">Itens: NCM e unidade</legend>
+          <legend data-t="inv.items">Itens: unidade</legend>
           <div class="pf-table-wrap"><table class="pf-table inv-items"><tbody id="inv-items"></tbody></table></div>
         </fieldset>
         <label><span data-t="inv.notes">Observações</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>

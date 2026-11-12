@@ -172,6 +172,8 @@
     form.elements.currency.value = p ? p.currency : A.defaultCurrency();
     form.elements.language.value = p ? p.language : (["en", "pt", "es"].indexOf(A.lang()) > -1 ? A.lang() : "en");
     form.elements.terms.value = p ? p.terms || "" : "";
+    form.elements.incoterm.value = p ? p.incoterm || "" : "";
+    form.elements.incotermPlace.value = p ? p.incotermPlace || "" : "";
     amending = false;
     rows = p ? p.items.map(rowFromItem) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
@@ -471,13 +473,18 @@
       inf.elements[f].value = INV_NUMERIC.indexOf(f) > -1 && v !== "" ? String(v).replace(".", ",") : v;
       inf.elements[f].classList.remove("is-invalid");
     });
+    // The Incoterm is part of the order; only orders closed before it existed type it here.
+    var fixed = Boolean(editing.incoterm);
+    $("#inv-incoterm-fields").hidden = fixed;
+    $("#inv-incoterm-fixed").hidden = !fixed;
+    $("#inv-incoterm-fixed").textContent = fixed ? T("inv.incotermFromOrder", { value: editing.incoterm + " " + (editing.incotermPlace || "") }) : "";
+    if (fixed) { inf.elements.incoterm.value = editing.incoterm; inf.elements.incotermPlace.value = editing.incotermPlace || ""; }
     var items = inv.items || {};
     $("#inv-items").innerHTML = editing.items.map(function (i, n) {
       var it = items[i.id] || {};
       var opts = i.options.map(function (o) { return (o.optionLabel && (o.optionLabel[A.lang()] || o.optionLabel.en)) || ""; }).filter(Boolean).join(" · ");
       return "<tr><td>" + (n + 1) + '</td><td class="fin-desc"><b>' + (i.sku ? '<span class="sku">' + esc(i.sku) + "</span> " : "") + esc(pname(i.product)) + "</b>" +
         (opts ? "<small>" + esc(opts) + "</small>" : "") + '</td><td class="num">' + esc(String(i.qty)) + "</td>" +
-        '<td><label class="inv-mini"><span>NCM</span><input type="text" maxlength="12" inputmode="numeric" data-inv-ncm="' + esc(i.id) + '" value="' + esc(it.ncm || "") + '" placeholder="0000.00.00" /></label></td>' +
         '<td><label class="inv-mini"><span>' + esc(T("inv.unit")) + '</span><input type="text" maxlength="20" data-inv-unit="' + esc(i.id) + '" value="' + esc(it.unit || "PCS") + '" /></label></td></tr>';
     }).join("");
     $("#inv-stamp-warn").hidden = Boolean(A.settings().stamp);
@@ -501,7 +508,7 @@
     INV_FIELDS.forEach(function (f) { body[f] = inf.elements[f].value; });
     body.items = {};
     editing.items.forEach(function (i) {
-      body.items[i.id] = { ncm: $('[data-inv-ncm="' + i.id + '"]').value, unit: $('[data-inv-unit="' + i.id + '"]').value };
+      body.items[i.id] = { unit: $('[data-inv-unit="' + i.id + '"]').value };
     });
     var required = ["number", "date", "incotermPlace", "portLoading", "portDischarge", "originCountry", "acquisitionCountry", "provenanceCountry",
       "paymentTerms", "packagesQty", "packagesKind", "volumeM3", "grossWeight", "netWeight"];
@@ -541,7 +548,7 @@
     en: { title: "COMMERCIAL INVOICE", no: "Invoice No.", date: "Date", order: "Order", currency: "Currency", exporter: "Exporter / Seller", importer: "Importer / Consignee",
       buyer: "Buyer / Acquirer", taxId: "Tax ID", phone: "Phone", email: "E-mail", shipping: "Shipping", incoterm: "Incoterm", transport: "Mode of transport",
       portLoading: "Port of loading", portDischarge: "Port of destination", origin: "Country of origin", acquisition: "Country of acquisition", provenance: "Country of provenance",
-      payment: "Payment terms and currency", item: "#", code: "Code", ncm: "NCM / HS", description: "Description of goods", qty: "Qty", unit: "Unit",
+      payment: "Payment terms and currency", item: "#", code: "Code", description: "Description of goods", qty: "Qty", unit: "Unit",
       unitPrice: "Unit price", amount: "Amount", subtotal: "Total goods", freight: "Freight", insurance: "Insurance", other: "Other expenses", total: "TOTAL",
       packages: "Packages", packagesQty: "Number and kind of packages", marks: "Marks and numbers", gross: "Gross weight", net: "Net weight", volume: "Volume",
       notes: "Notes", declaration: "We certify that this invoice is true and correct and that the goods described above are of {origin} origin.",
@@ -550,7 +557,7 @@
     pt: { title: "FATURA COMERCIAL", no: "Fatura nº", date: "Data", order: "Pedido", currency: "Moeda", exporter: "Exportador / Vendedor", importer: "Importador / Consignatário",
       buyer: "Adquirente / Encomendante", taxId: "Tax ID", phone: "Telefone", email: "E-mail", shipping: "Embarque", incoterm: "Incoterm", transport: "Via de transporte",
       portLoading: "Porto de embarque", portDischarge: "Porto de destino", origin: "País de origem", acquisition: "País de aquisição", provenance: "País de procedência",
-      payment: "Condições e moeda de pagamento", item: "#", code: "Código", ncm: "NCM", description: "Especificação das mercadorias", qty: "Qtd.", unit: "Unid.",
+      payment: "Condições e moeda de pagamento", item: "#", code: "Código", description: "Especificação das mercadorias", qty: "Qtd.", unit: "Unid.",
       unitPrice: "Preço unit.", amount: "Valor", subtotal: "Total das mercadorias", freight: "Frete", insurance: "Seguro", other: "Outras despesas", total: "TOTAL",
       packages: "Volumes", packagesQty: "Quantidade e espécie dos volumes", marks: "Marcas e numeração", gross: "Peso bruto", net: "Peso líquido", volume: "Cubagem",
       notes: "Observações", declaration: "Declaramos que esta fatura é verdadeira e correta e que as mercadorias acima descritas são de origem {origin}.",
@@ -559,7 +566,7 @@
     es: { title: "FACTURA COMERCIAL", no: "Factura nº", date: "Fecha", order: "Pedido", currency: "Moneda", exporter: "Exportador / Vendedor", importer: "Importador / Consignatario",
       buyer: "Adquirente / Comprador", taxId: "Tax ID", phone: "Teléfono", email: "Correo", shipping: "Embarque", incoterm: "Incoterm", transport: "Vía de transporte",
       portLoading: "Puerto de embarque", portDischarge: "Puerto de destino", origin: "País de origen", acquisition: "País de adquisición", provenance: "País de procedencia",
-      payment: "Condiciones y moneda de pago", item: "#", code: "Código", ncm: "NCM", description: "Descripción de las mercancías", qty: "Cant.", unit: "Unid.",
+      payment: "Condiciones y moneda de pago", item: "#", code: "Código", description: "Descripción de las mercancías", qty: "Cant.", unit: "Unid.",
       unitPrice: "Precio unit.", amount: "Importe", subtotal: "Total mercancías", freight: "Flete", insurance: "Seguro", other: "Otros gastos", total: "TOTAL",
       packages: "Bultos", packagesQty: "Cantidad y tipo de bultos", marks: "Marcas y numeración", gross: "Peso bruto", net: "Peso neto", volume: "Cubicaje",
       notes: "Observaciones", declaration: "Certificamos que esta factura es verdadera y correcta y que las mercancías descritas son de origen {origin}.",
@@ -637,16 +644,16 @@
         var it = d.items[n];
         var extra = items[i.id] || {};
         var desc = [it.name].concat(it.description ? [it.description] : []).concat(it.options).join("\n");
-        return [n + 1, it.code || "", extra.ncm || "", desc, num2(it.qty).replace(/[.,]00$/, ""), extra.unit || "PCS", num2(it.price), num2(it.amount)];
+        return [n + 1, it.code || "", desc, num2(it.qty).replace(/[.,]00$/, ""), extra.unit || "PCS", num2(it.price), num2(it.amount)];
       });
       doc.autoTable({
         startY: y, margin: { left: M, right: M }, theme: "grid", rowPageBreak: "avoid",
-        head: [[L.item, L.code, L.ncm, L.description, L.qty, L.unit, L.unitPrice + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
+        head: [[L.item, L.code, L.description, L.qty, L.unit, L.unitPrice + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
         body: body,
         styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8, valign: "middle", lineColor: [220, 226, 234], textColor: text },
         headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", halign: "center" },
-        columnStyles: { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: 15, halign: "center" }, 2: { cellWidth: 19, halign: "center" },
-          3: { cellWidth: "auto" }, 4: { cellWidth: 13, halign: "right" }, 5: { cellWidth: 12, halign: "center" }, 6: { cellWidth: 21, halign: "right" }, 7: { cellWidth: 24, halign: "right" } }
+        columnStyles: { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: 16, halign: "center" },
+          2: { cellWidth: "auto" }, 3: { cellWidth: 14, halign: "right" }, 4: { cellWidth: 13, halign: "center" }, 5: { cellWidth: 22, halign: "right" }, 6: { cellWidth: 25, halign: "right" } }
       });
       y = doc.lastAutoTable.finalY + 2;
 
@@ -1131,6 +1138,8 @@
       currency: form.elements.currency.value,
       language: form.elements.language.value,
       terms: form.elements.terms.value,
+      incoterm: form.elements.incoterm.value,
+      incotermPlace: form.elements.incotermPlace.value,
       baseUpdatedAt: editing ? editing.updatedAt : undefined, // refused if someone else saved it meanwhile
       items: rows.filter(function (r) { return r.productId; }).map(function (r) {
         return { id: r.id, productId: r.productId, supplierId: r.supplierId, options: r.options, qty: r.qty, cost: r.cost, price: r.price,
@@ -1337,6 +1346,7 @@
       var meta = [L.no + " " + d.p.number, L.date + ": " + docDate(d.p.date, d)];
       if (d.p.validUntil) meta.push(L.valid + ": " + docDate(d.p.validUntil, d));
       meta.push(L.currency + ": " + d.cur.label);
+      if (d.p.incoterm) meta.push("Incoterm: " + d.p.incoterm + " " + (d.p.incotermPlace || ""));
       doc.text(meta, W - M, y + (d.reference ? 17 : 13), { align: "right" });
       y = Math.max(infoY + info.length * 4 + 6, y + 32);
 
