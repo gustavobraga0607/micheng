@@ -548,7 +548,7 @@
     en: { title: "COMMERCIAL INVOICE", no: "Invoice No.", date: "Date", order: "Order", currency: "Currency", exporter: "Exporter / Seller", importer: "Importer / Consignee",
       buyer: "Buyer / Acquirer", taxId: "Tax ID", phone: "Phone", email: "E-mail", shipping: "Shipping", incoterm: "Incoterm", transport: "Mode of transport",
       portLoading: "Port of loading", portDischarge: "Port of destination", origin: "Country of origin", acquisition: "Country of acquisition", provenance: "Country of provenance",
-      payment: "Payment terms and currency", item: "#", code: "Code", description: "Description of goods", qty: "Qty", unit: "Unit",
+      payment: "Payment terms and currency", item: "#", code: "Code", description: "Description of goods (English)", descriptionPt: "Description in Portuguese (Descrição em português)", qty: "Qty", unit: "Unit",
       unitPrice: "Unit price", amount: "Amount", subtotal: "Total goods", freight: "Freight", insurance: "Insurance", other: "Other expenses", total: "TOTAL",
       packages: "Packages", packagesQty: "Number and kind of packages", marks: "Marks and numbers", gross: "Gross weight", net: "Net weight", volume: "Volume",
       notes: "Notes", declaration: "We certify that this invoice is true and correct and that the goods described above are of {origin} origin.",
@@ -579,12 +579,13 @@
     return loadScript("assets/vendor/jspdf.umd.min.js").then(function () {
       return loadScript("assets/vendor/jspdf.plugin.autotable.min.js");
     }).then(function () {
-      var d = docData(p);
+      // The invoice is always in English (with a column of the names in Portuguese).
+      var d = docData(Object.assign({}, p, { language: "en" }));
       return Promise.all([imageData("assets/img/logo.svg", 240, "image/png"), A.stampDataUrl()]).then(function (imgs) {
         return { d: d, logo: imgs[0], stamp: imgs[1] };
       });
     }).then(function (r) {
-      var d = r.d, lang = d.lang, L = INV_DOC[lang] || INV_DOC.en, s = d.settings, client = p.client || {};
+      var d = r.d, L = INV_DOC.en, s = d.settings, client = p.client || {};
       var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
       var W = 210, M = 14, navy = [11, 42, 79], muted = [91, 104, 120], text = [30, 40, 50];
       var num2 = function (n) { return fmt(n, d); };
@@ -612,6 +613,9 @@
 
       // Boxes: importer | shipping
       function box(x, w, title, lines, top) {
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.6);
+        // Long names and addresses wrap inside the box instead of running past its border.
+        lines = [].concat.apply([], lines.map(function (l) { return doc.splitTextToSize(String(l || ""), w - 6); }));
         doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251);
         var h = 8 + lines.length * 4;
         doc.roundedRect(x, top, w, h, 1.2, 1.2, "FD");
@@ -640,20 +644,26 @@
 
       // Items: description in full (name, description, options)
       var items = inv.items || {};
+      var pt = function (o, fallback) { return (o && (o.pt || o.en)) || fallback || ""; };
       var body = p.items.map(function (i, n) {
         var it = d.items[n];
         var extra = items[i.id] || {};
         var desc = [it.name].concat(it.description ? [it.description] : []).concat(it.options).join("\n");
-        return [n + 1, it.code || "", desc, num2(it.qty).replace(/[.,]00$/, ""), extra.unit || "PCS", num2(it.price), num2(it.amount)];
+        // Name and options in Portuguese (as registered in the product).
+        var namePt = [pt(i.product && i.product.name, it.name)].concat(i.options.map(function (o) {
+          return pt(o.attrName) + ": " + pt(o.optionLabel);
+        })).join("\n");
+        return [n + 1, it.code || "", desc, namePt, num2(it.qty).replace(/[.,]00$/, ""), extra.unit || "PCS", num2(it.price), num2(it.amount)];
       });
       doc.autoTable({
         startY: y, margin: { left: M, right: M }, theme: "grid", rowPageBreak: "avoid",
-        head: [[L.item, L.code, L.description, L.qty, L.unit, L.unitPrice + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
+        head: [[L.item, L.code, L.description, L.descriptionPt, L.qty, L.unit, L.unitPrice + " (" + d.cur.label + ")", L.amount + " (" + d.cur.label + ")"]],
         body: body,
-        styles: { font: "helvetica", fontSize: 7.8, cellPadding: 1.8, valign: "middle", lineColor: [220, 226, 234], textColor: text },
+        styles: { font: "helvetica", fontSize: 7.5, cellPadding: 1.6, valign: "middle", lineColor: [220, 226, 234], textColor: text },
         headStyles: { fillColor: navy, textColor: 255, fontStyle: "bold", halign: "center" },
-        columnStyles: { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: 16, halign: "center" },
-          2: { cellWidth: "auto" }, 3: { cellWidth: 14, halign: "right" }, 4: { cellWidth: 13, halign: "center" }, 5: { cellWidth: 22, halign: "right" }, 6: { cellWidth: 25, halign: "right" } }
+        columnStyles: { 0: { cellWidth: 6, halign: "center" }, 1: { cellWidth: 14, halign: "center" },
+          2: { cellWidth: 56 }, 3: { cellWidth: "auto" }, 4: { cellWidth: 12, halign: "right" }, 5: { cellWidth: 11, halign: "center" },
+          6: { cellWidth: 19, halign: "right" }, 7: { cellWidth: 22, halign: "right" } }
       });
       y = doc.lastAutoTable.finalY + 2;
 
