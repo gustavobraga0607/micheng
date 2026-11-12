@@ -650,3 +650,31 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .po-list li small { color: var(--muted); font-size: 12.5px; }
 .po-list li small.is-low { color: #b26a00; }
 @media (max-width: 560px) { .po-list li { flex-direction: column; align-items: stretch; } }
+
+/* Order screen: summary + tabs */
+.ord-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 2px 0 14px; }
+.ord-summary > div { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 2px; min-width: 0; }
+.ord-summary span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ord-summary b { font-size: 17px; color: var(--navy); overflow-wrap: anywhere; }
+.ord-summary b.sum-inv { font-size: 14px; }
+.otabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 18px; overflow-x: auto; }
+.otab { flex: none; background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 10px 14px; font: 600 14.5px var(--font); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.otab:hover { color: var(--navy); }
+.otab.is-active { color: var(--navy); border-bottom-color: var(--blue); }
+.otab .count:empty { display: none; }
+.ord { border: 0; background: none; padding: 0; margin: 0 0 8px; }
+.ord-pane { display: grid; gap: 14px; }
+.ord-pane .dec { border-top: 0; padding-top: 0; }
+.doc-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.doc-card > div:first-child { display: grid; gap: 2px; flex: 1 1 260px; }
+.doc-card b { color: var(--navy); }
+.doc-card span { font-size: 13px; color: var(--muted); }
+.doc-card--po { display: grid; }
+.doc-card--po .po-list { margin: 4px 0 0; }
+.pf-log { margin-top: 0; border-top: 0; padding-top: 0; }
+@media (max-width: 640px) {
+  .ord-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ord-summary b { font-size: 15px; }
+  .otab { padding: 10px 10px; font-size: 14px; }
+}
+.pf-editor:not(.is-order) .pf-log { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 18px; }

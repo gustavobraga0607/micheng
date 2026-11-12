@@ -162,6 +162,7 @@
 
   function openEditor(p) {
     editing = p || null;
+    orderTab = "items";
     decState = { id: null, values: {} };
     setStatus("");
     form.reset();
@@ -206,6 +207,7 @@
     form.querySelectorAll(".pf-fields input, .pf-fields select, textarea").forEach(function (el) { el.disabled = closed; });
     renderOrder();
     renderLog();
+    applyOrderTabs();
   }
 
   /* ---------- Change log (end of the page) ---------- */
@@ -229,8 +231,7 @@
   }
   function renderLog() {
     var log = (editing && editing.log) || [];
-    $("#pf-log").hidden = !log.length;
-    if (!log.length) return;
+    if (!log.length) { $("#pf-log-list").innerHTML = ""; return; }
     $("#pf-log-list").innerHTML = log.slice().reverse().map(function (e) {
       var when = new Date(e.at).toLocaleString(A.locale(), { dateStyle: "short", timeStyle: "short" });
       var lines = (e.changes || []).map(function (c) { return '<li class="pf-log__change pf-log__change--' + esc(c.type) + '">' + esc(logChangeText(c, editing.currency)) + "</li>"; }).join("");
@@ -325,27 +326,50 @@
         "<td>" + badge + "</td>" +
         '<td class="num">' + (e.status === "paid" ? "" : '<button type="button" class="btn btn--outline btn--sm" data-ord-pay="' + esc(e.id) + '">' + esc(T(e.type === "in" ? "fin.receive" : "fin.pay")) + "</button>") + "</td></tr>";
     }).join("");
+    // Summary shown above the tabs
+    var inv = editing.invoice;
+    var invText = inv ? T("sum.invDone") : received + 0.005 >= total ? T("sum.invReady") : T("sum.invWaiting");
+    $("#pf-summary").innerHTML =
+      "<div><span>" + esc(T("ord.total")) + "</span><b>" + esc(A.money(total, cur)) + "</b></div>" +
+      "<div><span>" + esc(T("ord.received")) + '</span><b class="is-ok">' + esc(A.money(received, cur)) + "</b></div>" +
+      "<div><span>" + esc(T("sum.toReceive")) + '</span><b class="' + (total - received > 0.004 ? "is-low" : "") + '">' + esc(A.money(Math.max(0, round(total - received)), cur)) + "</b></div>" +
+      "<div><span>" + esc(T("sum.invoice")) + '</span><b class="sum-inv' + (inv ? " is-ok" : "") + '">' + esc(invText) + "</b></div>";
+    $("#otab-count-finance").textContent = list.length || "";
     box.innerHTML =
-      '<div class="ord__head"><div><h3>' + esc(T("ord.title")) + '</h3><p>' + esc(T("ord.hint")) + "</p></div>" +
-        '<div class="ord__actions"><button type="button" class="linkbtn ord__po" data-po-open>' + esc(T("po.open")) + "</button>" +
-        '<button type="button" class="btn btn--outline fin-btn-out" data-ord-new="out">' + esc(T("ord.addOut")) + "</button>" +
-        '<button type="button" class="btn btn--primary" data-ord-new="in">' + esc(T("ord.addIn")) + "</button></div></div>" +
-      '<div class="ord__nums">' +
-        "<div><span>" + esc(T("ord.total")) + "</span><b>" + esc(A.money(total, cur)) + "</b></div>" +
-        '<div><span>' + esc(T("ord.launched")) + '</span><b class="is-ok">' + esc(sumText(ins)) + "</b>" +
-          (missing > 0.004 ? '<small class="is-low">' + esc(T("ord.toLaunch", { value: A.money(missing, cur) })) + "</small>" : "") + "</div>" +
-        "<div><span>" + esc(T("ord.received")) + "</span><b>" + esc(A.money(received, cur)) + "</b>" +
-          (launched - received > 0.004 ? "<small>" + esc(T("ord.toReceive", { value: A.money(round(launched - received), cur) })) + "</small>" : "") + "</div>" +
-        '<div><span>' + esc(T("ord.expenses")) + '</span><b class="is-neg">' + esc(sumText(outs)) + "</b></div>" +
-        "<div><span>" + esc(T("ord.result")) + "</span>" + (sameCurrency
-          ? '<b class="' + (result < 0 ? "is-neg" : "is-ok") + '">' + esc((result < 0 ? "− " : "") + A.money(Math.abs(result), cur)) + "</b>"
-          : "<b>—</b><small>" + esc(T("ord.mixedCurrencies")) + "</small>") + "</div>" +
-      "</div>" + invoiceBar(received, total, cur) +
-      (list.length
-        ? '<div class="pf-table-wrap"><table class="pf-table fin-table"><tbody>' + rows + "</tbody></table></div>"
-        : '<p class="ord__empty">' + esc(T("ord.empty")) + "</p>") +
-      declaredSection();
+      // Financeiro
+      '<div class="ord-pane" data-opane="finance">' +
+        '<div class="ord__head"><div><h3>' + esc(T("ord.title")) + '</h3><p>' + esc(T("ord.hint")) + "</p></div>" +
+          '<div class="ord__actions"><button type="button" class="btn btn--outline fin-btn-out" data-ord-new="out">' + esc(T("ord.addOut")) + "</button>" +
+          '<button type="button" class="btn btn--primary" data-ord-new="in">' + esc(T("ord.addIn")) + "</button></div></div>" +
+        '<div class="ord__nums">' +
+          "<div><span>" + esc(T("ord.total")) + "</span><b>" + esc(A.money(total, cur)) + "</b></div>" +
+          '<div><span>' + esc(T("ord.launched")) + '</span><b class="is-ok">' + esc(sumText(ins)) + "</b>" +
+            (missing > 0.004 ? '<small class="is-low">' + esc(T("ord.toLaunch", { value: A.money(missing, cur) })) + "</small>" : "") + "</div>" +
+          "<div><span>" + esc(T("ord.received")) + "</span><b>" + esc(A.money(received, cur)) + "</b>" +
+            (launched - received > 0.004 ? "<small>" + esc(T("ord.toReceive", { value: A.money(round(launched - received), cur) })) + "</small>" : "") + "</div>" +
+          '<div><span>' + esc(T("ord.expenses")) + '</span><b class="is-neg">' + esc(sumText(outs)) + "</b></div>" +
+          "<div><span>" + esc(T("ord.result")) + "</span>" + (sameCurrency
+            ? '<b class="' + (result < 0 ? "is-neg" : "is-ok") + '">' + esc((result < 0 ? "− " : "") + A.money(Math.abs(result), cur)) + "</b>"
+            : "<b>—</b><small>" + esc(T("ord.mixedCurrencies")) + "</small>") + "</div>" +
+        "</div>" +
+        (list.length
+          ? '<div class="pf-table-wrap"><table class="pf-table fin-table"><tbody>' + rows + "</tbody></table></div>"
+          : '<p class="ord__empty">' + esc(T("ord.empty")) + "</p>") +
+      "</div>" +
+      // Preço com desconto
+      '<div class="ord-pane" data-opane="discount">' + declaredSection() + "</div>" +
+      // Documentos
+      '<div class="ord-pane" data-opane="docs">' +
+        '<div class="doc-card"><div><b>' + esc(T("docs.proforma")) + "</b><span>" + esc(T("docs.proformaHint")) + "</span></div>" +
+          '<div class="inv-bar__actions"><button type="button" class="btn btn--outline btn--sm" data-doc="pdf">PDF</button>' +
+          '<button type="button" class="btn btn--outline btn--sm" data-doc="xlsx">Excel</button></div></div>' +
+        invoiceBar(received, total, cur) +
+        '<div class="doc-card doc-card--po"><div><b>' + esc(T("po.title")) + "</b><span>" + esc(T("po.hint")) + "</span></div>" +
+          '<ul class="po-list" id="po-list">' + poListHtml() + "</ul>" + poWarnHtml() +
+          '<p class="status" id="po-status" role="status" aria-live="polite"></p></div>' +
+      "</div>";
     recalcDeclared();
+    applyOrderTabs(); // redrawn panes keep the open tab
   }
 
   /* ----- Declared value per item (internal control) -----
@@ -742,34 +766,68 @@
     });
     return groups;
   }
-  function openPo() {
+  function poListHtml() {
     var groups = poGroups();
     var cur = editing.currency;
-    $("#po-list").innerHTML = groups.length ? groups.map(function (g, k) {
-      var s = supplierById(g.supplierId);
+    return groups.length ? groups.map(function (g, k) {
+      var sp = supplierById(g.supplierId);
       var noCost = g.items.filter(function (x) { return x.item.cost == null; }).length;
       var total = round(g.items.reduce(function (t, x) { return t + (x.item.cost || 0) * x.item.qty; }, 0));
-      return '<li><div><b>' + esc(s ? s.company : "?") + '</b><small>' + esc(editing.number + "-P" + (k + 1) + " · " + T("po.items", { n: g.items.length }) + " · " + A.money(total, cur)) + "</small>" +
+      return '<li><div><b>' + esc(sp ? sp.company : "?") + '</b><small>' + esc(editing.number + "-P" + (k + 1) + " · " + T("po.items", { n: g.items.length }) + " · " + A.money(total, cur)) + "</small>" +
         (noCost ? '<small class="is-low">' + esc(T("po.noCost", { n: noCost })) + "</small>" : "") + "</div>" +
-        '<button type="button" class="btn btn--primary btn--sm" data-po="' + esc(g.supplierId) + '">' + esc(T("po.pdf")) + "</button></li>";
+        '<button type="button" class="btn btn--outline btn--sm" data-po="' + esc(g.supplierId) + '">' + esc(T("po.pdf")) + "</button></li>";
     }).join("") : '<li class="muted">' + esc(T("po.none")) + "</li>";
-    var orphans = editing.items.map(function (i, n) { return i.supplierId ? null : n + 1; }).filter(Boolean);
-    $("#po-warn").textContent = orphans.length ? T("po.orphans", { items: orphans.join(", ") }) : "";
-    $("#po-status").textContent = "";
-    var dlg = $("#po-dlg");
-    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
   }
-  $("#po-dlg").addEventListener("click", function (e) {
-    if (e.target === this || e.target.closest("[data-close]")) return this.close();
-    var b = e.target.closest("[data-po]");
-    if (!b) return;
+  function poWarnHtml() {
+    var orphans = editing.items.map(function (i, n) { return i.supplierId ? null : n + 1; }).filter(Boolean);
+    return orphans.length ? '<p class="status is-error">' + esc(T("po.orphans", { items: orphans.join(", ") })) + "</p>" : "";
+  }
+  function makePo(b) {
     b.disabled = true;
     var st = $("#po-status");
     st.className = "status"; st.textContent = T("po.making");
     A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=po", { method: "POST", body: { supplierId: b.getAttribute("data-po") } })
       .then(function (data) { accept(data.proforma); return exportPo(data.proforma, b.getAttribute("data-po")); })
-      .then(function () { st.className = "status is-ok"; st.textContent = T("po.done"); }, function (err) { st.className = "status is-error"; st.textContent = err.message; })
+      .then(function () { var s2 = $("#po-status"); s2.className = "status is-ok"; s2.textContent = T("po.done"); },
+        function (err) { var s2 = $("#po-status"); s2.className = "status is-error"; s2.textContent = err.message; })
       .then(function () { b.disabled = false; });
+  }
+
+  /* ----- Tabs of an order ----- */
+  var orderTab = "items";
+  function applyOrderTabs() {
+    var closed = isClosed();
+    $("#pf-editor").classList.toggle("is-order", closed);
+    $("#pf-otabs").hidden = $("#pf-summary").hidden = !closed;
+    // Documents of an order are in its Documents tab; a draft keeps them in the header.
+    $("#pf-pdf").hidden = $("#pf-xlsx").hidden = closed;
+    var log = (editing && editing.log) || [];
+    $("#otab-count-log").textContent = log.length || "";
+    if (!closed) {
+      form.hidden = false;
+      $("#pf-order").hidden = true;
+      $("#pf-log").hidden = !log.length;
+      $("#pf-log-empty").hidden = true;
+      return;
+    }
+    if (amending) orderTab = "items";
+    document.querySelectorAll("#pf-otabs .otab").forEach(function (t) {
+      var on = t.getAttribute("data-otab") === orderTab;
+      t.classList.toggle("is-active", on);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    form.hidden = orderTab !== "items";
+    $("#pf-order").hidden = ["finance", "discount", "docs"].indexOf(orderTab) < 0;
+    $("#pf-order").querySelectorAll(".ord-pane").forEach(function (pane) { pane.hidden = pane.getAttribute("data-opane") !== orderTab; });
+    $("#pf-log").hidden = orderTab !== "log";
+    $("#pf-log-empty").hidden = log.length > 0;
+  }
+  $("#pf-otabs").addEventListener("click", function (e) {
+    var t = e.target.closest("[data-otab]");
+    if (!t || amending) return;
+    orderTab = t.getAttribute("data-otab");
+    setStatus("");
+    applyOrderTabs();
   });
 
   // Chinese font for the purchase orders (Noto Sans SC, loaded only when needed).
@@ -945,7 +1003,10 @@
   $("#pf-order").addEventListener("click", function (e) {
     var F = window.Finance;
     if (!F || !editing) return;
-    if (e.target.closest("[data-po-open]")) return openPo();
+    var poBtn = e.target.closest("[data-po]");
+    if (poBtn) return makePo(poBtn);
+    var docBtn = e.target.closest("[data-doc]");
+    if (docBtn) return askOrExport(docBtn.getAttribute("data-doc"));
     var invBtn = e.target.closest("[data-inv]");
     if (invBtn) {
       if (invBtn.getAttribute("data-inv") === "edit") return openInvoice();

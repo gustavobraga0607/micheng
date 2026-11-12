@@ -300,7 +300,17 @@
         </div>
         <p class="status" id="pf-status" role="status" aria-live="polite"></p>
 
-        <!-- Order (closed proforma): its income and expenses -->
+        <!-- Order (closed proforma): summary always visible, then tabs -->
+        <div class="ord-summary" id="pf-summary" hidden></div>
+        <nav class="otabs" id="pf-otabs" role="tablist" hidden>
+          <button type="button" class="otab" data-otab="items"><span data-t="otab.items">Itens</span></button>
+          <button type="button" class="otab" data-otab="finance"><span data-t="otab.finance">Financeiro</span> <span class="count" id="otab-count-finance"></span></button>
+          <button type="button" class="otab" data-otab="discount"><span data-t="otab.discount">Preço com desconto</span></button>
+          <button type="button" class="otab" data-otab="docs"><span data-t="otab.docs">Documentos</span></button>
+          <button type="button" class="otab" data-otab="log"><span data-t="otab.log">Histórico</span> <span class="count" id="otab-count-log"></span></button>
+        </nav>
+
+        <!-- Order tabs: Financeiro, Preço com desconto, Documentos -->
         <div class="ord" id="pf-order" hidden></div>
 
         <form id="pf-form" class="pf-form" novalidate>
@@ -350,6 +360,7 @@
         <section class="pf-log" id="pf-log" hidden>
           <h3 data-t="log.title">Histórico de alterações</h3>
           <ol id="pf-log-list"></ol>
+          <p class="ord__empty" id="pf-log-empty" data-t="log.empty" hidden>Nenhum registro ainda.</p>
         </section>
       </section>
     </main>
@@ -398,14 +409,6 @@
       </section>
     </main>
 
-    <!-- Purchase orders (one per supplier of an order) -->
-    <dialog class="mdl" id="po-dlg">
-      <div class="mdl__head"><h2 data-t="po.title">Pedidos de compra</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
-      <p class="hint" data-t="po.hint">Um pedido por fornecedor, com os itens deste pedido, quantidades e preços de compra. O PDF sai em chinês, com o link para o fornecedor ver as fotos.</p>
-      <ul class="po-list" id="po-list"></ul>
-      <p class="status is-error" id="po-warn"></p>
-      <p class="status" id="po-status" role="status" aria-live="polite"></p>
-    </dialog>
 
     <!-- Commercial invoice of an order -->
     <dialog class="mdl mdl--wide" id="inv-dlg">
