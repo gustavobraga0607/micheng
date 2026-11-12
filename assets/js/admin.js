@@ -198,8 +198,46 @@
     ["products", "suppliers", "clients", "proformas", "finance", "settings"].forEach(function (view) {
       $("#" + view + "-view").hidden = view !== name;
     });
+    // On a phone the tab bar scrolls sideways: bring the chosen tab into view.
+    var activeTab = $('.tab[data-tab="' + name + '"]');
+    var bar = $(".tabs__inner");
+    if (activeTab && bar && bar.scrollWidth > bar.clientWidth) {
+      bar.scrollTo({ left: activeTab.offsetLeft - (bar.clientWidth - activeTab.offsetWidth) / 2, behavior: "smooth" });
+    }
     window.scrollTo(0, 0);
   }
+
+  /* ---------- Phone layout helpers ---------- */
+  // On a phone the lists come first; "+ Novo" opens an empty form below them.
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-new]");
+    if (!b) return;
+    var kind = b.getAttribute("data-new");
+    var target = kind === "products" ? (resetForm(), "#form-panel") : kind === "suppliers" ? (resetSupplierForm(), "#supplier-panel") : (resetClientForm(), "#client-panel");
+    $(target).scrollIntoView({ behavior: "smooth", block: "start" });
+    var first = $(target).querySelector("input:not([type=hidden]), textarea");
+    if (first) setTimeout(function () { first.focus({ preventScroll: true }); }, 350);
+  });
+  // Tables turn into cards on a phone: each cell gets its column title as a label.
+  var labelQueued = false;
+  function labelTables() {
+    labelQueued = false;
+    document.querySelectorAll("table.pf-table").forEach(function (t) {
+      var heads = Array.prototype.map.call(t.querySelectorAll("thead th"), function (th) { return th.textContent.trim(); });
+      if (!heads.length) return;
+      t.querySelectorAll("tbody tr, tfoot tr").forEach(function (tr) {
+        var col = 0;
+        Array.prototype.forEach.call(tr.children, function (td) {
+          var label = heads[col] || "";
+          if (td.getAttribute("data-label") !== label) td.setAttribute("data-label", label);
+          col += td.colSpan || 1;
+        });
+      });
+    });
+  }
+  new MutationObserver(function () {
+    if (!labelQueued) { labelQueued = true; requestAnimationFrame(labelTables); }
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
   document.querySelectorAll(".tab, .tab-gear").forEach(function (tab) {
     tab.addEventListener("click", function () { showTab(tab.dataset.tab); refreshIfStale(); });
   });

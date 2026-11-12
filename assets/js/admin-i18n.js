@@ -1,6 +1,9 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "mob.newProduct": "+ Novo produto",
+    "mob.newSupplier": "+ Novo fornecedor",
+    "mob.newClient": "+ Novo cliente",
     "cli.country": "País",
     "cli.countryCode": "Sigla do país (numeração)",
     "pf.incoterm": "Incoterm *",
@@ -510,6 +513,9 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "mob.newProduct": "+ New product",
+    "mob.newSupplier": "+ New supplier",
+    "mob.newClient": "+ New client",
     "cli.country": "Country",
     "cli.countryCode": "Country code (numbering)",
     "pf.incoterm": "Incoterm *",
@@ -1019,6 +1025,9 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "mob.newProduct": "+ Nuevo producto",
+    "mob.newSupplier": "+ Nuevo proveedor",
+    "mob.newClient": "+ Nuevo cliente",
     "cli.country": "País",
     "cli.countryCode": "Sigla del país (numeración)",
     "pf.incoterm": "Incoterm *",
@@ -1528,6 +1537,9 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "mob.newProduct": "+ 新产品",
+    "mob.newSupplier": "+ 新供应商",
+    "mob.newClient": "+ 新客户",
     "cli.country": "国家",
     "cli.countryCode": "国家代码（编号用）",
     "pf.incoterm": "贸易术语 *",

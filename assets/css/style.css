@@ -434,3 +434,5 @@ p { margin: 0; }
   .footer__inner { grid-template-columns: 1fr; }
   .footer__nav { justify-content: flex-start; }
 }
+
+@media (max-width: 640px) { .lang__btn { padding-top: 8px; padding-bottom: 8px; } }

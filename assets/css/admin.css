@@ -591,4 +591,52 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .stamp__preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .stamp__actions { display: flex; align-items: center; gap: 14px; }
 .inv-incoterm { font-weight: 600; color: var(--navy); font-size: 14px; }
-@media (max-width: 1240px) { .pf-fields { grid-template-columns: 2fr 1fr 1fr; } }
+@media (min-width: 981px) and (max-width: 1240px) { .pf-fields { grid-template-columns: 2fr 1fr 1fr; } }
+
+/* ---------- Phone layout ---------- */
+.mob-new { display: none; }
+@media (max-width: 980px) {
+  /* Lists first, the form below (reached from "+ Novo" or "Editar"). */
+  #products-view > #form-panel, #suppliers-view > #supplier-panel, #clients-view > #client-panel { order: 2; }
+  .mob-new { display: inline-flex; }
+  .list-head { flex-wrap: wrap; }
+  .list-head h2 { flex: 1 1 auto; }
+}
+@media (max-width: 640px) {
+  /* Tables become cards: each value with its column title as a small label. */
+  .pf-table-wrap { overflow: visible; }
+  .pf-table thead { display: none; }
+  .pf-table, .pf-table tbody, .pf-table tfoot { display: block; width: 100%; }
+  .pf-table tr { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 16px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+  .pf-table td { display: block; border: 0 !important; padding: 0 !important; white-space: normal !important; text-align: left !important; min-width: 0; }
+  .pf-table tr:hover td { background: none !important; }
+  .pf-table td[data-label]:not([data-label=""])::before {
+    content: attr(data-label); display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 2px;
+  }
+  .pf-table td.fin-desc { flex: 1 1 100%; order: -1; }
+  .pf-table td.fin-desc::before, .pf-table td[data-label="#"] { display: none !important; }
+  .pf-table td:empty { display: none; }
+  .pf-table td:last-child:has(> button) { margin-left: auto; }
+  .pf-table tfoot tr { border-bottom: 0; border-top: 2px solid var(--line); }
+  .pf-table tfoot td[colspan] { flex: 1 1 100%; }
+  .pf-table tfoot td[colspan]::before { display: none !important; }
+  .fin-cards { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fin-card { padding: 10px 11px; }
+  .fin-card b { font-size: 16px; }
+  .fin-card > span { font-size: 11px; }
+  #pf-rows td:first-child { flex: 1 1 100%; font-size: 16px; }
+  #pf-rows td:first-child::before { display: none; }
+  .admin .dec-table .dec-input, .admin .inv-mini input { width: 130px; }
+  .fin-rec .check { min-height: 32px; }
+
+  /* Bigger tap targets */
+  .topbar .lang__btn { padding: 8px 6px; }
+  #pf-back { padding: 8px 0; display: inline-block; }
+  .admin input[type="checkbox"] { width: 20px; height: 20px; }
+  .tag__x { min-width: 28px; min-height: 28px; }
+  .linkbtn { padding: 6px 0; }
+  .mdl__x { width: 40px; height: 40px; }
+  .pf-actions, .ord__actions, .inv-bar__actions { gap: 8px; }
+  .pf-amend-tools { margin-left: 0; width: 100%; }
+}
