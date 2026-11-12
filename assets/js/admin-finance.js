@@ -614,7 +614,8 @@
     $("#fin-categories").innerHTML = categories(type).map(function (c) { return '<option value="' + esc(c) + '"></option>'; }).join("");
     ef.elements.repeat.innerHTML = REPEATS.map(function (n) { return '<option value="' + n + '">' + esc(n === 1 ? T("fin.noRepeat") : T("fin.repeatN", { n: n })) + "</option>"; }).join("");
     $("#fin-repeat-wrap").hidden = Boolean(entry);
-    ef.elements.paid.checked = Boolean(entry && entry.status === "paid");
+    // A new receivable starts as "already received" (the usual case); payables and existing entries keep their state.
+    ef.elements.paid.checked = entry ? entry.status === "paid" : type === "in";
     ef.elements.paidDate.value = entry && entry.paidDate ? entry.paidDate : "";
     ef.elements.accountId.innerHTML = "";
     ef.elements.proformaId.innerHTML = "";
