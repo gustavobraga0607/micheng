@@ -114,7 +114,6 @@ function applyBody(proforma, body, priv, previous, products) {
   proforma.terms = text(body.terms, 3000);
   // Incoterm agreed with the client (required to close the order; used on the invoice).
   proforma.incoterm = INCOTERMS.includes(body.incoterm) ? body.incoterm : null;
-  proforma.incotermPlace = text(body.incotermPlace, 80);
   proforma.items = buildItems(body.items, products, priv, previous, proforma.clientId);
   proforma.totals = totals(proforma.items);
 }
@@ -143,7 +142,7 @@ function duplicateProblems(items) {
 function closeProblems(p) {
   const problems = [];
   if (!p.clientId) problems.push("client");
-  if (!p.incoterm || !p.incotermPlace) problems.push("incoterm");
+  if (!p.incoterm) problems.push("incoterm");
   if (!p.items.length) problems.push("items");
   p.items.forEach((i, n) => {
     if (!(i.qty > 0)) problems.push("qty:" + (n + 1));
@@ -243,7 +242,6 @@ function cleanInvoice(body, pf) {
     number: text(body.number, 40),
     date: isoDate(body.date),
     incoterm: pf.incoterm || (INCOTERMS.includes(body.incoterm) ? body.incoterm : null),
-    incotermPlace: pf.incotermPlace || text(body.incotermPlace, 80),
     transport: TRANSPORTS.includes(body.transport) ? body.transport : null,
     portLoading: text(body.portLoading, 80),
     portDischarge: text(body.portDischarge, 80),
@@ -271,7 +269,7 @@ function cleanInvoice(body, pf) {
     inv.items[i.id] = { unit: text(r.unit, 20) || "PCS" };
   }
   const missing = [];
-  for (const k of ["number", "date", "incoterm", "incotermPlace", "transport", "portLoading", "portDischarge", "originCountry", "acquisitionCountry",
+  for (const k of ["number", "date", "incoterm", "transport", "portLoading", "portDischarge", "originCountry", "acquisitionCountry",
     "provenanceCountry", "paymentTerms", "packagesQty", "packagesKind", "grossWeight", "netWeight", "volumeM3"]) {
     if (inv[k] == null || inv[k] === "") missing.push(k);
   }

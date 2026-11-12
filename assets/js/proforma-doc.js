@@ -84,7 +84,7 @@
       var right = [L.no + " " + d.p.number, L.date + ": " + docDate(d.p.date, d)];
       if (d.p.validUntil) right.push(L.valid + ": " + docDate(d.p.validUntil, d));
       right.push(L.currency + ": " + d.cur.label);
-      if (d.p.incoterm) right.push("Incoterm: " + d.p.incoterm + " " + (d.p.incotermPlace || ""));
+      if (d.p.incoterm) right.push("Incoterm: " + d.p.incoterm);
       var rowsN = Math.max(left.length, right.length);
       for (var i = 0; i < rowsN; i++) {
         var r = ws.getRow(2 + i);

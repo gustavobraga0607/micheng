@@ -173,7 +173,6 @@
     form.elements.language.value = p ? p.language : (["en", "pt", "es"].indexOf(A.lang()) > -1 ? A.lang() : "en");
     form.elements.terms.value = p ? p.terms || "" : "";
     form.elements.incoterm.value = p ? p.incoterm || "" : "";
-    form.elements.incotermPlace.value = p ? p.incotermPlace || "" : "";
     amending = false;
     rows = p ? p.items.map(rowFromItem) : [];
     loadClientPrices(form.elements.clientId.value).then(function () {
@@ -453,7 +452,7 @@
   }
 
   var inf = $("#inv-form");
-  var INV_FIELDS = ["number", "date", "transport", "incoterm", "incotermPlace", "portLoading", "portDischarge", "originCountry", "acquisitionCountry",
+  var INV_FIELDS = ["number", "date", "transport", "incoterm", "portLoading", "portDischarge", "originCountry", "acquisitionCountry",
     "provenanceCountry", "paymentTerms", "buyer", "packagesQty", "packagesKind", "volumeM3", "grossWeight", "netWeight", "marks",
     "freight", "insurance", "otherCosts", "otherCostsLabel", "notes"];
   var INV_NUMERIC = ["volumeM3", "grossWeight", "netWeight", "freight", "insurance", "otherCosts"];
@@ -463,9 +462,9 @@
     var lang = editing.language || "en";
     var china = { en: "China", pt: "China", es: "China" }[lang] || "China";
     var defaults = {
-      number: "INV-" + editing.number.replace(/^PF-/, ""), date: today(), transport: "sea", incoterm: "FOB", incotermPlace: "Shenzhen",
-      portLoading: "Shenzhen, China", portDischarge: "", originCountry: china, acquisitionCountry: china, provenanceCountry: china,
-      paymentTerms: editing.terms || "", buyer: "", packagesQty: "", packagesKind: "", volumeM3: "", grossWeight: "", netWeight: "", marks: "",
+      number: "INV-" + editing.number.replace(/^PF-/, ""), date: today(), transport: "sea", incoterm: "FOB",
+      portLoading: "Shenzhen, China", portDischarge: "", originCountry: china, acquisitionCountry: "Hong Kong", provenanceCountry: china,
+      paymentTerms: "All payments made in advance", buyer: "", packagesQty: "", packagesKind: "", volumeM3: "", grossWeight: "", netWeight: "", marks: "",
       freight: "", insurance: "", otherCosts: "", otherCostsLabel: "", notes: ""
     };
     INV_FIELDS.forEach(function (f) {
@@ -477,8 +476,8 @@
     var fixed = Boolean(editing.incoterm);
     $("#inv-incoterm-fields").hidden = fixed;
     $("#inv-incoterm-fixed").hidden = !fixed;
-    $("#inv-incoterm-fixed").textContent = fixed ? T("inv.incotermFromOrder", { value: editing.incoterm + " " + (editing.incotermPlace || "") }) : "";
-    if (fixed) { inf.elements.incoterm.value = editing.incoterm; inf.elements.incotermPlace.value = editing.incotermPlace || ""; }
+    $("#inv-incoterm-fixed").textContent = fixed ? T("inv.incotermFromOrder", { value: editing.incoterm }) : "";
+    if (fixed) inf.elements.incoterm.value = editing.incoterm;
     var items = inv.items || {};
     $("#inv-items").innerHTML = editing.items.map(function (i, n) {
       var it = items[i.id] || {};
@@ -510,7 +509,7 @@
     editing.items.forEach(function (i) {
       body.items[i.id] = { unit: $('[data-inv-unit="' + i.id + '"]').value };
     });
-    var required = ["number", "date", "incotermPlace", "portLoading", "portDischarge", "originCountry", "acquisitionCountry", "provenanceCountry",
+    var required = ["number", "date", "portLoading", "portDischarge", "originCountry", "acquisitionCountry", "provenanceCountry",
       "paymentTerms", "packagesQty", "packagesKind", "volumeM3", "grossWeight", "netWeight"];
     var missing = required.filter(function (f) {
       var v = String(body[f] || "").trim();
@@ -548,7 +547,7 @@
     en: { title: "COMMERCIAL INVOICE", no: "Invoice No.", date: "Date", order: "Order", currency: "Currency", exporter: "Exporter / Seller", importer: "Importer / Consignee",
       buyer: "Buyer / Acquirer", taxId: "Tax ID", phone: "Phone", email: "E-mail", shipping: "Shipping", incoterm: "Incoterm", transport: "Mode of transport",
       portLoading: "Port of loading", portDischarge: "Port of destination", origin: "Country of origin", acquisition: "Country of acquisition", provenance: "Country of provenance",
-      payment: "Payment terms and currency", item: "#", code: "Code", description: "Description of goods (English)", descriptionPt: "Description in Portuguese (Descrição em português)", qty: "Qty", unit: "Unit",
+      payment: "Payment terms", item: "#", code: "Code", description: "Description of goods (English)", descriptionPt: "Description in Portuguese (Descrição em português)", qty: "Qty", unit: "Unit",
       unitPrice: "Unit price", amount: "Amount", subtotal: "Total goods", freight: "Freight", insurance: "Insurance", other: "Other expenses", total: "TOTAL",
       packages: "Packages", packagesQty: "Number and kind of packages", marks: "Marks and numbers", gross: "Gross weight", net: "Net weight", volume: "Volume",
       notes: "Notes", declaration: "We certify that this invoice is true and correct and that the goods described above are of {origin} origin.",
@@ -630,7 +629,11 @@
       var imp = [client.name || ""].concat(client.address ? doc.splitTextToSize(client.address, half - 6) : []);
       if (client.taxId) imp.push(L.taxId + ": " + client.taxId);
       if (client.phone) imp.push(L.phone + ": " + client.phone);
-      var ship = [L.incoterm + ": " + inv.incoterm + " " + inv.incotermPlace, L.transport + ": " + (L.tr[inv.transport] || inv.transport),
+      // Named place of the Incoterm: the port of loading for E/F terms (EXW, FCA, FAS, FOB),
+      // the port of destination for C/D terms (CFR, CIF, CPT, CIP, DAP, DPU, DDP).
+      var incoPlace = /^(EXW|FCA|FAS|FOB)$/.test(inv.incoterm) ? inv.portLoading : inv.portDischarge;
+      var incoterm = (inv.incoterm + " " + (incoPlace || "")).trim();
+      var ship = [L.incoterm + ": " + incoterm, L.transport + ": " + (L.tr[inv.transport] || inv.transport),
         L.portLoading + ": " + inv.portLoading, L.portDischarge + ": " + inv.portDischarge];
       var hA = box(M, half, L.importer, imp, y), hB = box(M + half + 4, half, L.shipping, ship, y);
       y += Math.max(hA, hB) + 3;
@@ -640,7 +643,7 @@
       var hC = Math.max(box(M, third, L.origin, [inv.originCountry], y), box(M + third + 4, third, L.acquisition, [inv.acquisitionCountry], y),
         box(M + 2 * (third + 4), third, L.provenance, [inv.provenanceCountry], y));
       y += hC + 3;
-      y += box(M, W - 2 * M, L.payment, doc.splitTextToSize(inv.paymentTerms + " — " + d.cur.label, W - 2 * M - 6), y) + 4;
+      y += box(M, W - 2 * M, L.payment, [inv.paymentTerms], y) + 4;
 
       // Items: description in full (name, description, options)
       var items = inv.items || {};
@@ -678,7 +681,7 @@
       lines.forEach(function (l) { doc.text(l[0], W - M - 75, y + 4); doc.text(d.cur.symbol + " " + num2(l[1]), W - M - 2, y + 4, { align: "right" }); y += 5; });
       doc.setFillColor.apply(doc, navy); doc.rect(W - M - 78, y, 78, 8, "F");
       doc.setTextColor(255); doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
-      doc.text(L.total + " " + inv.incoterm + " " + inv.incotermPlace, W - M - 75, y + 5.4);
+      doc.text(L.total + " " + incoterm, W - M - 75, y + 5.4, { maxWidth: 48 });
       doc.text(d.cur.symbol + " " + num2(grand), W - M - 2, y + 5.4, { align: "right" });
       y += 13;
 
@@ -1149,7 +1152,6 @@
       language: form.elements.language.value,
       terms: form.elements.terms.value,
       incoterm: form.elements.incoterm.value,
-      incotermPlace: form.elements.incotermPlace.value,
       baseUpdatedAt: editing ? editing.updatedAt : undefined, // refused if someone else saved it meanwhile
       items: rows.filter(function (r) { return r.productId; }).map(function (r) {
         return { id: r.id, productId: r.productId, supplierId: r.supplierId, options: r.options, qty: r.qty, cost: r.cost, price: r.price,
@@ -1356,7 +1358,7 @@
       var meta = [L.no + " " + d.p.number, L.date + ": " + docDate(d.p.date, d)];
       if (d.p.validUntil) meta.push(L.valid + ": " + docDate(d.p.validUntil, d));
       meta.push(L.currency + ": " + d.cur.label);
-      if (d.p.incoterm) meta.push("Incoterm: " + d.p.incoterm + " " + (d.p.incotermPlace || ""));
+      if (d.p.incoterm) meta.push("Incoterm: " + d.p.incoterm);
       doc.text(meta, W - M, y + (d.reference ? 17 : 13), { align: "right" });
       y = Math.max(infoY + info.length * 4 + 6, y + 32);
 

@@ -278,7 +278,7 @@
 .pf-actions .btn { padding: 9px 16px; font-size: 14px; }
 .danger-btn:hover { border-color: #c62828; color: #c62828; }
 .pf-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 8px; }
-.pf-fields { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 0.8fr 1.2fr; gap: 14px; }
+.pf-fields { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 0.8fr; gap: 14px; }
 .pf-fields > *, .pf-item__line > *, .pf-item__nums > *, .pf-item__main { min-width: 0; }
 .admin .pf-form input, .admin .pf-form select { min-width: 0; }
 .pf-items-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 18px; }
@@ -591,4 +591,4 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .stamp__preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .stamp__actions { display: flex; align-items: center; gap: 14px; }
 .inv-incoterm { font-weight: 600; color: var(--navy); font-size: 14px; }
-@media (max-width: 1240px) { .pf-fields { grid-template-columns: 2fr 1fr 1fr 1fr; } }
+@media (max-width: 1240px) { .pf-fields { grid-template-columns: 2fr 1fr 1fr; } }

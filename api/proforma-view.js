@@ -59,7 +59,7 @@ export default async function handler(req, res) {
       date: pf.date,
       validUntil: pf.validUntil || null,
       currency: pf.currency,
-      incoterm: pf.incoterm ? (pf.incoterm + " " + (pf.incotermPlace || "")).trim() : null,
+      incoterm: pf.incoterm || null,
       language: pf.language || "en",
       company: { name: s.companyName || "", address: s.address || "", phone: s.phone || "", email: s.email || "", website: s.website || "" },
       client: pf.client ? { name: pf.client.name || "", address: pf.client.address || "", phone: pf.client.phone || "", taxId: pf.client.taxId || "" } : null,
