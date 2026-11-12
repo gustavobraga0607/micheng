@@ -1,6 +1,8 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "cli.country": "País",
+    "cli.countryCode": "Sigla do país (numeração)",
     "pf.incoterm": "Incoterm *",
     "pf.problem.incoterm": "Escolha o Incoterm.",
     "inv.incotermFromOrder": "Incoterm do pedido: {value}",
@@ -18,7 +20,7 @@ window.ADMIN_I18N = {
     "inv.title": "Invoice comercial",
     "inv.hint": "Confira os dados antes de gerar. Itens, quantidades e preços vêm do pedido.",
     "inv.document": "Documento",
-    "inv.number": "Nº da invoice *",
+    "inv.number": "Nº (o mesmo do pedido)",
     "inv.date": "Data *",
     "inv.transport": "Via de transporte *",
     "inv.tr.sea": "Marítima",
@@ -508,6 +510,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "cli.country": "Country",
+    "cli.countryCode": "Country code (numbering)",
     "pf.incoterm": "Incoterm *",
     "pf.problem.incoterm": "Choose the Incoterm.",
     "inv.incotermFromOrder": "Order Incoterm: {value}",
@@ -525,7 +529,7 @@ window.ADMIN_I18N = {
     "inv.title": "Commercial invoice",
     "inv.hint": "Check the data before generating. Items, quantities and prices come from the order.",
     "inv.document": "Document",
-    "inv.number": "Invoice No. *",
+    "inv.number": "No. (same as the order)",
     "inv.date": "Date *",
     "inv.transport": "Mode of transport *",
     "inv.tr.sea": "Sea",
@@ -1015,6 +1019,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "cli.country": "País",
+    "cli.countryCode": "Sigla del país (numeración)",
     "pf.incoterm": "Incoterm *",
     "pf.problem.incoterm": "Elija el Incoterm.",
     "inv.incotermFromOrder": "Incoterm del pedido: {value}",
@@ -1032,7 +1038,7 @@ window.ADMIN_I18N = {
     "inv.title": "Factura comercial",
     "inv.hint": "Revise los datos antes de generar. Ítems, cantidades y precios vienen del pedido.",
     "inv.document": "Documento",
-    "inv.number": "Nº de factura *",
+    "inv.number": "Nº (el mismo del pedido)",
     "inv.date": "Fecha *",
     "inv.transport": "Vía de transporte *",
     "inv.tr.sea": "Marítima",
@@ -1522,6 +1528,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "cli.country": "国家",
+    "cli.countryCode": "国家代码（编号用）",
     "pf.incoterm": "贸易术语 *",
     "pf.problem.incoterm": "请选择贸易术语。",
     "inv.incotermFromOrder": "订单贸易术语：{value}",
@@ -1539,7 +1547,7 @@ window.ADMIN_I18N = {
     "inv.title": "商业发票",
     "inv.hint": "生成前请核对数据。项目、数量和价格来自订单。",
     "inv.document": "文件",
-    "inv.number": "发票号 *",
+    "inv.number": "编号（与订单相同）",
     "inv.date": "日期 *",
     "inv.transport": "运输方式 *",
     "inv.tr.sea": "海运",

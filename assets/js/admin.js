@@ -1038,7 +1038,18 @@
   /* ---------- Clients tab ---------- */
   var clients = [];
   var cliForm = $("#client-form");
-  var CLI_FIELDS = ["name", "address", "phone", "taxId"];
+  var CLI_FIELDS = ["name", "address", "country", "countryCode", "phone", "taxId"];
+
+  // Country suggestions and the code they put in the proforma / invoice numbers.
+  var COUNTRIES = [
+    ["Brasil", "BR"], ["Estados Unidos", "USA"], ["China", "CN"], ["Hong Kong", "HK"], ["Argentina", "AR"], ["Chile", "CL"],
+    ["Uruguai", "UY"], ["Paraguai", "PY"], ["Bolívia", "BO"], ["Peru", "PE"], ["Colômbia", "CO"], ["Equador", "EC"],
+    ["Venezuela", "VE"], ["México", "MX"], ["Canadá", "CA"], ["Portugal", "PT"], ["Espanha", "ES"], ["Itália", "IT"],
+    ["França", "FR"], ["Alemanha", "DE"], ["Reino Unido", "UK"], ["Angola", "AO"], ["Moçambique", "MZ"], ["Panamá", "PA"],
+    ["Costa Rica", "CR"], ["República Dominicana", "DO"], ["Emirados Árabes Unidos", "UAE"], ["Austrália", "AU"]
+  ];
+  function plain(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase(); }
+  $("#country-list").innerHTML = COUNTRIES.map(function (c) { return '<option value="' + escapeHtml(c[0]) + '"></option>'; }).join("");
 
   function setClientStatus(msg, kind) {
     var el = $("#client-status");
@@ -1081,6 +1092,7 @@
     });
     $("#client-list").innerHTML = shown.map(function (c) {
       var details = [];
+      if (c.country || c.countryCode) details.push(escapeHtml((c.country || "") + (c.countryCode ? " (" + c.countryCode + ")" : "")));
       if (c.phone) details.push("☎ " + escapeHtml(c.phone));
       if (c.taxId) details.push(escapeHtml(T("cli.taxId") + ": " + c.taxId));
       return '<li class="pitem sitem' + (c.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(c.id) + '">' +
@@ -1093,6 +1105,14 @@
   }
 
   $("#client-search").addEventListener("input", renderClients);
+  // Choosing a known country fills its code (which can still be edited).
+  cliForm.elements.country.addEventListener("input", function () {
+    var c = COUNTRIES.filter(function (x) { return plain(x[0]) === plain(cliForm.elements.country.value); })[0];
+    if (c) cliForm.elements.countryCode.value = c[1];
+  });
+  cliForm.elements.countryCode.addEventListener("input", function () {
+    this.value = this.value.toUpperCase().replace(/[^A-Z]/g, "");
+  });
   $("#client-cancel").addEventListener("click", function () { resetClientForm(); setClientStatus(""); });
 
   cliForm.addEventListener("submit", function (e) {

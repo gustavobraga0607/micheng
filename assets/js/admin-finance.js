@@ -260,7 +260,7 @@
       if (from && d < from) return false;
       if (to && d > to) return false;
       if (q) {
-        var hay = [e.description, e.category, e.document, e.notes, e.proformaNumber, e.party && e.party.name].join(" ").toLowerCase();
+        var hay = [e.description, e.category, e.document, e.notes, pfNumber(e), e.party && e.party.name].join(" ").toLowerCase();
         if (hay.indexOf(q) < 0) return false;
       }
       return true;
@@ -290,7 +290,7 @@
       esc(T("fin.account")) + '</th><th class="num">' + esc(T("fin.amount").replace(" *", "")) + "</th><th>" + esc(T("fin.situation")) + "</th><th></th></tr></thead>";
     var rows = list.map(function (e) {
       var acc = accountById(e.accountId);
-      var meta = [e.party && e.party.name, e.category, e.proformaNumber, e.document, e.installment ? e.installment.n + "/" + e.installment.of : ""].filter(Boolean);
+      var meta = [e.party && e.party.name, e.category, pfNumber(e), e.document, e.installment ? e.installment.n + "/" + e.installment.of : ""].filter(Boolean);
       var action = e.status === "paid"
         ? ""
         : '<button type="button" class="btn btn--outline btn--sm" data-pay="' + esc(e.id) + '">' + esc(T(e.type === "in" ? "fin.receive" : "fin.pay")) + "</button>";
@@ -344,12 +344,12 @@
       running = r2(running + v);
       if (e.type === "in") totalIn += e.amount; else totalOut += e.amount;
       if (e.reconciled) rec += 1;
-      var hay = [e.description, e.category, e.document, e.proformaNumber, e.party && e.party.name].join(" ").toLowerCase();
+      var hay = [e.description, e.category, e.document, pfNumber(e), e.party && e.party.name].join(" ").toLowerCase();
       if (q && hay.indexOf(q) < 0) return;
       shown += 1;
       rows.push('<tr data-entry="' + esc(e.id) + '" class="' + (e.reconciled ? "is-reconciled" : "") + '">' +
         "<td>" + esc(fmtDate(e.paidDate)) + "</td>" +
-        '<td class="fin-desc"><b>' + esc(e.description) + clip(e) + "</b><small>" + esc([e.party && e.party.name, e.category, e.proformaNumber, e.document].filter(Boolean).join(" · ")) + "</small></td>" +
+        '<td class="fin-desc"><b>' + esc(e.description) + clip(e) + "</b><small>" + esc([e.party && e.party.name, e.category, pfNumber(e), e.document].filter(Boolean).join(" · ")) + "</small></td>" +
         '<td class="num is-ok">' + (e.type === "in" ? esc(money(e.amount, a.currency)) : "") + "</td>" +
         '<td class="num is-neg">' + (e.type === "out" ? esc(money(e.amount, a.currency)) : "") + "</td>" +
         '<td class="num"><b class="' + (running < 0 ? "is-neg" : "") + '">' + esc(signed(running, a.currency)) + "</b></td>" +
@@ -559,6 +559,14 @@
     ef.elements.partyName.value = p && (p.kind === "other" || sel.value === "other") ? p.name : "";
     $("#fin-partyname-wrap").hidden = sel.value !== "other";
     $("#fin-party-label").textContent = T(type === "in" ? "fin.client" : "fin.supplier");
+  }
+
+  // Number of the order linked to an entry: its current number (it may have
+  // changed, e.g. a draft switched to a client of another country).
+  function pfNumber(e) {
+    if (!e.proformaId) return e.proformaNumber || "";
+    var pf = pfList().filter(function (p) { return p.id === e.proformaId; })[0];
+    return pf ? pf.number : e.proformaNumber || "";
   }
 
   // Proformas and orders, always the panel's current list.

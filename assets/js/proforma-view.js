@@ -64,7 +64,7 @@
     var cl = data.client;
     $("pv-client").hidden = !cl;
     if (cl) {
-      var lines = [cl.address, cl.phone && t("phone") + ": " + cl.phone, cl.taxId && t("taxId") + ": " + cl.taxId].filter(Boolean);
+      var lines = [cl.address, cl.country, cl.phone && t("phone") + ": " + cl.phone, cl.taxId && t("taxId") + ": " + cl.taxId].filter(Boolean);
       $("pv-client").innerHTML = "<span>" + esc(t("billTo")) + "</span><b>" + esc(cl.name) + "</b>" + (lines.length ? "<p>" + esc(lines.join("\n")) + "</p>" : "");
     }
 

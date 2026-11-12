@@ -227,6 +227,11 @@
           <label><span data-t="cli.name">Nome *</span><input type="text" name="name" maxlength="160" required /></label>
           <label><span data-t="cli.address">Endereço</span><textarea name="address" rows="3" maxlength="500"></textarea></label>
           <div class="form-row">
+            <label><span data-t="cli.country">País</span><input type="text" name="country" maxlength="80" list="country-list" autocomplete="off" /></label>
+            <label><span data-t="cli.countryCode">Sigla do país (numeração)</span><input type="text" name="countryCode" maxlength="4" autocomplete="off" placeholder="BR" /></label>
+          </div>
+          <datalist id="country-list"></datalist>
+          <div class="form-row">
             <label><span data-t="cli.phone">Telefone</span><input type="text" name="phone" maxlength="60" /></label>
             <label><span data-t="cli.taxId">Tax ID</span><input type="text" name="taxId" maxlength="80" data-t-placeholder="cli.taxIdPh" /></label>
           </div>
@@ -398,7 +403,7 @@
         <fieldset class="group">
           <legend data-t="inv.document">Documento</legend>
           <div class="form-row form-row--3">
-            <label><span data-t="inv.number">Nº da invoice *</span><input type="text" name="number" maxlength="40" /></label>
+            <label><span data-t="inv.number">Nº da invoice</span><input type="text" name="number" maxlength="40" readonly /></label>
             <label><span data-t="inv.date">Data *</span><input type="date" name="date" /></label>
             <label><span data-t="inv.transport">Via de transporte *</span>
               <select name="transport">

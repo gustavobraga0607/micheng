@@ -443,7 +443,7 @@
     var inv = editing.invoice;
     var paid = received + 0.005 >= total;
     var info = inv
-      ? T("inv.done", { number: inv.number, date: fmtDate(inv.date) })
+      ? T("inv.done", { number: editing.number, date: fmtDate(inv.date) })
       : paid ? T("inv.ready") : T("inv.waiting", { value: A.money(round(total - received), cur) });
     var buttons = inv
       ? '<button type="button" class="btn btn--outline btn--sm" data-inv="edit">' + esc(T("inv.edit")) + "</button>" +
@@ -464,11 +464,12 @@
     var lang = editing.language || "en";
     var china = { en: "China", pt: "China", es: "China" }[lang] || "China";
     var defaults = {
-      number: "INV-" + editing.number.replace(/^PF-/, ""), date: today(), transport: "sea", incoterm: "FOB",
+      number: editing.number, date: today(), transport: "sea", incoterm: "FOB",
       portLoading: "Shenzhen, China", portDischarge: "", originCountry: china, acquisitionCountry: "Hong Kong", provenanceCountry: china,
       paymentTerms: "All payments made in advance", buyer: "", packagesQty: "", packagesKind: "", volumeM3: "", grossWeight: "", netWeight: "", marks: "",
       freight: "", insurance: "", otherCosts: "", otherCostsLabel: "", notes: ""
     };
+    inv = Object.assign({}, inv, { number: editing.number }); // always the order's number
     INV_FIELDS.forEach(function (f) {
       var v = inv[f] != null && inv[f] !== "" ? inv[f] : defaults[f];
       inf.elements[f].value = INV_NUMERIC.indexOf(f) > -1 && v !== "" ? String(v).replace(".", ",") : v;
@@ -511,7 +512,7 @@
     editing.items.forEach(function (i) {
       body.items[i.id] = { unit: $('[data-inv-unit="' + i.id + '"]').value };
     });
-    var required = ["number", "date", "portLoading", "portDischarge", "originCountry", "acquisitionCountry", "provenanceCountry",
+    var required = ["date", "portLoading", "portDischarge", "originCountry", "acquisitionCountry", "provenanceCountry",
       "paymentTerms", "packagesQty", "packagesKind", "volumeM3", "grossWeight", "netWeight"];
     var missing = required.filter(function (f) {
       var v = String(body[f] || "").trim();
@@ -534,7 +535,7 @@
         accept(data.proforma);
         return exportInvoice(data.proforma).then(function () {
           $("#inv-dlg").close();
-          setStatus(T("inv.generated", { number: data.proforma.invoice.number }), "ok");
+          setStatus(T("inv.generated", { number: data.proforma.number }), "ok");
         });
       })
       .catch(function (err) {
@@ -609,7 +610,7 @@
       doc.setTextColor.apply(doc, navy); doc.setFont("helvetica", "bold"); doc.setFontSize(16);
       doc.text(L.title, W - M, y + 6, { align: "right" });
       doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text);
-      doc.text([L.no + " " + inv.number, L.date + ": " + docDate(inv.date, d), L.order + ": " + p.number, L.currency + ": " + d.cur.label], W - M, y + 12, { align: "right" });
+      doc.text([L.no + " " + p.number, L.date + ": " + docDate(inv.date, d), L.currency + ": " + d.cur.label], W - M, y + 12, { align: "right" });
       y = Math.max(infoY + info.length * 3.8 + 4, y + 30);
 
       // Boxes: importer | shipping
@@ -629,6 +630,7 @@
       var half = (W - 2 * M - 4) / 2;
       doc.setFontSize(8.6);
       var imp = [client.name || ""].concat(client.address ? doc.splitTextToSize(client.address, half - 6) : []);
+      if (client.country) imp.push(client.country);
       if (client.taxId) imp.push(L.taxId + ": " + client.taxId);
       if (client.phone) imp.push(L.phone + ": " + client.phone);
       // Named place of the Incoterm: the port of loading for E/F terms (EXW, FCA, FAS, FOB),
@@ -719,10 +721,10 @@
       var pages = doc.getNumberOfPages();
       for (var k = 1; k <= pages; k++) {
         doc.setPage(k); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted); doc.setFont("helvetica", "normal");
-        doc.text((s.companyName || "Shenzhen Micheng International Trading") + " · " + inv.number, M, 290);
+        doc.text((s.companyName || "Shenzhen Micheng International Trading") + " · " + p.number, M, 290);
         doc.text(L.page + " " + k + "/" + pages, W - M, 290, { align: "right" });
       }
-      doc.save(PD.safeName(inv.number + (client.name ? " - " + client.name : ""), "pdf"));
+      doc.save(PD.safeName("Invoice " + p.number + (client.name ? " - " + client.name : ""), "pdf"));
     });
   }
   // Up to 3 decimals, in the document's language (1.85 in English, 1,85 in Portuguese).
@@ -1385,6 +1387,7 @@
       // Bill to
       doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251);
       var billLines = [client.name || ""].concat(client.address ? doc.splitTextToSize(client.address, W - 2 * M - 10) : []);
+      if (client.country) billLines.push(client.country);
       if (client.phone) billLines.push(L.phone + ": " + client.phone);
       if (client.taxId) billLines.push(L.taxId + ": " + client.taxId);
       var boxH = 9 + billLines.length * 4.3;

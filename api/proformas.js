@@ -105,7 +105,7 @@ function totals(items) {
 function applyBody(proforma, body, priv, previous, products) {
   const client = priv.clients.find((c) => c.id === body.clientId);
   proforma.clientId = client ? client.id : (previous && previous.clientId) || null;
-  if (client) proforma.client = { name: client.name, address: client.address, phone: client.phone, taxId: client.taxId };
+  if (client) proforma.client = { name: client.name, address: client.address, country: client.country || "", phone: client.phone, taxId: client.taxId };
   else if (!previous || previous.clientId !== proforma.clientId) proforma.client = null;
   proforma.date = isoDate(body.date) || proforma.date || new Date().toISOString().slice(0, 10);
   proforma.validUntil = isoDate(body.validUntil);
@@ -118,10 +118,32 @@ function applyBody(proforma, body, priv, previous, products) {
   proforma.totals = totals(proforma.items);
 }
 
-function nextNumber(priv, date) {
-  const year = String(date || new Date().toISOString()).slice(0, 4);
+// Numbers are "<client's country code>-<year>-<sequence>", e.g. BR-2026-005,
+// USA-2026-006. The sequence is one per year for every country, so numbers never
+// repeat; the invoice uses the same number. "PF" while the client has no code.
+function numberPrefix(priv, clientId) {
+  const c = priv.clients.find((x) => x.id === clientId);
+  return (c && c.countryCode) || "PF";
+}
+
+function nextNumber(priv, proforma) {
+  const year = String(proforma.date || new Date().toISOString()).slice(0, 4);
   priv.proformaSeq[year] = (priv.proformaSeq[year] || 0) + 1;
-  return "PF-" + year + "-" + String(priv.proformaSeq[year]).padStart(3, "0");
+  proforma.seqYear = year;
+  proforma.seq = priv.proformaSeq[year];
+  return numberPrefix(priv, proforma.clientId) + "-" + year + "-" + String(proforma.seq).padStart(3, "0");
+}
+
+// A draft follows its client's country code (the client may change or get a
+// country later); the year and sequence never change.
+function renumber(priv, proforma) {
+  let year = proforma.seqYear, seq = proforma.seq;
+  if (!seq) {
+    const m = /-(\d{4})-(\d+)$/.exec(proforma.number || "");
+    if (!m) return;
+    year = m[1]; seq = Number(m[2]);
+  }
+  proforma.number = numberPrefix(priv, proforma.clientId) + "-" + year + "-" + String(seq).padStart(3, "0");
 }
 
 // The same product with exactly the same options may appear only once
@@ -239,7 +261,7 @@ export function receivedFor(fin, pf) {
 function cleanInvoice(body, pf) {
   const n = (v) => (v === "" || v == null ? null : num(v));
   const inv = {
-    number: text(body.number, 40),
+    number: pf.number, // the invoice carries the order's number
     date: isoDate(body.date),
     incoterm: pf.incoterm || (INCOTERMS.includes(body.incoterm) ? body.incoterm : null),
     transport: TRANSPORTS.includes(body.transport) ? body.transport : null,
@@ -316,7 +338,7 @@ async function handler(req, res) {
       applyBody(proforma, body, priv, null, products);
       const dups = duplicateProblems(proforma.items);
       if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
-      proforma.number = nextNumber(priv, proforma.date);
+      proforma.number = nextNumber(priv, proforma);
       priv.proformas.unshift(proforma);
       await savePrivate(priv);
       return send(res, 201, { proforma });
@@ -335,6 +357,7 @@ async function handler(req, res) {
       applyBody(proforma, body, priv, current, products);
       const dups = duplicateProblems(proforma.items);
       if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
+      renumber(priv, proforma);
       priv.proformas[index] = proforma;
       await savePrivate(priv);
       return send(res, 200, { proforma });
@@ -346,6 +369,7 @@ async function handler(req, res) {
       if (problems.length) return send(res, 422, { error: "Cannot close", problems });
       const now = new Date().toISOString();
       const proforma = { ...current, status: "closed", closedAt: now, closedBy: session.u, updatedAt: now };
+      renumber(priv, proforma);
       rememberPrices(priv, proforma, proforma.items, now);
       proforma.items = loadDiscounts(priv, proforma, proforma.items);
       addLog(proforma, session.u, "closed", null);

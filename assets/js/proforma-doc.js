@@ -107,6 +107,7 @@
       ws.getCell(y, 1).font = { bold: true, size: 9, color: { argb: "FF5B6878" } };
       var bill = [client.name || ""];
       if (client.address) bill.push(client.address.replace(/\n/g, ", "));
+      if (client.country) bill.push(client.country);
       if (client.phone) bill.push(L.phone + ": " + client.phone);
       if (client.taxId) bill.push(L.taxId + ": " + client.taxId);
       bill.forEach(function (line, n) {

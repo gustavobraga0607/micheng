@@ -8,6 +8,7 @@ import { getPrivate, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 const FIELDS = {
   name: 160,
   address: 500,
+  country: 80,
   phone: 60,
   taxId: 80,
 };
@@ -17,6 +18,9 @@ function clean(body) {
   for (const [key, max] of Object.entries(FIELDS)) {
     out[key] = String(body[key] || "").replace(/\r\n/g, "\n").trim().slice(0, max);
   }
+  // Country code used in the proforma / invoice numbers (BR-2026-005): 2 to 4 letters.
+  out.countryCode = String(body.countryCode || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+  if (out.countryCode.length < 2) out.countryCode = "";
   return out;
 }
 
