@@ -483,6 +483,33 @@ async function handler(req, res) {
       return send(res, 200, { proforma });
     }
 
+    // Changes the client requested on the proforma page: apply them to the
+    // items (a closed order is changed the same way as "Alterar itens") or discard them.
+    if (req.method === "POST" && action === "clientChanges") {
+      const body = await readJson(req);
+      const pending = current.clientChanges || {};
+      const now = new Date().toISOString();
+      const proforma = { ...current, clientChanges: {}, updatedAt: now };
+      const list = Object.entries(pending).map(([id, c]) => {
+        const item = current.items.find((i) => i.id === id);
+        return item ? { type: c.removed ? "removed" : "qty", item: logItem(item), qty: item.qty, price: item.price, from: item.qty, to: c.qty } : null;
+      }).filter(Boolean);
+      if (body.apply) {
+        const items = current.items
+          .filter((i) => !(pending[i.id] && pending[i.id].removed))
+          .map((i) => (pending[i.id] && pending[i.id].qty ? { ...i, qty: pending[i.id].qty } : i));
+        if (!items.length) return send(res, 422, { error: "Cannot remove every item", problems: ["items"] });
+        proforma.items = items;
+        proforma.totals = totals(items);
+        addLog(proforma, session.u, "clientApplied", list);
+      } else {
+        addLog(proforma, session.u, "clientDiscarded", list);
+      }
+      priv.proformas[index] = proforma;
+      await savePrivate(priv);
+      return send(res, 200, { proforma });
+    }
+
     // Link of the proforma's web page (photos in full size), sent to the client.
     // Created once; works for drafts and closed proformas alike.
     if (req.method === "POST" && action === "share") {

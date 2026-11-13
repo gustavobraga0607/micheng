@@ -106,7 +106,8 @@
         "<td><b>" + esc(p.number) + "</b></td>" +
         "<td>" + esc(p.client ? p.client.name : "—") + "</td>" +
         "<td>" + esc(fmtDate(p.date)) + "</td>" +
-        '<td><span class="badge badge--' + p.status + '">' + esc(T(p.status === "closed" ? "pf.closed" : "pf.draft")) + "</span></td>" +
+        '<td><span class="badge badge--' + p.status + '">' + esc(T(p.status === "closed" ? "pf.closed" : "pf.draft")) + "</span>" +
+          (Object.keys(p.clientChanges || {}).length ? ' <span class="badge badge--cc">' + esc(T("cc.badge")) + "</span>" : "") + "</td>" +
         '<td class="num">' + esc(A.money(p.totals.sale, p.currency)) + "</td>" +
         '<td class="num internal">' + (hasProfit ? esc(A.money(p.totals.profit, p.currency)) + " <small>" + esc(pct(m)) + "</small>" : "—") + "</td>" +
         '<td class="num"><button type="button" class="btn btn--outline btn--sm" data-open="' + esc(p.id) + '">' + esc(T("pf.open")) + "</button></td></tr>";
@@ -207,8 +208,52 @@
     form.querySelectorAll(".pf-fields input, .pf-fields select, textarea").forEach(function (el) { el.disabled = closed; });
     renderOrder();
     renderLog();
+    renderClientChanges();
     applyOrderTabs();
   }
+
+  /* ---------- Changes the client requested on the proforma page ---------- */
+  function renderClientChanges() {
+    var box = $("#pf-cc");
+    var pending = (editing && editing.clientChanges) || {};
+    var lines = editing ? editing.items.map(function (i, n) {
+      var c = pending[i.id];
+      if (!c) return null;
+      var name = (n + 1) + ". " + logItemText(logItemOf(i));
+      return c.removed ? '<li class="cc-removed">' + esc(T("cc.removed", { item: name })) + "</li>"
+        : "<li>" + esc(T("cc.qty", { item: name, from: i.qty, to: c.qty })) + "</li>";
+    }).filter(Boolean) : [];
+    box.hidden = !lines.length;
+    if (!lines.length) return;
+    box.innerHTML = '<div class="cc-box__head"><div><b>' + esc(T("cc.title")) + "</b><span>" + esc(T("cc.hint")) + "</span></div>" +
+      '<div class="cc-box__actions"><button type="button" class="btn btn--outline btn--sm" data-cc-act="discard">' + esc(T("cc.discard")) + "</button>" +
+      '<button type="button" class="btn btn--primary btn--sm" data-cc-act="apply">' + esc(T("cc.apply")) + "</button></div></div>" +
+      "<ul>" + lines.join("") + "</ul>";
+  }
+  function logItemOf(i) {
+    return { sku: i.sku, name: (i.product && i.product.name) || {}, options: i.options.map(function (o) { return o.optionLabel || {}; }) };
+  }
+  $("#pf-cc").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-cc-act]");
+    if (!b || !editing) return;
+    var apply = b.getAttribute("data-cc-act") === "apply";
+    if (apply && !isClosed() && !confirm(T("cc.confirmDraft"))) return;
+    if (apply && amending) return setStatus(T("cc.finishAmend"), "error");
+    b.disabled = true;
+    A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=clientChanges", { method: "POST", body: { apply: apply } })
+      .then(function (data) {
+        editing = data.proforma;
+        var idx = proformas.findIndex(function (x) { return x.id === editing.id; });
+        if (idx > -1) proformas[idx] = editing;
+        rows = editing.items.map(rowFromItem);
+        decState = { id: null, values: {} };
+        renderList(); renderHeader(); renderItems();
+        setStatus(T(apply ? "cc.applied" : "cc.discarded"), "ok");
+      }, function (err) {
+        setStatus(/every item/.test(err.message) ? T("cc.allRemoved") : err.message, "error");
+      })
+      .then(function () { b.disabled = false; });
+  });
 
   /* ---------- Change log (end of the page) ---------- */
   function logItemText(it) {
@@ -217,7 +262,10 @@
     var opts = (it.options || []).map(pick).filter(Boolean).join(" · ");
     return (it.sku ? it.sku + " " : "") + pick(it.name) + (opts ? " (" + opts + ")" : "");
   }
-  function logChangeText(c, cur) {
+  function logChangeText(c, cur, kind) {
+    if (kind === "clientDiscarded") {
+      return c.type === "removed" ? T("log.reqRemoved", { item: logItemText(c.item) }) : T("log.reqQty", { item: logItemText(c.item), from: c.from, to: c.to });
+    }
     if (c.type === "invoice") return T("log.invoiceNumber", { number: c.number });
     if (c.type === "po") return T("log.poNumber", { number: c.number, supplier: c.supplier });
     var name = logItemText(c.item);
@@ -234,7 +282,7 @@
     if (!log.length) { $("#pf-log-list").innerHTML = ""; return; }
     $("#pf-log-list").innerHTML = log.slice().reverse().map(function (e) {
       var when = new Date(e.at).toLocaleString(A.locale(), { dateStyle: "short", timeStyle: "short" });
-      var lines = (e.changes || []).map(function (c) { return '<li class="pf-log__change pf-log__change--' + esc(c.type) + '">' + esc(logChangeText(c, editing.currency)) + "</li>"; }).join("");
+      var lines = (e.changes || []).map(function (c) { return '<li class="pf-log__change pf-log__change--' + esc(c.type) + '">' + esc(logChangeText(c, editing.currency, e.kind)) + "</li>"; }).join("");
       return '<li class="pf-log__entry"><div class="pf-log__meta"><b>' + esc(T("log.kind." + e.kind)) + "</b><span>" + esc(when) + (e.by ? " · " + esc(e.by) : "") + "</span></div>" +
         (lines ? "<ul>" + lines + "</ul>" : "") + "</li>";
     }).join("");
@@ -1853,7 +1901,7 @@
       // The open proforma keeps what is being typed; only its saved copy is replaced.
       if (editing) {
         var fresh = proformas.filter(function (x) { return x.id === editing.id; })[0];
-        if (fresh && fresh.updatedAt === editing.updatedAt) editing = fresh;
+        if (fresh && fresh.updatedAt === editing.updatedAt) { editing = fresh; renderClientChanges(); }
         else if (fresh && conflicted && !$("#pf-editor").hidden) {
           // Someone else saved it meanwhile: show their version (ours could not be saved over it).
           openEditor(fresh);

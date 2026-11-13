@@ -2,8 +2,8 @@
 // from the link on the PDF. Only what the PDF shows is returned — never costs,
 // margins or suppliers. Photos are always the product's current ones.
 import crypto from "node:crypto";
-import { fail, queryParam } from "./_lib/http.js";
-import { getAllData } from "./_lib/store.js";
+import { fail, queryParam, readJson, isJsonRequest } from "./_lib/http.js";
+import { getAllData, savePrivate, withDataLock, BusyError } from "./_lib/store.js";
 import { variantImage } from "./_lib/sku.js";
 import { poNumber } from "./proformas.js";
 
@@ -64,12 +64,68 @@ function sendPo(res, priv, products, pf, supplierId) {
   }));
 }
 
+/* ---------- Changes requested by the client ----------
+   On the proforma page the client may ask for another quantity or for an item
+   to be removed. Requests are kept apart (proforma.clientChanges, by item id),
+   shown to the client and to us, and only change the proforma when an admin
+   applies them. */
+const MAX_QTY = 10000000;
+
+function cleanChange(item, body) {
+  if (body.undo) return null;
+  if (body.removed) return { removed: true };
+  const qty = Number(String(body.qty == null ? "" : body.qty).replace(",", "."));
+  if (!(qty > 0) || qty > MAX_QTY) return undefined; // invalid
+  const rounded = Math.round(qty * 1000) / 1000;
+  return rounded === item.qty ? null : { qty: rounded }; // asking for the current quantity = no change
+}
+
+async function saveClientChange(req, res, token) {
+  if (!isJsonRequest(req)) return fail(res, 415, "Expected JSON");
+  const body = await readJson(req);
+  const itemId = String(body.itemId || "");
+  let result;
+  try {
+    result = await withDataLock(async () => {
+      const { priv } = await getAllData();
+      const index = priv.proformas.findIndex((p) => p.shareToken && sameToken(p.shareToken, token));
+      if (index < 0) return { status: 404 };
+      const pf = priv.proformas[index];
+      const item = pf.items.find((i) => i.id === itemId);
+      if (!item) return { status: 404 };
+      const change = cleanChange(item, body);
+      if (change === undefined) return { status: 400 };
+      const changes = { ...(pf.clientChanges || {}) };
+      if (change) changes[itemId] = { ...change, at: new Date().toISOString() };
+      else delete changes[itemId];
+      priv.proformas[index] = { ...pf, clientChanges: changes, clientChangesAt: new Date().toISOString() };
+      await savePrivate(priv);
+      return { changes };
+    });
+  } catch (e) {
+    if (e instanceof BusyError) return fail(res, 503, "Busy, try again");
+    throw e;
+  }
+  if (result.status) return fail(res, result.status, result.status === 400 ? "Invalid quantity" : "Not found");
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.end(JSON.stringify({ changes: publicChanges(result.changes) }));
+}
+
+function publicChanges(changes) {
+  const out = {};
+  for (const [id, c] of Object.entries(changes || {})) out[id] = c.removed ? { removed: true } : { qty: c.qty };
+  return out;
+}
+
 export default async function handler(req, res) {
   try {
-    if (req.method !== "GET") return fail(res, 405, "Method not allowed");
+    if (req.method !== "GET" && req.method !== "POST") return fail(res, 405, "Method not allowed");
     const token = String(queryParam(req, "t") || "");
     if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return fail(res, 404, "Not found");
     if (tooMany(req)) return fail(res, 429, "Too many requests");
+    if (req.method === "POST") return await saveClientChange(req, res, token);
     const { products, priv } = await getAllData();
     const pf = priv.proformas.find((p) => p.shareToken && sameToken(p.shareToken, token));
     if (!pf) {
@@ -89,6 +145,7 @@ export default async function handler(req, res) {
       const ids = i.options.map((o) => o.optionId);
       const snap = i.product || {};
       return {
+        id: i.id,
         n: n + 1,
         code: i.sku || null,
         ref: i.clientRef || null,
@@ -113,6 +170,8 @@ export default async function handler(req, res) {
       items,
       total: pf.totals ? pf.totals.sale : items.reduce((t, i) => t + i.amount, 0),
       terms: pf.terms || "",
+      editable: true, // the client may request changes (they wait for our approval)
+      changes: publicChanges(pf.clientChanges),
     };
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json; charset=utf-8");

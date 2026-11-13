@@ -685,3 +685,14 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .app-error span { flex: 1 1 240px; }
 .app-error button { border: 1px solid rgba(255,255,255,.7); background: transparent; color: #fff; border-radius: 4px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; }
 .app-error .app-error__x { border: 0; font-size: 22px; line-height: 1; padding: 2px 6px; }
+
+/* Client's change requests */
+.badge--cc { background: #fff4e0; color: #8a5a00; }
+.cc-box { border: 1px solid #f3dcb0; border-left: 4px solid #e0a63c; background: #fffaf0; border-radius: 6px; padding: 12px 14px; margin: 0 0 16px; display: grid; gap: 8px; }
+.cc-box__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cc-box__head > div:first-child { display: grid; gap: 2px; }
+.cc-box b { color: #8a5a00; }
+.cc-box span { font-size: 13px; color: var(--muted); }
+.cc-box__actions { display: flex; gap: 8px; }
+.cc-box ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px; }
+.cc-box .cc-removed { color: #c62828; }
