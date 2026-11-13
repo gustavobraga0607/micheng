@@ -696,3 +696,4 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .cc-box__actions { display: flex; gap: 8px; }
 .cc-box ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px; }
 .cc-box .cc-removed { color: #c62828; }
+.count--cc { background: #e0a63c; color: #fff; margin-left: 2px; }

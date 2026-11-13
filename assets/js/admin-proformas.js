@@ -92,6 +92,11 @@
     var q = $("#pf-search").value.trim().toLowerCase();
     $("#pf-count").textContent = proformas.length;
     $("#tab-count-proformas").textContent = proformas.length;
+    var asking = proformas.filter(function (p) { return Object.keys(p.clientChanges || {}).length; }).length;
+    var dot = $("#tab-cc-proformas");
+    dot.hidden = !asking;
+    dot.textContent = asking;
+    dot.title = T("cc.badge");
     $("#pf-empty").hidden = proformas.length > 0;
     $("#pf-table").hidden = proformas.length === 0;
     var kind = $("#pf-kind").value; // "" | draft (proformas) | closed (orders)
@@ -1914,6 +1919,34 @@
     fillClientSelect();
     if (!$("#pf-editor").hidden) renderItems();
   });
+  // New requests from clients show up without reloading the panel: a light
+  // check every 45 s while the panel is open and when the window comes back.
+  var lastCcCheck = 0;
+  function checkClientChanges() {
+    if (document.hidden || $("#app-view").hidden || !proformas.length || Date.now() - lastCcCheck < 3000) return;
+    lastCcCheck = Date.now();
+    A.api("/api/proformas?changes=1").then(function (data) {
+      var all = data.changes || {};
+      var changed = false;
+      proformas = proformas.map(function (p) {
+        var now = all[p.id] || {};
+        if (JSON.stringify(now) === JSON.stringify(p.clientChanges || {})) return p;
+        changed = true;
+        return Object.assign({}, p, { clientChanges: now });
+      });
+      if (!changed) return;
+      if (editing && JSON.stringify(all[editing.id] || {}) !== JSON.stringify(editing.clientChanges || {})) {
+        editing = Object.assign({}, editing, { clientChanges: all[editing.id] || {} });
+        renderClientChanges();
+      }
+      renderList();
+    }, function () {});
+  }
+  setInterval(checkClientChanges, 45000);
+  document.addEventListener("visibilitychange", checkClientChanges);
+  window.addEventListener("focus", checkClientChanges);
+  document.querySelector('.tab[data-tab="proformas"]').addEventListener("click", checkClientChanges);
+
   document.addEventListener("admin:lang", function () {
     renderList();
     if (!$("#pf-editor").hidden) { renderHeader(); renderItems(); }

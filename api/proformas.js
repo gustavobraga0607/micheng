@@ -6,7 +6,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getAllData, getFinance, savePrivate, oneChangeAtATime } from "./_lib/store.js";
+import { getAllData, getPrivate, getFinance, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
@@ -333,6 +333,14 @@ async function handler(req, res) {
     const session = getSession(req);
     if (!session) return fail(res, 401, "Login required");
     if (req.method !== "GET" && req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
+
+    // Light check the panel makes every few seconds: only the client's pending requests.
+    if (req.method === "GET" && queryParam(req, "changes")) {
+      const priv = await getPrivate();
+      const changes = {};
+      for (const p of priv.proformas) if (p.clientChanges && Object.keys(p.clientChanges).length) changes[p.id] = p.clientChanges;
+      return send(res, 200, { changes });
+    }
 
     const { products, priv } = await getAllData();
     const id = queryParam(req, "id");
