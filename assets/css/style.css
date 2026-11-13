@@ -73,7 +73,7 @@ p { margin: 0; }
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
-.header .container { max-width: 1320px; }
+.header .container { max-width: 1440px; }
 .header__inner { display: flex; align-items: center; gap: 28px; height: 76px; }
 
 .logo { display: flex; align-items: center; gap: 12px; line-height: 1; flex: none; color: var(--navy); }
@@ -94,14 +94,14 @@ p { margin: 0; }
 .nav__link:hover, .nav__link.is-active { color: var(--blue); }
 .nav__link.is-active::after { transform: scaleX(1); }
 
-.lang { display: flex; align-items: center; gap: 2px; }
+.lang { display: flex; align-items: center; gap: 2px; flex: none; }
 .lang__btn {
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: 0; cursor: pointer;
   padding: 6px 8px; border-radius: var(--radius);
   font: 500 13px/1 var(--font); color: var(--muted); white-space: nowrap;
 }
-.lang__btn img { width: 18px; height: 13px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+.lang__btn img { width: 18px; height: 13px; flex: none; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
 .lang__btn + .lang__btn { border-left: 1px solid var(--line); border-radius: 0; }
 .lang__btn:hover { color: var(--navy); }
 .lang__btn.is-active { color: var(--navy); font-weight: 700; }
