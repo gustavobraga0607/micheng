@@ -635,6 +635,23 @@
             </div>
           </fieldset>
           <fieldset class="group">
+            <legend data-t="set.siteContact">Contato no site (botões flutuantes)</legend>
+            <p class="hint" data-t="set.siteContactHint">Os botões de WhatsApp e WeChat aparecem no canto do site quando preenchidos. Deixe em branco para esconder.</p>
+            <div class="form-row">
+              <label><span data-t="set.whatsapp">WhatsApp (com código do país)</span><input type="text" name="whatsapp" maxlength="30" inputmode="tel" placeholder="+86 138 0000 0000" /></label>
+              <label><span data-t="set.wechatId">WeChat ID</span><input type="text" name="wechatId" maxlength="60" /></label>
+            </div>
+            <div class="stamp">
+              <div class="stamp__preview stamp__preview--qr" id="qr-preview"><span data-t="set.qrNone">Nenhum QR code enviado.</span></div>
+              <div class="stamp__actions">
+                <span class="hint" data-t="set.qrHint">QR code do WeChat (WeChat › Eu › Meu QR code), PNG ou JPEG até 300 KB.</span>
+                <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="qr-file" accept="image/png,image/jpeg" hidden /><span data-t="set.qrUpload">Enviar QR code</span></label>
+                <button type="button" class="linkbtn danger" id="qr-remove" data-t="set.stampRemove" hidden>Remover</button>
+              </div>
+            </div>
+            <p class="status" id="qr-status" role="status" aria-live="polite"></p>
+          </fieldset>
+          <fieldset class="group">
             <legend data-t="set.bank">Conta bancária</legend>
             <div class="form-row">
               <label><span data-t="set.bankBeneficiary">Beneficiário</span><input type="text" name="bankBeneficiary" maxlength="160" /></label>

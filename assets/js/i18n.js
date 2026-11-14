@@ -2,6 +2,16 @@
    Keys match the data-i18n attributes in index.html. */
 window.I18N = {
   en: {
+    "fab.wa": "WhatsApp",
+    "fab.wc": "WeChat",
+    "fab.waAria": "Chat with us on WhatsApp",
+    "fab.waText": "Hello! I found Micheng on your website and would like more information.",
+    "fab.wcTitle": "Talk to us on WeChat",
+    "fab.wcScan": "Open WeChat and scan the QR code to add us.",
+    "fab.wcSearch": "In WeChat, search for our ID and add us.",
+    "fab.wcId": "WeChat ID",
+    "fab.copy": "Copy",
+    "fab.copied": "Copied!",
     "meta.productsTitle": "Products | Micheng",
     "catalog.empty": "We are updating this category. Tell us what you need and we will find the right supplier for you.",
     "catalog.all": "All",
@@ -100,6 +110,16 @@ window.I18N = {
   },
 
   pt: {
+    "fab.wa": "WhatsApp",
+    "fab.wc": "WeChat",
+    "fab.waAria": "Fale conosco no WhatsApp",
+    "fab.waText": "Olá! Encontrei a Micheng pelo site e gostaria de mais informações.",
+    "fab.wcTitle": "Fale conosco no WeChat",
+    "fab.wcScan": "Abra o WeChat e escaneie o QR code para nos adicionar.",
+    "fab.wcSearch": "No WeChat, pesquise nosso ID e nos adicione.",
+    "fab.wcId": "WeChat ID",
+    "fab.copy": "Copiar",
+    "fab.copied": "Copiado!",
     "meta.productsTitle": "Produtos | Micheng",
     "catalog.empty": "Estamos atualizando esta categoria. Conte o que você precisa e encontraremos o fornecedor certo para você.",
     "catalog.all": "Todos",
@@ -198,6 +218,16 @@ window.I18N = {
   },
 
   es: {
+    "fab.wa": "WhatsApp",
+    "fab.wc": "WeChat",
+    "fab.waAria": "Hable con nosotros por WhatsApp",
+    "fab.waText": "¡Hola! Encontré Micheng en su sitio web y me gustaría recibir más información.",
+    "fab.wcTitle": "Hable con nosotros por WeChat",
+    "fab.wcScan": "Abra WeChat y escanee el código QR para agregarnos.",
+    "fab.wcSearch": "En WeChat, busque nuestro ID y agréguenos.",
+    "fab.wcId": "WeChat ID",
+    "fab.copy": "Copiar",
+    "fab.copied": "¡Copiado!",
     "meta.productsTitle": "Productos | Micheng",
     "catalog.empty": "Estamos actualizando esta categoría. Cuéntenos lo que necesita y encontraremos el proveedor adecuado para usted.",
     "catalog.all": "Todos",
@@ -296,6 +326,16 @@ window.I18N = {
   },
 
   zh: {
+    "fab.wa": "WhatsApp",
+    "fab.wc": "微信",
+    "fab.waAria": "通过 WhatsApp 联系我们",
+    "fab.waText": "您好！我在网站上看到 Micheng，想了解更多信息。",
+    "fab.wcTitle": "通过微信联系我们",
+    "fab.wcScan": "打开微信扫一扫，添加我们为好友。",
+    "fab.wcSearch": "在微信中搜索我们的微信号并添加好友。",
+    "fab.wcId": "微信号",
+    "fab.copy": "复制",
+    "fab.copied": "已复制！",
     "meta.productsTitle": "产品 | Micheng",
     "catalog.empty": "该类别正在更新中。请告诉我们您的需求，我们将为您寻找合适的供应商。",
     "catalog.all": "全部",

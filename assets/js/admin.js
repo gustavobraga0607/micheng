@@ -1246,7 +1246,7 @@
 
   /* ---------- Settings tab (company details for proformas) ---------- */
   var setForm = $("#settings-form");
-  var SET_FIELDS = ["currency", "companyName", "companyTaxId", "address", "phone", "email", "website",
+  var SET_FIELDS = ["currency", "companyName", "companyTaxId", "address", "phone", "email", "website", "whatsapp", "wechatId",
     "bankBeneficiary", "bankName", "bankAccount", "bankSwift", "bankAddress", "bankNotes"];
   var settingsUpdatedAt = null;
   var companySettings = {};
@@ -1274,9 +1274,49 @@
     settingsUpdatedAt = settings && settings.updatedAt;
     companySettings = settings || {};
     renderStamp();
+    renderQr();
     renderSettingsUpdated();
     document.dispatchEvent(new CustomEvent("admin:data"));
   }
+
+  /* ----- WeChat QR code shown on the public site ----- */
+  var qrShown; // wechatQrAt of the image on screen
+  function setQrStatus(msg, kind) {
+    var el = $("#qr-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+  function renderQr() {
+    var at = companySettings.wechatQrAt || null;
+    $("#qr-remove").hidden = !at;
+    if (qrShown === at) return;
+    qrShown = at;
+    if (!at) { $("#qr-preview").innerHTML = "<span>" + escapeHtml(T("set.qrNone")) + "</span>"; return; }
+    fetch("/api/settings?kind=contact&at=" + encodeURIComponent(at), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (c) {
+      $("#qr-preview").innerHTML = c.wechatQr ? '<img src="' + escapeHtml(c.wechatQr) + '" alt="" />' : "<span>" + escapeHtml(T("set.qrNone")) + "</span>";
+    }).catch(function () {});
+  }
+  $("#qr-file").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!/^image\/(png|jpeg)$/.test(file.type)) return setQrStatus(T("set.stampType"), "error");
+    if (file.size > 300 * 1024) return setQrStatus(T("set.qrBig"), "error");
+    var fr = new FileReader();
+    fr.onload = function () {
+      setQrStatus("…");
+      api("/api/settings?kind=wechatqr", { method: "POST", body: { data: fr.result } })
+        .then(function (d) { companySettings = d.settings; renderQr(); setQrStatus(T("set.qrSaved"), "ok"); })
+        .catch(function (err) { setQrStatus(/Unsupported/.test(err.message) ? T("set.stampType") : err.message, "error"); });
+    };
+    fr.readAsDataURL(file);
+  });
+  $("#qr-remove").addEventListener("click", function () {
+    if (!confirm(T("set.qrConfirm"))) return;
+    api("/api/settings?kind=wechatqr", { method: "DELETE" })
+      .then(function (d) { companySettings = d.settings; renderQr(); setQrStatus(T("set.qrRemoved"), "ok"); })
+      .catch(function (err) { setQrStatus(err.message, "error"); });
+  });
 
   /* ----- Stamp and signature image (used on invoices) ----- */
   var stampShown = null; // uploadedAt of the image on screen

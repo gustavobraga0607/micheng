@@ -170,8 +170,63 @@
     }
   }
 
+  /* ---------- Floating WhatsApp / WeChat buttons ----------
+     The number, ID and QR code come from the admin settings. */
+  var contact = null;
+  function renderContact() {
+    if (!contact) return;
+    var wa = document.getElementById("fab-wa");
+    if (contact.whatsapp) {
+      wa.href = "https://wa.me/" + contact.whatsapp + "?text=" + encodeURIComponent(t("fab.waText"));
+      wa.setAttribute("aria-label", t("fab.waAria"));
+      // The contact section shows the same number.
+      var phone = document.querySelector('#contact a[href^="https://wa.me/"]');
+      if (phone) { phone.href = "https://wa.me/" + contact.whatsapp; phone.textContent = contact.whatsappLabel || "+" + contact.whatsapp; }
+    }
+    document.getElementById("fab-wc").setAttribute("aria-label", t("fab.wcTitle"));
+    var hint = document.getElementById("wc-hint");
+    if (hint) hint.textContent = t(contact.wechatQr ? "fab.wcScan" : "fab.wcSearch");
+  }
+  function loadContact() {
+    var fab = document.getElementById("fab");
+    if (!fab || !window.fetch) return;
+    fetch("/api/settings?kind=contact").then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
+      if (!c || !(c.whatsapp || c.wechatId || c.wechatQr)) return;
+      contact = c;
+      document.getElementById("fab-wa").hidden = !c.whatsapp;
+      document.getElementById("fab-wc").hidden = !(c.wechatId || c.wechatQr);
+      var qr = document.getElementById("wc-qr");
+      if (c.wechatQr) { qr.src = c.wechatQr; qr.hidden = false; }
+      document.getElementById("wc-idrow").hidden = !c.wechatId;
+      document.getElementById("wc-id").textContent = c.wechatId || "";
+      fab.hidden = false;
+      renderContact();
+    }).catch(function () { /* no buttons */ });
+  }
+  var wcDlg = document.getElementById("wc-dlg");
+  if (wcDlg) {
+    document.getElementById("fab-wc").addEventListener("click", function () {
+      if (typeof wcDlg.showModal === "function") wcDlg.showModal(); else wcDlg.setAttribute("open", "");
+    });
+    var closeWc = function () { if (wcDlg.close) wcDlg.close(); else wcDlg.removeAttribute("open"); };
+    document.getElementById("wc-close").addEventListener("click", closeWc);
+    wcDlg.addEventListener("click", function (e) { if (e.target === wcDlg) closeWc(); });
+    document.getElementById("wc-copy").addEventListener("click", function () {
+      var btn = this, id = (contact && contact.wechatId) || "";
+      var done = function () { btn.textContent = t("fab.copied"); setTimeout(function () { btn.textContent = t("fab.copy"); }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, function () {});
+      else {
+        var r = document.createRange(); r.selectNodeContents(document.getElementById("wc-id"));
+        var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        try { document.execCommand("copy"); done(); } catch (e) { /* the ID stays selected */ }
+      }
+    });
+  }
+  document.addEventListener("langchange", renderContact);
+
   document.getElementById("year").textContent = new Date().getFullYear();
   setLang(detectLang());
   prefillQuote();
+  loadContact();
   onScroll();
 })();

@@ -1,9 +1,11 @@
 // Company parameters (Shenzhen Micheng's own details and bank account), used
 // on proformas and invoices, plus the company's stamp and signature image.
-// Admin-only, stored encrypted with the other private data.
+// Admin-only, stored encrypted with the other private data. The WhatsApp number,
+// WeChat ID and WeChat QR code shown on the public site are also kept in a
+// separate public record (?kind=contact, readable without a login).
 import { send, fail, readJson, isJsonRequest, queryParam } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getPrivate, savePrivate, oneChangeAtATime, saveSecretFile, readSecretFile, deleteSecretFile } from "./_lib/store.js";
+import { getPrivate, savePrivate, oneChangeAtATime, saveSecretFile, readSecretFile, deleteSecretFile, getContact, saveContact } from "./_lib/store.js";
 
 const CURRENCIES = ["CNY", "USD", "EUR", "BRL"];
 const FIELDS = {
@@ -14,6 +16,8 @@ const FIELDS = {
   phone: 60,
   email: 160,
   website: 200,
+  whatsapp: 30,
+  wechatId: 60,
   bankName: 160,
   bankBeneficiary: 160,
   bankAccount: 80,
@@ -31,11 +35,16 @@ export function settingsOut(priv) {
   return { ...priv.settings, stamp: s ? { type: s.type, size: s.size, uploadedAt: s.uploadedAt, by: s.by } : null };
 }
 
-function decodeStamp(data) {
+const MAX_QR_BYTES = 300 * 1024;
+
+// The number as wa.me wants it: digits only, with the country code.
+const whatsappDigits = (v) => String(v || "").replace(/\D/g, "").slice(0, 20);
+
+function decodeStamp(data, max = MAX_STAMP_BYTES) {
   const m = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(String(data || ""));
   if (!m) return null;
   const buffer = Buffer.from(m[2], "base64");
-  if (buffer.length > MAX_STAMP_BYTES) return null;
+  if (buffer.length > max) return null;
   const png = buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
   const jpeg = buffer[0] === 0xff && buffer[1] === 0xd8;
   if (!(m[1] === "image/png" ? png : jpeg)) return null;
@@ -44,9 +53,38 @@ function decodeStamp(data) {
 
 async function handler(req, res) {
   try {
+    /* ----- Public: contact buttons of the site ----- */
+    if (queryParam(req, "kind") === "contact" && req.method === "GET") {
+      const c = await getContact();
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      // Browsers always ask again; Vercel's CDN keeps it for a minute, so a
+      // change shows on the site within about a minute.
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Vercel-CDN-Cache-Control", "max-age=60, stale-while-revalidate=300");
+      return res.end(JSON.stringify({ whatsapp: c.whatsapp || "", whatsappLabel: c.whatsappLabel || "", wechatId: c.wechatId || "", wechatQr: c.wechatQr || null }));
+    }
+
     const session = getSession(req);
     if (!session) return fail(res, 401, "Login required");
     const priv = await getPrivate();
+
+    /* ----- WeChat QR code shown on the site ----- */
+    if (queryParam(req, "kind") === "wechatqr") {
+      if (req.method !== "POST" && req.method !== "DELETE") return fail(res, 405, "Method not allowed");
+      const contact = await getContact();
+      if (req.method === "POST") {
+        if (!isJsonRequest(req)) return fail(res, 415, "Expected JSON");
+        const data = (await readJson(req)).data;
+        const img = decodeStamp(data, MAX_QR_BYTES);
+        if (!img) return fail(res, 400, "Unsupported image");
+        contact.wechatQr = "data:" + img.type + ";base64," + img.buffer.toString("base64");
+      } else contact.wechatQr = null;
+      await saveContact(contact);
+      priv.settings = { ...priv.settings, wechatQrAt: contact.wechatQr ? new Date().toISOString() : null };
+      await savePrivate(priv);
+      return send(res, 200, { settings: settingsOut(priv) });
+    }
 
     /* ----- Stamp and signature image ----- */
     if (queryParam(req, "kind") === "stamp") {
@@ -91,8 +129,11 @@ async function handler(req, res) {
       }
       if (!CURRENCIES.includes(settings.currency)) settings.currency = "CNY"; // RMB by default
       settings.updatedAt = new Date().toISOString();
+      settings.wechatQrAt = (priv.settings && priv.settings.wechatQrAt) || null;
       priv.settings = settings;
       await savePrivate(priv);
+      const contact = await getContact();
+      await saveContact({ ...contact, whatsapp: whatsappDigits(settings.whatsapp), whatsappLabel: settings.whatsapp, wechatId: settings.wechatId });
       return send(res, 200, { settings: settingsOut(priv) });
     }
 

@@ -697,3 +697,5 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .cc-box ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px; }
 .cc-box .cc-removed { color: #c62828; }
 .count--cc { background: #e0a63c; color: #fff; margin-left: 2px; }
+.stamp__preview--qr { width: 140px; height: 140px; }
+.stamp__actions .hint { margin: 0; }

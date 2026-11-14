@@ -172,6 +172,25 @@ async function writeLocal(file, data) {
   await fs.writeFile(path.join(LOCAL_DIR, file), JSON.stringify(data, null, 2));
 }
 
+/* ---------- Public contact (WhatsApp / WeChat buttons on the site) ----------
+   Kept apart from the private data: the site reads it without a login. */
+
+const REDIS_CONTACT = "micheng:contact";
+
+export async function getContact() {
+  const empty = { whatsapp: "", wechatId: "", wechatQr: null };
+  if (useRedis()) {
+    const text = await redis(["GET", REDIS_CONTACT]);
+    return text ? { ...empty, ...JSON.parse(text) } : empty;
+  }
+  return { ...empty, ...(await readLocal("contact.json", {})) };
+}
+
+export async function saveContact(contact) {
+  if (useRedis()) return void (await redis(["SET", REDIS_CONTACT, JSON.stringify(contact)]));
+  return writeLocal("contact.json", contact);
+}
+
 /* ---------- Products (public) ---------- */
 
 const readBlobProducts = () => readData(PRODUCTS_PREFIX, ".json", "application/json");
