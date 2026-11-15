@@ -296,9 +296,9 @@
 .admin .pf-item__nums input { text-align: right; }
 .pf-item label > span, .pf-calc > span { font-size: 12px; }
 .pf-item label.internal > span, .pf-calc.internal > span { color: #8a5a00; }
-.pf-calc { display: grid; gap: 6px; padding-bottom: 10px; }
-.pf-calc span { font-weight: 600; color: var(--navy); }
-.pf-calc b { font-size: 15px; color: var(--navy); text-align: right; }
+.pf-calc { display: grid; gap: 6px; align-self: end; }
+.pf-calc span { font-weight: 600; color: var(--navy); text-align: right; }
+.pf-calc b { font-size: 15px; color: var(--navy); min-height: 42px; display: flex; align-items: center; justify-content: flex-end; }
 .is-neg { color: #c62828 !important; }
 .is-low { color: #b26a00 !important; }
 .is-ok { color: #1b7f3b !important; }
@@ -699,3 +699,19 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .count--cc { background: #e0a63c; color: #fff; margin-left: 2px; }
 .stamp__preview--qr { width: 140px; height: 140px; }
 .stamp__actions .hint { margin: 0; }
+
+/* Product search in a proforma item */
+.pf-search { position: relative; display: block; }
+.pf-search input { width: 100%; }
+.pf-search input.is-empty { border-color: #e0a63c; background: #fffaf0; }
+.pf-search__list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); max-height: 360px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+  background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 32px rgba(11, 42, 79, .18); }
+.pf-search__list li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.pf-search__list li.is-active, .pf-search__list li[data-pick]:hover { background: var(--bg-tint); }
+.pf-search__list .pf-search__head, .pf-search__list .pf-search__none { display: block; cursor: default; font-size: 12px; color: var(--muted); padding: 6px 8px; }
+.pf-search__img { width: 40px; height: 40px; border-radius: 4px; background: var(--bg-soft); overflow: hidden; }
+.pf-search__img img { width: 100%; height: 100%; object-fit: cover; }
+.pf-search__txt { min-width: 0; display: grid; gap: 2px; }
+.pf-search__txt b { font-size: 14px; font-weight: 600; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-search__txt small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-search__list em { font-style: normal; font-size: 12px; font-weight: 600; color: #1e7b3a; white-space: nowrap; }

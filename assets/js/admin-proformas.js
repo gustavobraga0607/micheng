@@ -1187,21 +1187,189 @@
       "</div>";
   }
 
+  /* ---------- Product search (code, name in any language, category, variant code) ---------- */
+  function norm(v) { return String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function allNames(o) { return o ? Object.keys(o).map(function (k) { return o[k]; }).join(" ") : ""; }
+  var searchIndex = null, searchFor = null;
+  // One entry per product and one per variant (product + options with its own code).
+  function buildIndex() {
+    var products = A.products();
+    if (searchFor === products) return searchIndex;
+    searchFor = products;
+    searchIndex = [];
+    products.forEach(function (p) {
+      var cat = p.category ? T("cat." + p.category) : "";
+      var base = [p.sku, allNames(p.name), p.source && p.source.name, cat === "cat." + p.category ? p.category : cat].join(" ");
+      searchIndex.push({ productId: p.id, options: {}, sku: p.sku ? String(p.sku) : "", base: norm(base), extra: "", product: p });
+      var attrOf = {}, labelOf = {};
+      (p.attributes || []).forEach(function (a) { a.options.forEach(function (o) { attrOf[o.id] = a.id; labelOf[o.id] = o; }); });
+      Object.keys(p.variantSkus || {}).forEach(function (key) {
+        var ids = key.split(",").filter(Boolean);
+        if (!ids.length || ids.some(function (id) { return !attrOf[id]; })) return;
+        var opts = {};
+        ids.forEach(function (id) { opts[attrOf[id]] = id; });
+        var labels = ids.map(function (id) { return allNames(labelOf[id].label) + " " + labelOf[id].source; }).join(" ");
+        searchIndex.push({ productId: p.id, options: opts, sku: p.sku + "-" + p.variantSkus[key], base: norm(base), extra: norm(p.sku + "-" + p.variantSkus[key] + " " + labels), product: p, variant: true });
+      });
+    });
+    return searchIndex;
+  }
+  function entryLabel(e) {
+    var row = { productId: e.productId, options: e.options };
+    var opts = optionSummary(row, e.product);
+    return { sku: skuOf(row), name: pname(e.product), sub: opts.join(" · "), image: rowImage(row, e.product) };
+  }
+  function searchProducts(q) {
+    var list = buildIndex();
+    var tokens = norm(q).split(/\s+/).filter(Boolean);
+    if (!tokens.length) return clientProducts();
+    var out = [];
+    list.forEach(function (e) {
+      var all = e.base + " " + e.extra;
+      if (!tokens.every(function (t) { return all.indexOf(t) > -1; })) return;
+      // A variant only shows when the search points at it (its code or an option);
+      // otherwise the product itself is enough.
+      if (e.variant && tokens.every(function (t) { return e.base.indexOf(t) > -1; })) return;
+      var skuN = norm(e.sku);
+      var score = tokens.some(function (t) { return t === skuN; }) ? 0 : tokens.some(function (t) { return skuN.indexOf(t) === 0; }) ? 1 : e.variant ? 3 : 2;
+      out.push({ e: e, score: score });
+    });
+    out.sort(function (a, b) { return a.score - b.score || String(a.e.sku).localeCompare(String(b.e.sku), undefined, { numeric: true }); });
+    return out.slice(0, 40).map(function (x) { return x.e; });
+  }
+  // Before typing: what this client bought before (most recent first), with the last price.
+  function clientProducts() {
+    var list = buildIndex();
+    var seen = {};
+    return Object.keys(clientPrices).map(function (key) {
+      var parts = key.split("|");
+      var product = productById(parts[0]);
+      if (!product) return null;
+      var ids = parts[1] ? parts[1].split(",") : [];
+      if (!ids.length && (product.attributes || []).length) return null; // the exact variant is listed too
+      var entry = list.filter(function (e) {
+        var o = Object.keys(e.options).map(function (k) { return e.options[k]; }).sort().join(",");
+        return e.productId === parts[0] && o === ids.slice().sort().join(",");
+      })[0];
+      if (!entry || seen[key]) return null;
+      seen[key] = true;
+      return { e: entry, memo: clientPrices[key] };
+    }).filter(Boolean).sort(function (a, b) { return String(b.memo.at || "").localeCompare(String(a.memo.at || "")); })
+      .slice(0, 30).map(function (x) { return Object.assign({ memo: x.memo }, x.e); });
+  }
+
+  var search = null; // { input, list, results, active }
+  function openSearch(input) {
+    var list = input.parentNode.querySelector(".pf-search__list");
+    var q = input.getAttribute("data-typed") === "1" ? input.value : "";
+    var results = searchProducts(q);
+    search = { input: input, list: list, results: results, active: results.length ? 0 : -1 };
+    var cur = currency();
+    var head = !q.trim() ? '<li class="pf-search__head">' + esc(T(results.length ? "pf.searchClient" : (form.elements.clientId.value ? "pf.searchTypeNew" : "pf.searchType"))) + "</li>" : "";
+    list.innerHTML = head + (results.length ? results.map(function (e, k) {
+      var l = entryLabel(e);
+      var memo = e.memo && e.memo.currency === cur ? '<em>' + esc(A.money(e.memo.price, e.memo.currency)) + "</em>" : "";
+      return '<li role="option" data-pick="' + k + '"' + (k === search.active ? ' class="is-active" aria-selected="true"' : "") + ">" +
+        '<span class="pf-search__img">' + (l.image ? '<img src="' + esc(l.image) + '" alt="" loading="lazy" />' : "") + "</span>" +
+        '<span class="pf-search__txt"><b>' + (l.sku ? '<span class="sku">' + esc(l.sku) + "</span> " : "") + esc(l.name) + "</b>" +
+        (l.sub ? "<small>" + esc(l.sub) + "</small>" : "") + "</span>" + memo + "</li>";
+    }).join("") : (q.trim() ? '<li class="pf-search__none">' + esc(T("pf.searchNone")) + "</li>" : ""));
+    list.hidden = !list.innerHTML;
+    input.setAttribute("aria-expanded", list.hidden ? "false" : "true");
+  }
+  function closeSearch(restore) {
+    if (!search) return;
+    search.list.hidden = true;
+    search.input.setAttribute("aria-expanded", "false");
+    if (restore) { search.input.value = search.input.defaultValue; search.input.removeAttribute("data-typed"); }
+    search = null;
+  }
+  function moveActive(step) {
+    if (!search || !search.results.length) return;
+    search.active = (search.active + step + search.results.length) % search.results.length;
+    search.list.querySelectorAll("[data-pick]").forEach(function (li, k) {
+      li.classList.toggle("is-active", k === search.active);
+      if (k === search.active) { li.setAttribute("aria-selected", "true"); li.scrollIntoView({ block: "nearest" }); } else li.removeAttribute("aria-selected");
+    });
+  }
+  function pickResult(k) {
+    var e = search && search.results[k];
+    if (!e) return;
+    var input = search.input;
+    var i = Number(input.getAttribute("data-search"));
+    closeSearch(false);
+    input.blur(); // the redraw below must not bring back the typed text
+    var row = rows[i];
+    row.error = null;
+    row.productId = e.productId;
+    applyDefaults(row, "productId");
+    row.options = Object.assign({}, e.options);
+    applyDefaults(row, "option");
+    renderItems();
+    // Next: the first option still to choose, otherwise the quantity.
+    var el = $("#pf-items").querySelector('[data-row="' + i + '"]');
+    var next = el && (el.querySelector("select.is-empty[data-attr]") || el.querySelector('input[data-f="qty"]'));
+    if (next) { next.focus(); if (next.select) next.select(); }
+  }
+  $("#pf-items").addEventListener("focusin", function (e) {
+    if (e.target.matches("[data-search]") && !restoring) { e.target.select(); openSearch(e.target); }
+  });
+  $("#pf-items").addEventListener("focusout", function (e) {
+    if (e.target.matches("[data-search]") && search && search.input === e.target && e.target.isConnected) closeSearch(true);
+  });
+  $("#pf-items").addEventListener("mousedown", function (e) {
+    if (e.target.closest(".pf-search__list")) e.preventDefault(); // keep the focus in the box
+  });
+  $("#pf-items").addEventListener("keydown", function (e) {
+    var input = e.target;
+    if (input.matches("[data-search]")) {
+      if (search && search.input !== input) search = null;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!search) openSearch(input); else moveActive(e.key === "ArrowDown" ? 1 : -1); }
+      else if (e.key === "Enter") { e.preventDefault(); if (!search) openSearch(input); if (search && search.active > -1) pickResult(search.active); }
+      else if (e.key === "Escape" && search) { e.preventDefault(); closeSearch(true); }
+      return;
+    }
+    // Enter in quantity, cost, price or reference confirms the item (same as OK).
+    if (e.key === "Enter" && input.matches(".pf-item input")) {
+      e.preventDefault();
+      var ok = input.closest(".pf-item").querySelector("[data-ok]");
+      if (ok) ok.click();
+    }
+  });
+
   function renderItems() {
+    // A search being typed survives the redraw (prices loading, background refresh…).
+    var active = document.activeElement;
+    var keep = active && active.matches && active.matches("#pf-items [data-search]") ? {
+      i: active.getAttribute("data-search"), value: active.value, typed: active.getAttribute("data-typed"),
+      start: active.selectionStart, end: active.selectionEnd, open: !!(search && search.input === active)
+    } : null;
+    if (search) { search.list.hidden = true; search = null; }
+    drawItems();
+    if (keep) {
+      var again = $("#pf-items").querySelector('[data-search="' + keep.i + '"]');
+      if (again) {
+        restoring = true;
+        again.value = keep.value;
+        if (keep.typed) again.setAttribute("data-typed", keep.typed);
+        again.focus();
+        try { again.setSelectionRange(keep.start, keep.end); } catch (e) { /* not a text field */ }
+        restoring = false;
+        if (keep.open) openSearch(again);
+      }
+    }
+  }
+  var restoring = false;
+
+  function drawItems() {
     var closed = isLocked();
     var dups = duplicateRows();
-    var products = A.products();
     var dis = closed ? " disabled" : "";
     $("#pf-items").innerHTML = rows.map(function (row, i) {
       var product = productById(row.productId);
       var image = rowImage(row, product);
       if (closed || !row.editing) return compactRow(row, i, product, image, closed, dups);
-      var productOpts = '<option value="">' + esc(T("pf.selectProduct")) + "</option>" + products.map(function (p) {
-        return '<option value="' + esc(p.id) + '"' + (p.id === row.productId ? " selected" : "") + ">" + esc((p.sku ? p.sku + " · " : "") + pname(p)) + "</option>";
-      }).join("");
-      if (row.productId && !product) {
-        productOpts += '<option value="' + esc(row.productId) + '" selected>' + esc(pname(row.snapshot)) + "</option>";
-      }
+      var chosenText = row.productId ? ((skuOf(row) ? skuOf(row) + " · " : "") + (product ? pname(product) : pname(row.snapshot))) : "";
       var attrs = (product && product.attributes) || [];
       var attrHtml = attrs.map(function (a) {
         var chosen = row.options[a.id] || "";
@@ -1216,7 +1384,10 @@
         '<div class="pf-item__img">' + (image ? '<img src="' + esc(image) + '" alt="" />' : "") + "</div>" +
         '<div class="pf-item__main">' +
           '<div class="pf-item__line">' +
-            '<label class="pf-item__product"><span>' + esc(T("pf.product")) + " " + (i + 1) + (skuOf(row) ? ' · <span class="sku">' + esc(skuOf(row)) + "</span>" : "") + "</span><select data-f=\"productId\"" + dis + ">" + productOpts + "</select></label>" +
+            '<label class="pf-item__product"><span>' + esc(T("pf.product")) + " " + (i + 1) + (skuOf(row) ? ' · <span class="sku">' + esc(skuOf(row)) + "</span>" : "") + "</span>" +
+              '<span class="pf-search"><input type="text" data-search="' + i + '" role="combobox" aria-expanded="false" aria-autocomplete="list" autocomplete="off" spellcheck="false" value="' +
+                esc(chosenText) + '" placeholder="' + esc(T("pf.searchPh")) + '"' + dis + (row.productId ? "" : ' class="is-empty"') + " />" +
+              '<ul class="pf-search__list" role="listbox" hidden></ul></span></label>' +
             '<label class="pf-item__supplier internal"><span>' + esc(T("pf.supplier")) + '</span><select data-f="supplierId"' + dis + ">" + supplierOptions(product, row) + "</select></label>" +
           "</div>" +
           (attrHtml ? '<div class="pf-item__opts">' + attrHtml + "</div>" : "") +
@@ -1342,10 +1513,15 @@
       row.options[attr] = e.target.value;
       applyDefaults(row, "option");
       renderItems();
+      // Next empty option, otherwise the quantity.
+      var again = $("#pf-items").querySelector('[data-row="' + el.dataset.row + '"]');
+      var next = again && (again.querySelector("select.is-empty[data-attr]") || again.querySelector('input[data-f="qty"]'));
+      if (next) next.focus();
     }
   });
 
   $("#pf-items").addEventListener("input", function (e) {
+    if (e.target.matches("[data-search]")) { e.target.setAttribute("data-typed", "1"); openSearch(e.target); return; }
     var el = e.target.closest(".pf-item");
     var f = e.target.getAttribute("data-f");
     if (el && f === "clientRef") {
@@ -1366,12 +1542,18 @@
     var ok = e.target.closest("[data-ok]");
     var edit = e.target.closest("[data-edit]");
     var remove = e.target.closest("[data-remove]");
+    var pick = e.target.closest("[data-pick]");
+    if (pick && search) return pickResult(Number(pick.dataset.pick));
     if (ok) {
       var i = Number(ok.dataset.ok);
       var problem = rowProblem(rows[i], i, duplicateRows());
       rows[i].error = problem || null;
       if (!problem) rows[i].editing = false;
+      // Confirming the last item opens the next one, ready to search.
+      var wasNew = !rows[i].id && i === rows.length - 1;
+      if (!problem && wasNew) rows.push(newRow());
       renderItems();
+      if (!problem && wasNew) focusLastSearch();
     } else if (edit) {
       rows[Number(edit.dataset.edit)].editing = true;
       renderItems();
@@ -1455,11 +1637,15 @@
   document.addEventListener("touchmove", function (e) { if (drag) e.preventDefault(); }, { passive: false });
   document.addEventListener("contextmenu", function (e) { if (drag || e.target.closest(".pf-row.is-sortable")) e.preventDefault(); });
 
+  function focusLastSearch() {
+    var last = $("#pf-items").querySelector("[data-row]:last-child [data-search]");
+    if (last) { last.scrollIntoView({ block: "center" }); last.focus(); }
+  }
   $("#pf-add-item").addEventListener("click", function () {
-    rows.push(newRow());
+    var last = rows[rows.length - 1];
+    if (!(last && last.editing && !last.productId)) rows.push(newRow()); // reuse an empty item already open
     renderItems();
-    var last = $("#pf-items").querySelector("[data-row]:last-child select");
-    if (last) last.focus();
+    focusLastSearch();
   });
 
   form.elements.clientId.addEventListener("change", function () {

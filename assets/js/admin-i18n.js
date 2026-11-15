@@ -1,6 +1,11 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.searchPh": "Buscar por código, nome ou categoria…",
+    "pf.searchClient": "Comprados antes por este cliente",
+    "pf.searchType": "Digite o código (ex.: 1053 ou 1053-1), o nome ou a categoria",
+    "pf.searchTypeNew": "Este cliente ainda não comprou: digite o código, o nome ou a categoria",
+    "pf.searchNone": "Nenhum produto encontrado.",
     "set.siteContact": "Contato no site (botões flutuantes)",
     "set.siteContactHint": "Os botões de WhatsApp e WeChat aparecem no canto do site quando preenchidos. Deixe em branco para esconder.",
     "set.whatsapp": "WhatsApp (com código do país)",
@@ -565,6 +570,11 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.searchPh": "Search by code, name or category…",
+    "pf.searchClient": "Bought before by this client",
+    "pf.searchType": "Type the code (e.g. 1053 or 1053-1), the name or the category",
+    "pf.searchTypeNew": "This client has not bought yet: type the code, the name or the category",
+    "pf.searchNone": "No product found.",
     "set.siteContact": "Contact on the website (floating buttons)",
     "set.siteContactHint": "The WhatsApp and WeChat buttons appear in the corner of the website when filled in. Leave blank to hide them.",
     "set.whatsapp": "WhatsApp (with country code)",
@@ -1129,6 +1139,11 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.searchPh": "Buscar por código, nombre o categoría…",
+    "pf.searchClient": "Comprados antes por este cliente",
+    "pf.searchType": "Escriba el código (ej.: 1053 o 1053-1), el nombre o la categoría",
+    "pf.searchTypeNew": "Este cliente aún no compró: escriba el código, el nombre o la categoría",
+    "pf.searchNone": "Ningún producto encontrado.",
     "set.siteContact": "Contacto en el sitio (botones flotantes)",
     "set.siteContactHint": "Los botones de WhatsApp y WeChat aparecen en la esquina del sitio cuando están completos. Déjelos en blanco para ocultarlos.",
     "set.whatsapp": "WhatsApp (con código de país)",
@@ -1693,6 +1708,11 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.searchPh": "按编号、名称或类别搜索…",
+    "pf.searchClient": "该客户以前购买过的",
+    "pf.searchType": "输入编号（例如 1053 或 1053-1）、名称或类别",
+    "pf.searchTypeNew": "该客户尚未购买：请输入编号、名称或类别",
+    "pf.searchNone": "未找到产品。",
     "set.siteContact": "网站联系方式（浮动按钮）",
     "set.siteContactHint": "填写后，WhatsApp 和微信按钮会显示在网站角落。留空则隐藏。",
     "set.whatsapp": "WhatsApp（含国家代码）",
