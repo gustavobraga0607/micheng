@@ -1,6 +1,13 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "sup.categories": "Categorias de produtos",
+    "sup.categoriesHint": "Marque uma ou mais. No cadastro do produto aparecem só os fornecedores da categoria dele.",
+    "sup.noCategory": "sem categoria definida",
+    "form.supOfCat": "Mostrando os fornecedores de {cat} ({n} de outras categorias ocultos).",
+    "form.supAll": "Mostrando todos os fornecedores, inclusive {n} de outras categorias.",
+    "form.supShowAll": "Mostrar todos",
+    "form.supShowCat": "Só desta categoria",
     "po.dlgTitle": "Contrato de compra",
     "po.dlgHint": "Condições do contrato com o fornecedor. O contrato sai em chinês: as opções prontas já estão traduzidas; um texto digitado em \"Outro\" ou nas observações entra como foi escrito. As condições ficam salvas para a próxima vez.",
     "po.deliveryDate": "Data de entrega *",
@@ -591,6 +598,13 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "sup.categories": "Product categories",
+    "sup.categoriesHint": "Tick one or more. The product form only shows suppliers of the product's category.",
+    "sup.noCategory": "no category set",
+    "form.supOfCat": "Showing suppliers of {cat} ({n} from other categories hidden).",
+    "form.supAll": "Showing all suppliers, including {n} from other categories.",
+    "form.supShowAll": "Show all",
+    "form.supShowCat": "Only this category",
     "po.dlgTitle": "Purchase contract",
     "po.dlgHint": "Terms of the contract with the supplier. The contract is in Chinese: the ready-made options are already translated; text typed in \"Other\" or in the notes goes in as written. The terms are saved for next time.",
     "po.deliveryDate": "Delivery date *",
@@ -1181,6 +1195,13 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "sup.categories": "Categorías de productos",
+    "sup.categoriesHint": "Marque una o más. En el registro del producto solo aparecen los proveedores de su categoría.",
+    "sup.noCategory": "sin categoría definida",
+    "form.supOfCat": "Mostrando los proveedores de {cat} ({n} de otras categorías ocultos).",
+    "form.supAll": "Mostrando todos los proveedores, incluidos {n} de otras categorías.",
+    "form.supShowAll": "Mostrar todos",
+    "form.supShowCat": "Solo esta categoría",
     "po.dlgTitle": "Contrato de compra",
     "po.dlgHint": "Condiciones del contrato con el proveedor. El contrato sale en chino: las opciones listas ya están traducidas; un texto escrito en \"Otro\" o en las observaciones entra tal como se escribió. Las condiciones quedan guardadas para la próxima vez.",
     "po.deliveryDate": "Fecha de entrega *",
@@ -1771,6 +1792,13 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "sup.categories": "产品类别",
+    "sup.categoriesHint": "可多选。产品表单中只显示该产品类别的供应商。",
+    "sup.noCategory": "未设置类别",
+    "form.supOfCat": "显示“{cat}”类别的供应商（已隐藏其他类别 {n} 个）。",
+    "form.supAll": "显示全部供应商，包括其他类别的 {n} 个。",
+    "form.supShowAll": "显示全部",
+    "form.supShowCat": "仅此类别",
     "po.dlgTitle": "采购合同",
     "po.dlgHint": "与供应商的合同条款。合同为中文：预设选项已翻译；在“其他”或备注中填写的文字将按原样写入合同。条款会保存以便下次使用。",
     "po.deliveryDate": "交货日期 *",

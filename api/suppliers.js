@@ -5,6 +5,8 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import { getPrivate, savePrivate, productLinks, oneChangeAtATime } from "./_lib/store.js";
 
+const CATEGORIES = ["building", "sanitary", "fitness", "general"];
+
 const FIELDS = {
   company: 120,
   contact: 120,
@@ -24,6 +26,10 @@ function clean(body) {
   // Supplies products (shown in the product form) or only usual expenses
   // such as rent, freight or services. Suppliers saved before this existed count as product suppliers.
   out.productSupplier = body.productSupplier === undefined ? true : Boolean(body.productSupplier);
+  // Product categories the supplier works with (one or more); the product form
+  // only offers suppliers of the product's category.
+  const cats = Array.isArray(body.categories) ? body.categories : [];
+  out.categories = CATEGORIES.filter((c) => cats.includes(c));
   return out;
 }
 

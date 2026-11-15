@@ -119,6 +119,7 @@
               <span class="selected-count" id="supplier-selected"></span>
             </div>
             <input type="search" id="supplier-search" data-t-placeholder="form.suppliersSearch" />
+            <p class="picker-filter" id="supplier-filter" hidden></p>
             <div class="picker" id="supplier-picker"></div>
             <p class="picker-empty" id="supplier-picker-empty" hidden>
               <span data-t="form.noSuppliers">Nenhum fornecedor cadastrado ainda.</span>
@@ -184,6 +185,16 @@
           <input type="hidden" name="id" />
           <label><span data-t="sup.company">Empresa *</span><input type="text" name="company" maxlength="120" required /></label>
           <label class="check sup-flag"><input type="checkbox" name="productSupplier" checked /> <span><b data-t="sup.productSupplier">Fornecedor de produtos</b><small data-t="sup.productSupplierHint">Aparece no cadastro de produtos. Desmarque para fornecedores de despesas, como aluguel, frete ou serviços.</small></span></label>
+          <fieldset class="sup-cats" id="sup-cats">
+            <legend data-t="sup.categories">Categorias de produtos</legend>
+            <div class="sup-cats__list">
+              <label class="check"><input type="checkbox" name="cat" value="building" /> <span data-t="cat.building">Materiais de Construção</span></label>
+              <label class="check"><input type="checkbox" name="cat" value="sanitary" /> <span data-t="cat.sanitary">Louças e Metais</span></label>
+              <label class="check"><input type="checkbox" name="cat" value="fitness" /> <span data-t="cat.fitness">Fitness e Recovery</span></label>
+              <label class="check"><input type="checkbox" name="cat" value="general" /> <span data-t="cat.general">Produtos Gerais</span></label>
+            </div>
+            <small data-t="sup.categoriesHint">Marque uma ou mais. No cadastro do produto aparecem só os fornecedores da categoria dele.</small>
+          </fieldset>
           <label><span data-t="sup.contact">Pessoa de contato</span><input type="text" name="contact" maxlength="120" /></label>
           <div class="form-row">
             <label><span data-t="sup.phone">Telefone / WhatsApp</span><input type="text" name="phone" maxlength="60" /></label>

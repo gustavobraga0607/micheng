@@ -422,6 +422,7 @@
     duplicateOf = null;
     form.reset();
     form.elements.id.value = "";
+    showAllSuppliers = false;
     pendingImage = null;
     showPreview(null);
     updateFormMode();
@@ -443,6 +444,7 @@
     form.elements.name.value = p.source.name;
     form.elements.description.value = p.source.description || "";
     form.elements.category.value = p.category || "";
+    showAllSuppliers = false;
     showPreview(p.image);
     trFields("name").forEach(function (el) { el.value = p.name[el.dataset.lang] || ""; });
     trFields("description").forEach(function (el) { el.value = (p.description || {})[el.dataset.lang] || ""; });
@@ -478,6 +480,7 @@
     form.elements.name.value = (p.source.name + T("form.copySuffix")).slice(0, 120);
     form.elements.description.value = p.source.description || "";
     form.elements.category.value = p.category || "";
+    showAllSuppliers = false;
     showPreview(p.image);
     selectedSuppliers = new Map((p.supplierLinks || []).map(function (l) {
       return [l.supplierId, { cost: l.cost == null ? "" : String(l.cost), variants: {}, open: false }];
@@ -901,6 +904,24 @@
     var q = $("#supplier-search").value.trim().toLowerCase();
     // Only product suppliers (not expense ones such as rent), plus any already linked to this product.
     var candidates = suppliers.filter(function (s) { return s.productSupplier !== false || selectedSuppliers.has(s.id); });
+    // Only suppliers of the product's category (plus those without a category yet
+    // and the ones already linked), unless "show all" is on.
+    var cat = form.elements.category.value;
+    var hidden = 0;
+    if (cat) {
+      var fits = candidates.filter(function (s) {
+        var cats = s.categories || [];
+        return selectedSuppliers.has(s.id) || !cats.length || cats.indexOf(cat) > -1;
+      });
+      hidden = candidates.length - fits.length;
+      if (!showAllSuppliers) candidates = fits;
+    }
+    var filterEl = $("#supplier-filter");
+    filterEl.hidden = !cat || !hidden;
+    if (cat && hidden) {
+      filterEl.innerHTML = escapeHtml(T(showAllSuppliers ? "form.supAll" : "form.supOfCat", { cat: T("cat." + cat), n: hidden })) +
+        ' <button type="button" class="linkbtn" id="supplier-filter-toggle">' + escapeHtml(T(showAllSuppliers ? "form.supShowCat" : "form.supShowAll")) + "</button>";
+    }
     $("#supplier-picker-empty").hidden = candidates.length > 0;
     $("#supplier-search").hidden = candidates.length === 0;
     picker.hidden = candidates.length === 0;
@@ -930,11 +951,21 @@
           '<input type="text" inputmode="decimal" autocomplete="off" data-vcost="' + escapeHtml(s.id) + '" data-key="' + escapeHtml(v.key) + '" value="' +
           escapeHtml(entry.variants[v.key] || "") + '" placeholder="' + escapeHtml(entry.cost || "0,00") + '" /><em>' + cur + "</em></label>";
       }).join("") : "") + '<p class="vcosts__hint">' + escapeHtml(T(variants.length ? "form.variantCostsHint" : "form.variantCostsSaveFirst")) + "</p></div>" : "";
+      var noCat = s.productSupplier !== false && !(s.categories || []).length;
       return '<div class="picker__item' + (on ? " is-on" : "") + '"><label><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
         (on ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + "</b>" +
-        (s.city ? "<small>" + escapeHtml(s.city) + "</small>" : "") + "</span></label>" + cost + toggle + table + "</div>";
+        (s.city || noCat ? "<small>" + escapeHtml(s.city || "") + (noCat ? '<em class="picker__nocat">' + (s.city ? " · " : "") + escapeHtml(T("sup.noCategory")) + "</em>" : "") + "</small>" : "") +
+        "</span></label>" + cost + toggle + table + "</div>";
     }).join("") : '<p class="picker__none">' + escapeHtml(T("form.noMatch")) + "</p>";
   }
+
+  var showAllSuppliers = false;
+  $("#supplier-filter").addEventListener("click", function (e) {
+    if (!e.target.closest("#supplier-filter-toggle")) return;
+    showAllSuppliers = !showAllSuppliers;
+    renderPicker();
+  });
+  form.elements.category.addEventListener("change", function () { showAllSuppliers = false; renderPicker(); });
 
   $("#supplier-picker").addEventListener("change", function (e) {
     if (e.target.type !== "checkbox") return;
@@ -986,6 +1017,7 @@
 
   function updateSupplierMode() {
     var editing = Boolean(supForm.elements.id.value);
+    $("#sup-cats").hidden = !supForm.elements.productSupplier.checked; // categories only for product suppliers
     $("#supplier-title").textContent = T(editing ? "sup.edit" : "sup.new");
     $("#supplier-save").textContent = T(editing ? "sup.saveChanges" : "sup.save");
     $("#supplier-cancel").hidden = !editing;
@@ -1004,6 +1036,7 @@
     supForm.elements.id.value = s.id;
     SUP_FIELDS.forEach(function (f) { supForm.elements[f].value = s[f] || ""; });
     supForm.elements.productSupplier.checked = s.productSupplier !== false;
+    supForm.querySelectorAll('input[name="cat"]').forEach(function (c) { c.checked = (s.categories || []).indexOf(c.value) > -1; });
     updateSupplierMode();
     setSupplierStatus("");
     renderSuppliers();
@@ -1011,6 +1044,7 @@
   }
 
   $("#supplier-cancel").addEventListener("click", function () { resetSupplierForm(); setSupplierStatus(""); });
+  supForm.elements.productSupplier.addEventListener("change", updateSupplierMode);
 
   supForm.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -1018,6 +1052,8 @@
     var body = {};
     SUP_FIELDS.forEach(function (f) { body[f] = supForm.elements[f].value; });
     body.productSupplier = supForm.elements.productSupplier.checked;
+    body.categories = body.productSupplier ? Array.prototype.filter.call(supForm.querySelectorAll('input[name="cat"]'), function (c) { return c.checked; })
+      .map(function (c) { return c.value; }) : [];
     var ok = body.company.trim() !== "";
     supForm.elements.company.classList.toggle("is-invalid", !ok);
     if (!ok) return setSupplierStatus(T("sup.required"), "error");
@@ -1071,6 +1107,8 @@
         "<div><h3>" + escapeHtml(s.company) + ' <span class="sup-tag' + (s.productSupplier === false ? " sup-tag--other" : "") + '">' +
           escapeHtml(T(s.productSupplier === false ? "sup.tagOther" : "sup.tagProducts")) + "</span></h3>" +
         (s.city ? '<p class="pitem__lang">' + escapeHtml(s.city) + "</p>" : "") +
+        (s.productSupplier !== false ? '<p class="sitem__cats">' + ((s.categories || []).length ? s.categories.map(function (c) { return '<span class="pitem__cat">' + escapeHtml(T("cat." + c)) + "</span>"; }).join("")
+          : '<span class="muted">' + escapeHtml(T("sup.noCategory")) + "</span>") + "</p>" : "") +
         (contact.length ? '<p class="sitem__contact">' + contact.join(" · ") + "</p>" : "") +
         (s.notes ? '<p class="sitem__notes">' + escapeHtml(s.notes) + "</p>" : "") +
         '<div class="pitem__tr"><span class="sitem__label">' + escapeHtml(T("sup.products")) + "</span>" +
