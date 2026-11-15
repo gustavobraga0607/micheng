@@ -835,16 +835,84 @@
     var orphans = editing.items.map(function (i, n) { return i.supplierId ? null : n + 1; }).filter(Boolean);
     return orphans.length ? '<p class="status is-error">' + esc(T("po.orphans", { items: orphans.join(", ") })) + "</p>" : "";
   }
-  function makePo(b) {
-    b.disabled = true;
-    var st = $("#po-status");
-    st.className = "status"; st.textContent = T("po.making");
-    A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=po", { method: "POST", body: { supplierId: b.getAttribute("data-po") } })
-      .then(function (data) { accept(data.proforma); return exportPo(data.proforma, b.getAttribute("data-po")); })
-      .then(function () { var s2 = $("#po-status"); s2.className = "status is-ok"; s2.textContent = T("po.done"); },
-        function (err) { var s2 = $("#po-status"); s2.className = "status is-error"; s2.textContent = err.message; })
-      .then(function () { b.disabled = false; });
+  /* ----- Purchase contract: terms first (kept per supplier), then the PDF ----- */
+  // Ready-made clauses (the contract is in Chinese); "other" = typed text.
+  var PO_PRESETS = {
+    deliveryPlace: [
+      ["supplierDelivers", "供方负责将货物送至需方指定的深圳仓库，运费由供方承担。"],
+      ["buyerPicks", "需方在供方工厂自提，运费由需方承担。"],
+      ["supplierDeliversBuyerPays", "供方负责将货物送至需方指定的深圳仓库，运费由需方承担。"]
+    ],
+    payment: [
+      ["p30", "合同签订后需方预付货款的30%作为定金，供方发货前需方付清剩余70%货款。"],
+      ["p50", "合同签订后需方预付货款的50%作为定金，供方发货前需方付清剩余50%货款。"],
+      ["p100before", "供方发货前，需方一次性付清全部货款。"],
+      ["p100after", "货物到达并经需方验收合格后，需方一次性付清全部货款。"]
+    ],
+    packaging: [
+      ["export", "出口标准纸箱包装，适合海运；外箱须标明品名、规格、数量及毛重。"],
+      ["exportPallet", "出口标准纸箱包装并打托盘，适合海运；外箱须标明品名、规格、数量及毛重。"],
+      ["asSample", "按双方确认的样品包装要求包装，适合海运。"]
+    ]
+  };
+  var poSupplier = null;
+  function fillPoSelect(name, value) {
+    var sel = $("#po-form").elements[name + "Sel"];
+    var list = PO_PRESETS[name];
+    sel.innerHTML = list.map(function (o) { return '<option value="' + esc(o[0]) + '">' + esc(T("po.opt." + o[0])) + "</option>"; }).join("") +
+      '<option value="other">' + esc(T("po.otherOpt")) + "</option>";
+    var preset = list.filter(function (o) { return o[1] === value; })[0];
+    sel.value = !value ? list[0][0] : preset ? preset[0] : "other";
+    $("#po-form").elements[name].value = preset || !value ? "" : value;
+    $('#po-form [data-other-for="' + name + '"]').hidden = sel.value !== "other";
   }
+  function makePo(b) {
+    poSupplier = b.getAttribute("data-po");
+    var t = (editing.poTerms && editing.poTerms[poSupplier]) || {};
+    var f = $("#po-form");
+    f.elements.deliveryDate.value = t.deliveryDate || today(30);
+    fillPoSelect("deliveryPlace", t.deliveryPlace);
+    fillPoSelect("payment", t.payment);
+    fillPoSelect("packaging", t.packaging);
+    f.elements.notes.value = t.notes || "";
+    var sup = supplierById(poSupplier);
+    $("#po-dlg-title").textContent = T("po.dlgTitle") + (sup ? " — " + sup.company : "");
+    $("#po-dlg-status").textContent = ""; $("#po-dlg-status").className = "status";
+    var dlg = $("#po-dlg");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+  $("#po-dlg").addEventListener("click", function (e) {
+    if (e.target === this || e.target.closest("[data-close]")) this.close();
+  });
+  $("#po-form").addEventListener("change", function (e) {
+    var other = e.target.getAttribute("data-other");
+    if (other) $('#po-form [data-other-for="' + other + '"]').hidden = e.target.value !== "other";
+  });
+  function poTermValue(name) {
+    var f = $("#po-form");
+    var key = f.elements[name + "Sel"].value;
+    if (key === "other") return f.elements[name].value.trim();
+    return PO_PRESETS[name].filter(function (o) { return o[0] === key; })[0][1];
+  }
+  $("#po-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = this, st = $("#po-dlg-status");
+    var terms = { deliveryDate: f.elements.deliveryDate.value, deliveryPlace: poTermValue("deliveryPlace"), payment: poTermValue("payment"),
+      packaging: poTermValue("packaging"), notes: f.elements.notes.value.trim() };
+    f.elements.deliveryDate.classList.toggle("is-invalid", !terms.deliveryDate);
+    var missing = !terms.deliveryDate || !terms.deliveryPlace || !terms.payment || !terms.packaging;
+    if (missing) { st.className = "status is-error"; st.textContent = T("po.fillAll"); return; }
+    var btn = $("#po-generate"), supplierId = poSupplier;
+    btn.disabled = true;
+    st.className = "status"; st.textContent = T("po.making");
+    A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=po", { method: "POST", body: { supplierId: supplierId, terms: terms } })
+      .then(function (data) { accept(data.proforma); return exportPo(data.proforma, supplierId); })
+      .then(function () {
+        $("#po-dlg").close();
+        var s2 = $("#po-status"); s2.className = "status is-ok"; s2.textContent = T("po.done");
+      }, function (err) { st.className = "status is-error"; st.textContent = err.message; })
+      .then(function () { btn.disabled = false; });
+  });
 
   /* ----- Tabs of an order ----- */
   var orderTab = "items";
@@ -940,27 +1008,33 @@
       var infoY = y + 4.5 + nameLines.length * 4.4;
       doc.text(info, M + 19, infoY);
       doc.setFont("NotoSC", "bold"); doc.setFontSize(18); doc.setTextColor.apply(doc, navy);
-      doc.text("采购订单", W - M, y + 6, { align: "right" });
+      doc.text("采购合同", W - M, y + 6, { align: "right" });
       doc.setFont("NotoSC", "normal"); doc.setFontSize(8); doc.setTextColor.apply(doc, muted);
-      doc.text("PURCHASE ORDER", W - M, y + 10.5, { align: "right" });
+      doc.text("PURCHASE CONTRACT", W - M, y + 10.5, { align: "right" });
       doc.setFontSize(9); doc.setTextColor.apply(doc, text);
-      doc.text(["订单编号 No.: " + number, "日期 Date: " + today(), "币种 Currency: " + cur.label], W - M, y + 16, { align: "right" });
+      doc.text(["合同编号 No.: " + number, "签订日期 Date: " + today(), "币种 Currency: " + cur.label], W - M, y + 16, { align: "right" });
       y = Math.max(infoY + info.length * 3.8 + 5, y + 32);
 
-      // Supplier
-      var sl = [sup.company || ""];
-      if (sup.contact) sl.push("联系人 Contact: " + sup.contact);
-      if (sup.phone) sl.push("电话 Tel: " + sup.phone);
-      if (sup.wechat) sl.push("微信 WeChat: " + sup.wechat);
-      if (sup.email) sl.push("邮箱 Email: " + sup.email);
-      if (sup.city) sl.push("地址 Address: " + sup.city);
-      doc.setFont("NotoSC", "normal"); doc.setFontSize(9);
-      sl = [].concat.apply([], sl.map(function (l) { return doc.splitTextToSize(l, W - 2 * M - 8); }));
-      var bh = 9 + sl.length * 4.4;
-      doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251); doc.roundedRect(M, y, W - 2 * M, bh, 1.2, 1.2, "FD");
-      doc.setFont("NotoSC", "bold"); doc.setFontSize(8); doc.setTextColor.apply(doc, muted); doc.text("供应商 SUPPLIER", M + 4, y + 5);
-      doc.setFont("NotoSC", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text); doc.text(sl, M + 4, y + 10);
+      // Parties: buyer (us) and seller (the supplier), side by side
+      var colW = (W - 2 * M - 6) / 2;
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(8.6);
+      var wrap = function (lines) { return [].concat.apply([], lines.filter(Boolean).map(function (l) { return doc.splitTextToSize(l, colW - 8); })); };
+      var bl = wrap([s0.companyName || "Shenzhen Micheng International Trading Co., Ltd.",
+        s0.companyTaxId && "统一社会信用代码: " + s0.companyTaxId, s0.address && "地址: " + s0.address, s0.phone && "电话: " + s0.phone]);
+      var sl = wrap([sup.company || "", sup.contact && "联系人: " + sup.contact, sup.phone && "电话: " + sup.phone,
+        sup.wechat && "微信: " + sup.wechat, sup.email && "邮箱: " + sup.email, sup.city && "地址: " + sup.city]);
+      var bh = 10 + Math.max(bl.length, sl.length) * 4.1;
+      [[bl, "需方（甲方）BUYER", M], [sl, "供方（乙方）SELLER", M + colW + 6]].forEach(function (c) {
+        doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251); doc.roundedRect(c[2], y, colW, bh, 1.2, 1.2, "FD");
+        doc.setFont("NotoSC", "bold"); doc.setFontSize(8); doc.setTextColor.apply(doc, muted); doc.text(c[1], c[2] + 4, y + 5);
+        doc.setFont("NotoSC", "normal"); doc.setFontSize(8.6); doc.setTextColor.apply(doc, text); doc.text(c[0], c[2] + 4, y + 10);
+      });
       y += bh + 5;
+      doc.setFont("NotoSC", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text);
+      var intro = doc.splitTextToSize("经甲乙双方友好协商，就以下产品的买卖达成本合同，双方共同遵守。", W - 2 * M);
+      doc.text(intro, M, y + 1); y += intro.length * 4.4 + 2;
+      doc.setFont("NotoSC", "bold"); doc.setFontSize(9.5); doc.setTextColor.apply(doc, navy);
+      doc.text("一、产品名称、规格、数量及金额（Products, quantities and amounts）", M, y + 1); y += 5;
 
       // Link to the photos
       if (link) {
@@ -1023,29 +1097,96 @@
       doc.text(cur.symbol + " " + fmt2(total), W - M - 3, y + 9, { align: "right" });
       y += 18;
 
-      // Notes and signature
-      if (y + 55 > 285) { doc.addPage(); y = M; }
-      doc.setFont("NotoSC", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text);
-      doc.text(doc.splitTextToSize("备注：请按以上产品、规格和数量生产，并请确认本订单及交货日期。如有任何疑问，请及时与我们联系。", W - 2 * M), M, y);
-      doc.setFontSize(8); doc.setTextColor.apply(doc, muted);
-      doc.text(doc.splitTextToSize("Notes: please produce the products, specifications and quantities above, and confirm this order and the delivery date.", W - 2 * M), M, y + 10);
-      var sx = W - M - 70, sy = y + 18;
-      if (stamp) {
-        var pr = doc.getImageProperties(stamp), sw = 46, sh = sw * pr.height / pr.width;
-        if (sh > 28) { sh = 28; sw = sh * pr.width / pr.height; }
-        doc.addImage(stamp, pr.fileType || "PNG", sx + (70 - sw) / 2, sy, sw, sh);
+      if (p.currency === "CNY") {
+        doc.setFont("NotoSC", "normal"); doc.setFontSize(9); doc.setTextColor.apply(doc, text);
+        doc.text("合计金额（大写）：人民币" + rmbUpper(total), M, y - 4);
+        y += 2;
       }
-      doc.setDrawColor(150, 160, 170); doc.line(sx, sy + 30, W - M, sy + 30);
-      doc.setFont("NotoSC", "bold"); doc.setFontSize(8.5); doc.setTextColor.apply(doc, text);
-      doc.text("采购方（盖章/签字）Buyer", sx + 35, sy + 34.5, { align: "center" });
+
+      // Clauses
+      var terms = (p.poTerms && p.poTerms[supplierId]) || {};
+      var dd = terms.deliveryDate ? terms.deliveryDate.split("-") : null;
+      var clauses = [
+        ["二、质量要求", "Quality", "供方保证所供产品为全新、合格产品，与双方确认的规格、样品及图片（见本合同中的产品图片链接）一致，并符合国家相关标准。"],
+        ["三、包装要求", "Packing", terms.packaging || ""],
+        ["四、交货", "Delivery", (dd ? "交货日期：" + dd[0] + "年" + Number(dd[1]) + "月" + Number(dd[2]) + "日前。" : "") + (terms.deliveryPlace || "") +
+          "供方如不能按期交货，应提前通知需方，并须经需方书面同意。"],
+        ["五、付款方式", "Payment", terms.payment || ""],
+        ["六、验收", "Inspection", "需方有权在发货前或收货后对产品的数量、规格和质量进行检验。如有不符，供方应在接到需方通知后及时免费更换、补足或退款。"],
+        ["七、违约责任", "Breach", "供方逾期交货，或产品质量、数量不符合本合同约定的，需方有权要求供方更换、退货、退款或解除合同，并要求供方赔偿由此造成的损失。"],
+        ["八、争议解决", "Disputes", "本合同履行过程中发生的争议，由双方友好协商解决；协商不成的，任何一方均可向需方所在地人民法院提起诉讼。"],
+        ["九、其他", "Others", "本合同一式两份，双方各执一份，自双方签字盖章之日起生效；扫描件、传真件与原件具有同等法律效力。" +
+          (terms.notes ? "\n补充约定：" + terms.notes : "")]
+      ];
+      y += 3;
+      // Chinese text: a line that would hold only punctuation joins the line before.
+      var cjkLines = function (t, width) {
+        var out = [];
+        doc.splitTextToSize(t, width).forEach(function (l) {
+          if (out.length && /^[。，；：、！？）」』”]+$/.test(l.trim())) out[out.length - 1] += l.trim();
+          else out.push(l);
+        });
+        return out;
+      };
+      clauses.forEach(function (c) {
+        doc.setFont("NotoSC", "normal"); doc.setFontSize(8.6);
+        var lines = cjkLines(c[2], W - 2 * M - 6);
+        if (y + 4.7 + lines.length * 3.9 > 282) { doc.addPage(); y = M; }
+        doc.setFont("NotoSC", "bold"); doc.setFontSize(9.3); doc.setTextColor.apply(doc, navy);
+        doc.text(c[0], M, y + 1);
+        var tw = doc.getTextWidth(c[0]);
+        doc.setFont("NotoSC", "normal"); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted);
+        doc.text("（" + c[1] + "）", M + tw + 1, y + 1);
+        doc.setFontSize(8.6); doc.setTextColor.apply(doc, text);
+        doc.text(lines, M + 4, y + 4.7, { lineHeightFactor: 1.3 });
+        y += 4.7 + lines.length * 3.9 + 0.9;
+      });
+
+      // Signatures of both parties
+      if (y + 36 > 287) { doc.addPage(); y = M; }
+      y += 3;
+      [[M, "需方（甲方）Buyer", s0.companyName || "Shenzhen Micheng International Trading Co., Ltd.", true],
+       [M + colW + 6, "供方（乙方）Seller", sup.company || "", false]].forEach(function (c) {
+        var x = c[0];
+        doc.setFont("NotoSC", "bold"); doc.setFontSize(9); doc.setTextColor.apply(doc, navy); doc.text(c[1], x, y);
+        doc.setFont("NotoSC", "normal"); doc.setFontSize(8.5); doc.setTextColor.apply(doc, text);
+        doc.text(doc.splitTextToSize("单位名称：" + c[2], colW), x, y + 5.5);
+        if (c[3] && stamp) {
+          var pr = doc.getImageProperties(stamp), sw = 36, sh = sw * pr.height / pr.width;
+          if (sh > 22) { sh = 22; sw = sh * pr.width / pr.height; }
+          doc.addImage(stamp, pr.fileType || "PNG", x + 30, y + 5, sw, sh);
+        }
+        doc.setDrawColor(150, 160, 170);
+        doc.text("签字盖章（Signature & stamp）：", x, y + 11); doc.line(x, y + 25, x + colW - 4, y + 25);
+        doc.text("日期（Date）：" + (c[3] ? today() : ""), x, y + 31); doc.line(x + 24, y + 32, x + colW - 4, y + 32);
+      });
       var pages = doc.getNumberOfPages();
       for (var k = 1; k <= pages; k++) {
         doc.setPage(k); doc.setFont("NotoSC", "normal"); doc.setFontSize(7.5); doc.setTextColor.apply(doc, muted);
         doc.text((s0.companyName || "Shenzhen Micheng International Trading") + " · " + number, M, 290);
         doc.text("第 " + k + "/" + pages + " 页", W - M, 290, { align: "right" });
       }
-      doc.save(PD.safeName("PO " + number + " - " + (sup.company || ""), "pdf"));
+      doc.save(PD.safeName("Contrato de compra " + number + " - " + (sup.company || ""), "pdf"));
     });
+  }
+  // Amount in Chinese capital numerals, as contracts write it: 壹仟贰佰元整.
+  function rmbUpper(n) {
+    var digits = "零壹贰叁肆伍陆柒捌玖", units = ["", "拾", "佰", "仟"], big = ["", "万", "亿", "万亿"];
+    var cents = Math.round(Math.abs(n) * 100), yuan = Math.floor(cents / 100), jiao = Math.floor(cents / 10) % 10, fen = cents % 10;
+    var str = String(yuan), out = "", zero = false;
+    for (var i = 0; i < str.length; i++) {
+      var d = Number(str[i]), pos = str.length - 1 - i, q = pos % 4, g = Math.floor(pos / 4);
+      if (d === 0) zero = true;
+      else { out += (zero ? "零" : "") + digits[d] + units[q]; zero = false; }
+      // End of a group of four digits: 万 / 亿 when the group has any digit.
+      if (q === 0 && g > 0 && /[1-9]/.test(str.slice(Math.max(0, i - 3), i + 1))) out += big[g];
+    }
+    var res = yuan ? out + "元" : "";
+    if (!jiao && !fen) return (res || "零元") + "整";
+    if (jiao) res += digits[jiao] + "角";
+    else if (yuan) res += "零";
+    if (fen) res += digits[fen] + "分";
+    return res;
   }
   function poGroupsOf(p) {
     var ids = [];

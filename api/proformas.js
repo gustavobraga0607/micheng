@@ -483,7 +483,15 @@ async function handler(req, res) {
       const supplierId = String(body.supplierId || "");
       if (!current.items.some((i) => i.supplierId === supplierId)) return fail(res, 404, "Supplier not in this order");
       const supplier = priv.suppliers.find((x) => x.id === supplierId);
-      const proforma = { ...current, poTokens: { ...(current.poTokens || {}) } };
+      const proforma = { ...current, poTokens: { ...(current.poTokens || {}) }, poTerms: { ...(current.poTerms || {}) } };
+      // Terms of the purchase contract, kept per supplier for the next time.
+      if (body.terms && typeof body.terms === "object") {
+        const t = body.terms;
+        const txt = (v, max) => String(v || "").replace(/\r\n/g, "\n").trim().slice(0, max);
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(String(t.deliveryDate || "")) ? t.deliveryDate : "";
+        proforma.poTerms[supplierId] = { deliveryDate: date, deliveryPlace: txt(t.deliveryPlace, 300), payment: txt(t.payment, 300),
+          packaging: txt(t.packaging, 300), notes: txt(t.notes, 1000) };
+      }
       if (!proforma.poTokens[supplierId]) proforma.poTokens[supplierId] = crypto.randomBytes(18).toString("base64url");
       addLog(proforma, session.u, "po", [{ type: "po", number: poNumber(current, supplierId), supplier: supplier ? supplier.company : "" }]);
       priv.proformas[index] = proforma;

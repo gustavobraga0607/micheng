@@ -499,6 +499,27 @@
       <p class="status is-error" id="pf-pdf-missing"></p>
     </dialog>
 
+    <!-- Purchase contract terms (per supplier) -->
+    <dialog class="mdl" id="po-dlg">
+      <form id="po-form" class="crud-form" novalidate>
+        <div class="mdl__head"><h2 id="po-dlg-title" data-t="po.dlgTitle">Contrato de compra</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+        <p class="hint" data-t="po.dlgHint">Condições do contrato com o fornecedor. O contrato sai em chinês: as opções prontas já estão traduzidas; um texto digitado em "Outro" entra como foi escrito.</p>
+        <label><span data-t="po.deliveryDate">Data de entrega *</span><input type="date" name="deliveryDate" required /></label>
+        <label><span data-t="po.deliveryPlace">Entrega e frete</span><select name="deliveryPlaceSel" data-other="deliveryPlace"></select></label>
+        <label data-other-for="deliveryPlace" hidden><span data-t="po.other">Outro (texto do contrato)</span><textarea name="deliveryPlace" rows="2" maxlength="300"></textarea></label>
+        <label><span data-t="po.payment">Pagamento</span><select name="paymentSel" data-other="payment"></select></label>
+        <label data-other-for="payment" hidden><span data-t="po.other">Outro (texto do contrato)</span><textarea name="payment" rows="2" maxlength="300"></textarea></label>
+        <label><span data-t="po.packaging">Embalagem</span><select name="packagingSel" data-other="packaging"></select></label>
+        <label data-other-for="packaging" hidden><span data-t="po.other">Outro (texto do contrato)</span><textarea name="packaging" rows="2" maxlength="300"></textarea></label>
+        <label><span data-t="po.notes">Observações (opcional, entram no contrato como digitadas)</span><textarea name="notes" rows="2" maxlength="1000"></textarea></label>
+        <div class="form-actions">
+          <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
+          <button type="submit" class="btn btn--primary" id="po-generate" data-t="po.generate">Gerar contrato (PDF)</button>
+        </div>
+        <p class="status" id="po-dlg-status" role="status" aria-live="polite"></p>
+      </form>
+    </dialog>
+
     <!-- Entry form -->
     <dialog class="mdl" id="fin-entry-dlg">
       <form id="fin-entry-form" class="crud-form" novalidate>

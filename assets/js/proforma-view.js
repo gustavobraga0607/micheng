@@ -42,7 +42,7 @@
     en: { title: "Purchase order", supplier: "Supplier", buyer: "Buyer", unit: "Unit cost" },
     pt: { title: "Pedido de compra", supplier: "Fornecedor", buyer: "Comprador", unit: "Preço de compra" },
     es: { title: "Orden de compra", supplier: "Proveedor", buyer: "Comprador", unit: "Precio de compra" },
-    zh: { title: "采购订单", supplier: "供应商", buyer: "采购方", unit: "采购单价" }
+    zh: { title: "采购合同", supplier: "供应商", buyer: "采购方", unit: "采购单价" }
   };
   var LOCALE = { en: "en-US", pt: "pt-BR", es: "es-ES", zh: "zh-CN" };
   var CUR = { CNY: { label: "RMB", symbol: "¥" }, USD: { label: "USD", symbol: "US$" }, EUR: { label: "EUR", symbol: "€" }, BRL: { label: "BRL", symbol: "R$" } };
