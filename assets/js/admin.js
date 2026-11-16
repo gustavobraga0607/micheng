@@ -1110,7 +1110,7 @@
   $("#sup-cats").addEventListener("change", function () { this.classList.remove("is-invalid"); });
 
   /* ----- Supplier catalogs: uploaded in parts of 3 MB, read back and joined ----- */
-  var CATALOG_PART = 3 * 1024 * 1024, CATALOG_MAX = 50 * 1024 * 1024;
+  var CATALOG_PART = 3 * 1024 * 1024, CATALOG_MAX = 5 * 1024 * 1024;
   var CATALOG_TYPES = {
     pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
     xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1156,7 +1156,7 @@
   }
   function checkCatalog(file) {
     if (!catalogType(file)) return T("sup.catalogType", { name: file.name });
-    if (file.size > CATALOG_MAX) return T("sup.catalogBig", { name: file.name });
+    if (file.size > CATALOG_MAX) return T("sup.catalogBig", { name: file.name, size: sizeText(file.size) });
     if (!file.size) return T("sup.catalogType", { name: file.name });
     return "";
   }
@@ -1189,7 +1189,9 @@
     var errors = [];
     return files.reduce(function (chain, f) {
       return chain.then(function () {
-        return uploadCatalog(supplierId, f, progress).catch(function (e) { errors.push(f.name + ": " + e.message); });
+        return uploadCatalog(supplierId, f, progress).catch(function (e) {
+          errors.push(/larger than 5 MB/.test(e.message) ? T("sup.catalogBig", { name: f.name, size: sizeText(f.size) }) : f.name + ": " + e.message);
+        });
       });
     }, Promise.resolve()).then(function () {
       renderSuppliers();

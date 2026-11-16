@@ -46,12 +46,12 @@ function missingFields(data) {
 }
 
 /* ---------- Supplier catalogs (product suppliers) ----------
-   Files of up to 50 MB, kept encrypted like the finance attachments. A request
+   Files of up to 5 MB, kept encrypted like the finance attachments. A request
    to Vercel is limited to about 4.5 MB, so a file travels in parts of 3 MB:
    each part is stored on its own (?kind=part) and the catalog lists them in
    order (?kind=catalog); the panel reads the parts back and joins them. */
 const PART_BYTES = 3 * 1024 * 1024;
-const MAX_CATALOG_BYTES = 50 * 1024 * 1024;
+const MAX_CATALOG_BYTES = 5 * 1024 * 1024;
 const MAX_PARTS = Math.ceil(MAX_CATALOG_BYTES / PART_BYTES);
 const CATALOG_TYPES = [
   "application/pdf", "image/jpeg", "image/png", "image/webp",
@@ -124,7 +124,8 @@ async function handler(req, res) {
         const refs = Array.isArray(body.refs) ? body.refs : [];
         const size = Number(body.size);
         if (!CATALOG_TYPES.includes(body.type)) return fail(res, 400, "Unsupported file");
-        if (!refs.length || refs.length > MAX_PARTS || !refs.every(isPartRef) || !(size > 0) || size > MAX_CATALOG_BYTES) return fail(res, 400, "Invalid file");
+        if (size > MAX_CATALOG_BYTES) return fail(res, 413, "File larger than 5 MB");
+        if (!refs.length || refs.length > MAX_PARTS || !refs.every(isPartRef) || !(size > 0)) return fail(res, 400, "Invalid file");
         const name = String(body.name || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 160) || "catalog";
         const file = { id: crypto.randomUUID(), name, type: body.type, size, parts: refs, uploadedAt: new Date().toISOString(), by: getSession(req).u };
         priv.suppliers[index] = { ...supplier, catalogs: catalogs.concat(file) };
