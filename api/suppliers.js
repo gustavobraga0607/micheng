@@ -33,8 +33,8 @@ function clean(body) {
   return out;
 }
 
-// A product supplier needs every field except website and phone/WhatsApp.
-const REQUIRED_FOR_PRODUCTS = ["contact", "wechat", "email", "city", "notes"];
+// A product supplier needs every field except website, phone/WhatsApp and notes.
+const REQUIRED_FOR_PRODUCTS = ["contact", "wechat", "email", "city"];
 function missingFields(data) {
   const missing = [];
   if (!data.company) missing.push("company");

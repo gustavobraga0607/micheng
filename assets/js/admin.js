@@ -1055,11 +1055,11 @@
     body.productSupplier = supForm.elements.productSupplier.checked;
     body.categories = body.productSupplier ? Array.prototype.filter.call(supForm.querySelectorAll('input[name="cat"]'), function (c) { return c.checked; })
       .map(function (c) { return c.value; }) : [];
-    // A product supplier needs every field except website and phone/WhatsApp.
+    // A product supplier needs every field except website, phone/WhatsApp and notes.
     var missing = [];
     if (!body.company.trim()) missing.push("company");
     if (body.productSupplier) {
-      ["contact", "wechat", "email", "city", "notes"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
+      ["contact", "wechat", "email", "city"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
       if (body.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()) && missing.indexOf("email") < 0) missing.push("email");
       if (!body.categories.length) missing.push("categories");
     }
