@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "sup.requiredFields": "Fornecedor de produtos: preencha {fields}.",
     "sup.categories": "Categorias de produtos",
     "sup.categoriesHint": "Marque uma ou mais. No cadastro do produto aparecem só os fornecedores da categoria dele.",
     "sup.noCategory": "sem categoria definida",
@@ -598,6 +599,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "sup.requiredFields": "Product supplier: fill in {fields}.",
     "sup.categories": "Product categories",
     "sup.categoriesHint": "Tick one or more. The product form only shows suppliers of the product's category.",
     "sup.noCategory": "no category set",
@@ -1195,6 +1197,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "sup.requiredFields": "Proveedor de productos: complete {fields}.",
     "sup.categories": "Categorías de productos",
     "sup.categoriesHint": "Marque una o más. En el registro del producto solo aparecen los proveedores de su categoría.",
     "sup.noCategory": "sin categoría definida",
@@ -1792,6 +1795,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "sup.requiredFields": "产品供应商：请填写 {fields}。",
     "sup.categories": "产品类别",
     "sup.categoriesHint": "可多选。产品表单中只显示该产品类别的供应商。",
     "sup.noCategory": "未设置类别",

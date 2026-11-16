@@ -186,7 +186,7 @@
           <label><span data-t="sup.company">Empresa *</span><input type="text" name="company" maxlength="120" required /></label>
           <label class="check sup-flag"><input type="checkbox" name="productSupplier" checked /> <span><b data-t="sup.productSupplier">Fornecedor de produtos</b><small data-t="sup.productSupplierHint">Aparece no cadastro de produtos. Desmarque para fornecedores de despesas, como aluguel, frete ou serviços.</small></span></label>
           <fieldset class="sup-cats" id="sup-cats">
-            <legend data-t="sup.categories">Categorias de produtos</legend>
+            <legend><span data-t="sup.categories">Categorias de produtos</span><b class="req-prod"> *</b></legend>
             <div class="sup-cats__list">
               <label class="check"><input type="checkbox" name="cat" value="building" /> <span data-t="cat.building">Materiais de Construção</span></label>
               <label class="check"><input type="checkbox" name="cat" value="sanitary" /> <span data-t="cat.sanitary">Louças e Metais</span></label>
@@ -195,15 +195,15 @@
             </div>
             <small data-t="sup.categoriesHint">Marque uma ou mais. No cadastro do produto aparecem só os fornecedores da categoria dele.</small>
           </fieldset>
-          <label><span data-t="sup.contact">Pessoa de contato</span><input type="text" name="contact" maxlength="120" /></label>
+          <label><span><span data-t="sup.contact">Pessoa de contato</span><b class="req-prod"> *</b></span><input type="text" name="contact" maxlength="120" /></label>
           <div class="form-row">
             <label><span data-t="sup.phone">Telefone / WhatsApp</span><input type="text" name="phone" maxlength="60" /></label>
-            <label><span data-t="sup.wechat">WeChat</span><input type="text" name="wechat" maxlength="60" /></label>
+            <label><span><span data-t="sup.wechat">WeChat</span><b class="req-prod"> *</b></span><input type="text" name="wechat" maxlength="60" /></label>
           </div>
-          <label><span data-t="sup.email">E-mail</span><input type="text" name="email" maxlength="160" inputmode="email" /></label>
-          <label><span data-t="sup.city">Cidade / endereço</span><input type="text" name="city" maxlength="160" /></label>
+          <label><span><span data-t="sup.email">E-mail</span><b class="req-prod"> *</b></span><input type="text" name="email" maxlength="160" inputmode="email" /></label>
+          <label><span><span data-t="sup.city">Cidade / endereço</span><b class="req-prod"> *</b></span><input type="text" name="city" maxlength="160" /></label>
           <label><span data-t="sup.website">Site / loja online</span><input type="text" name="website" maxlength="200" inputmode="url" /></label>
-          <label><span data-t="sup.notes">Observações</span><textarea name="notes" rows="4" maxlength="2000" data-t-placeholder="sup.notesPh"></textarea></label>
+          <label><span><span data-t="sup.notes">Observações</span><b class="req-prod"> *</b></span><textarea name="notes" rows="4" maxlength="2000" data-t-placeholder="sup.notesPh"></textarea></label>
           <div class="form-actions">
             <button type="submit" class="btn btn--primary btn--lg" id="supplier-save" data-t="sup.save">Salvar fornecedor</button>
             <button type="button" class="btn btn--outline" id="supplier-cancel" data-t="form.cancel" hidden>Cancelar edição</button>

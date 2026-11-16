@@ -166,7 +166,7 @@
         if (r.status === 503 && path !== "/api/login") throw new Error(T("status.busy"));
         if (r.status === 429) throw new Error(T("login.tooMany"));
         if (r.status === 409 && data.error === "Changed by someone else") { loadAll(); throw new Error(T("status.conflict")); }
-        if (!r.ok) throw new Error(data.error || "Erro " + r.status);
+        if (!r.ok) { var err = new Error(data.error || "Erro " + r.status); err.data = data; throw err; }
         return data;
       });
     });
@@ -1018,6 +1018,7 @@
   function updateSupplierMode() {
     var editing = Boolean(supForm.elements.id.value);
     $("#sup-cats").hidden = !supForm.elements.productSupplier.checked; // categories only for product suppliers
+    supForm.classList.toggle("is-expense", !supForm.elements.productSupplier.checked); // hides the "*" of fields only products need
     $("#supplier-title").textContent = T(editing ? "sup.edit" : "sup.new");
     $("#supplier-save").textContent = T(editing ? "sup.saveChanges" : "sup.save");
     $("#supplier-cancel").hidden = !editing;
@@ -1054,9 +1055,15 @@
     body.productSupplier = supForm.elements.productSupplier.checked;
     body.categories = body.productSupplier ? Array.prototype.filter.call(supForm.querySelectorAll('input[name="cat"]'), function (c) { return c.checked; })
       .map(function (c) { return c.value; }) : [];
-    var ok = body.company.trim() !== "";
-    supForm.elements.company.classList.toggle("is-invalid", !ok);
-    if (!ok) return setSupplierStatus(T("sup.required"), "error");
+    // A product supplier needs every field except website and phone/WhatsApp.
+    var missing = [];
+    if (!body.company.trim()) missing.push("company");
+    if (body.productSupplier) {
+      ["contact", "wechat", "email", "city", "notes"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
+      if (body.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()) && missing.indexOf("email") < 0) missing.push("email");
+      if (!body.categories.length) missing.push("categories");
+    }
+    if (markSupplierMissing(missing)) return;
     var btn = $("#supplier-save");
     btn.disabled = true;
     api(id ? "/api/suppliers?id=" + encodeURIComponent(id) : "/api/suppliers", { method: id ? "PUT" : "POST", body: body })
@@ -1068,9 +1075,28 @@
         renderList();
         setSupplierStatus(T("sup.saved"), "ok");
       })
-      .catch(function (e2) { setSupplierStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
+      .catch(function (e2) {
+        if (e2.data && e2.data.missing) return markSupplierMissing(e2.data.missing);
+        setSupplierStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error");
+      })
       .then(function () { btn.disabled = false; });
   });
+
+  // Marks the missing fields and says which they are; true when something is missing.
+  function markSupplierMissing(missing) {
+    ["company", "contact", "wechat", "email", "city", "notes"].forEach(function (f) {
+      supForm.elements[f].classList.toggle("is-invalid", missing.indexOf(f) > -1);
+    });
+    $("#sup-cats").classList.toggle("is-invalid", missing.indexOf("categories") > -1);
+    if (!missing.length) return false;
+    var names = missing.map(function (f) { return f === "categories" ? T("sup.categories") : T("sup." + f).replace(/\s*\*$/, ""); });
+    setSupplierStatus(T(missing.length === 1 && missing[0] === "company" ? "sup.required" : "sup.requiredFields", { fields: names.join(", ") }), "error");
+    var first = missing[0] === "categories" ? $("#sup-cats input") : supForm.elements[missing[0]];
+    if (first) first.focus();
+    return true;
+  }
+  supForm.addEventListener("input", function (e) { if (e.target.classList) e.target.classList.remove("is-invalid"); });
+  $("#sup-cats").addEventListener("change", function () { this.classList.remove("is-invalid"); });
 
   function productName(id) {
     var p = products.filter(function (x) { return x.id === id; })[0];

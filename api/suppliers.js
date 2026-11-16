@@ -33,6 +33,18 @@ function clean(body) {
   return out;
 }
 
+// A product supplier needs every field except website and phone/WhatsApp.
+const REQUIRED_FOR_PRODUCTS = ["contact", "wechat", "email", "city", "notes"];
+function missingFields(data) {
+  const missing = [];
+  if (!data.company) missing.push("company");
+  if (!data.productSupplier) return missing;
+  for (const f of REQUIRED_FOR_PRODUCTS) if (!data[f]) missing.push(f);
+  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) missing.push("email");
+  if (!data.categories.length) missing.push("categories");
+  return [...new Set(missing)];
+}
+
 // Adds the ids of the products each supplier is linked to.
 export function withProducts(priv) {
   return priv.suppliers.map((s) => ({
@@ -52,7 +64,8 @@ async function handler(req, res) {
 
     if (req.method === "POST") {
       const data = clean(await readJson(req));
-      if (!data.company) return fail(res, 400, "Company name is required");
+      const missing = missingFields(data);
+      if (missing.length) return send(res, 400, { error: "Required fields missing", missing });
       const now = new Date().toISOString();
       const supplier = { id: crypto.randomUUID(), ...data, createdAt: now, updatedAt: now };
       priv.suppliers.unshift(supplier);
@@ -66,7 +79,8 @@ async function handler(req, res) {
 
     if (req.method === "PUT") {
       const data = clean(await readJson(req));
-      if (!data.company) return fail(res, 400, "Company name is required");
+      const missing = missingFields(data);
+      if (missing.length) return send(res, 400, { error: "Required fields missing", missing });
       priv.suppliers[index] = { ...priv.suppliers[index], ...data, updatedAt: new Date().toISOString() };
       await savePrivate(priv);
       return send(res, 200, { supplier: withProducts(priv)[index] });
