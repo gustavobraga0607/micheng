@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getPrivate, savePrivate, productLinks, oneChangeAtATime } from "./_lib/store.js";
+import { getPrivate, savePrivate, productLinks, oneChangeAtATime, saveSecretFile, readSecretFile, deleteSecretFile } from "./_lib/store.js";
 
 const CATEGORIES = ["building", "sanitary", "fitness", "general"];
 
@@ -45,10 +45,34 @@ function missingFields(data) {
   return [...new Set(missing)];
 }
 
+/* ---------- Supplier catalogs (product suppliers) ----------
+   Files of up to 50 MB, kept encrypted like the finance attachments. A request
+   to Vercel is limited to about 4.5 MB, so a file travels in parts of 3 MB:
+   each part is stored on its own (?kind=part) and the catalog lists them in
+   order (?kind=catalog); the panel reads the parts back and joins them. */
+const PART_BYTES = 3 * 1024 * 1024;
+const MAX_CATALOG_BYTES = 50 * 1024 * 1024;
+const MAX_PARTS = Math.ceil(MAX_CATALOG_BYTES / PART_BYTES);
+const CATALOG_TYPES = [
+  "application/pdf", "image/jpeg", "image/png", "image/webp",
+  "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+];
+// Only references to our own encrypted files.
+const isPartRef = (r) => typeof r === "string" && (/^local:[\w-]+\.bin$/.test(r) || /^https:\/\/[\w.-]+\.public\.blob\.vercel-storage\.com\/private\/files\//.test(r));
+const catalogOut = (c) => ({ id: c.id, name: c.name, type: c.type, size: c.size, parts: c.parts.length, uploadedAt: c.uploadedAt, by: c.by });
+
+async function deleteParts(refs) {
+  for (const r of refs) await deleteSecretFile(r).catch((e) => console.warn("Could not delete a catalog part", e.message));
+}
+
 // Adds the ids of the products each supplier is linked to.
 export function withProducts(priv) {
   return priv.suppliers.map((s) => ({
     ...s,
+    catalogs: (s.catalogs || []).map(catalogOut),
     productIds: Object.keys(priv.productSuppliers).filter((pid) => productLinks(priv, pid).some((l) => l.supplierId === s.id)),
   }));
 }
@@ -60,9 +84,9 @@ async function handler(req, res) {
 
     const priv = await getPrivate();
 
-    if (req.method === "GET") return send(res, 200, { suppliers: withProducts(priv) });
+    if (req.method === "GET" && !queryParam(req, "kind")) return send(res, 200, { suppliers: withProducts(priv) });
 
-    if (req.method === "POST") {
+    if (req.method === "POST" && !queryParam(req, "id")) {
       const data = clean(await readJson(req));
       const missing = missingFields(data);
       if (missing.length) return send(res, 400, { error: "Required fields missing", missing });
@@ -77,6 +101,57 @@ async function handler(req, res) {
     const index = priv.suppliers.findIndex((s) => s.id === id);
     if (index < 0) return fail(res, 404, "Supplier not found");
 
+    const kind = queryParam(req, "kind");
+    const supplier = priv.suppliers[index];
+    // One part of a catalog being uploaded (base64 in JSON).
+    if (kind === "part" && req.method === "POST") {
+      const data = String((await readJson(req)).data || "");
+      if (!/^[A-Za-z0-9+/=]+$/.test(data)) return fail(res, 400, "Invalid part");
+      const buffer = Buffer.from(data, "base64");
+      if (!buffer.length || buffer.length > PART_BYTES) return fail(res, 400, "Invalid part");
+      return send(res, 200, { ref: await saveSecretFile(buffer) });
+    }
+    // Parts of an upload that failed: removed.
+    if (kind === "discard" && req.method === "POST") {
+      const refs = (await readJson(req)).refs;
+      await deleteParts((Array.isArray(refs) ? refs : []).filter(isPartRef).slice(0, MAX_PARTS));
+      return send(res, 200, { ok: true });
+    }
+    if (kind === "catalog") {
+      const catalogs = supplier.catalogs || [];
+      if (req.method === "POST") {
+        const body = await readJson(req);
+        const refs = Array.isArray(body.refs) ? body.refs : [];
+        const size = Number(body.size);
+        if (!CATALOG_TYPES.includes(body.type)) return fail(res, 400, "Unsupported file");
+        if (!refs.length || refs.length > MAX_PARTS || !refs.every(isPartRef) || !(size > 0) || size > MAX_CATALOG_BYTES) return fail(res, 400, "Invalid file");
+        const name = String(body.name || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 160) || "catalog";
+        const file = { id: crypto.randomUUID(), name, type: body.type, size, parts: refs, uploadedAt: new Date().toISOString(), by: getSession(req).u };
+        priv.suppliers[index] = { ...supplier, catalogs: catalogs.concat(file) };
+        await savePrivate(priv);
+        return send(res, 200, { supplier: withProducts(priv)[index] });
+      }
+      const file = catalogs.find((c) => c.id === queryParam(req, "file"));
+      if (!file) return fail(res, 404, "File not found");
+      if (req.method === "GET") {
+        const n = Number(queryParam(req, "part") || 0);
+        if (!Number.isInteger(n) || n < 0 || n >= file.parts.length) return fail(res, 404, "Part not found");
+        const buffer = await readSecretFile(file.parts[n]);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Length", buffer.length);
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.end(buffer);
+      }
+      if (req.method === "DELETE") {
+        priv.suppliers[index] = { ...supplier, catalogs: catalogs.filter((c) => c.id !== file.id) };
+        await savePrivate(priv);
+        await deleteParts(file.parts);
+        return send(res, 200, { supplier: withProducts(priv)[index] });
+      }
+      return fail(res, 405, "Method not allowed");
+    }
+
     if (req.method === "PUT") {
       const data = clean(await readJson(req));
       const missing = missingFields(data);
@@ -87,12 +162,13 @@ async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      priv.suppliers.splice(index, 1);
+      const gone = priv.suppliers.splice(index, 1)[0];
       for (const pid of Object.keys(priv.productSuppliers)) {
         priv.productSuppliers[pid] = productLinks(priv, pid).filter((l) => l.supplierId !== id);
         if (!priv.productSuppliers[pid].length) delete priv.productSuppliers[pid];
       }
       await savePrivate(priv);
+      for (const c of gone.catalogs || []) await deleteParts(c.parts);
       return send(res, 200, { ok: true });
     }
 

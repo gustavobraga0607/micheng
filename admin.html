@@ -204,6 +204,14 @@
           <label><span><span data-t="sup.city">Cidade / endereço</span><b class="req-prod"> *</b></span><input type="text" name="city" maxlength="160" /></label>
           <label><span data-t="sup.website">Site / loja online</span><input type="text" name="website" maxlength="200" inputmode="url" /></label>
           <label><span data-t="sup.notes">Observações</span><textarea name="notes" rows="4" maxlength="2000" data-t-placeholder="sup.notesPh"></textarea></label>
+          <div class="sup-catalogs" id="sup-catalogs">
+            <div class="sup-catalogs__head"><b data-t="sup.catalogs">Catálogos do fornecedor</b>
+              <small data-t="sup.catalogsHint">PDF, imagem, Excel, Word, PowerPoint ou ZIP, até 50 MB cada. Ficam guardados criptografados.</small></div>
+            <ul class="fin-file-list" id="sup-catalog-list"></ul>
+            <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="sup-catalog-file" multiple hidden
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.zip" /><span data-t="sup.attachCatalog">Anexar catálogo</span></label>
+            <p class="status" id="sup-catalog-status" role="status" aria-live="polite"></p>
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn btn--primary btn--lg" id="supplier-save" data-t="sup.save">Salvar fornecedor</button>
             <button type="button" class="btn btn--outline" id="supplier-cancel" data-t="form.cancel" hidden>Cancelar edição</button>

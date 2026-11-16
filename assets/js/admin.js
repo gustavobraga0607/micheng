@@ -1018,6 +1018,8 @@
   function updateSupplierMode() {
     var editing = Boolean(supForm.elements.id.value);
     $("#sup-cats").hidden = !supForm.elements.productSupplier.checked; // categories only for product suppliers
+    $("#sup-catalogs").hidden = !supForm.elements.productSupplier.checked; // catalogs too
+    renderCatalogs();
     supForm.classList.toggle("is-expense", !supForm.elements.productSupplier.checked); // hides the "*" of fields only products need
     $("#supplier-title").textContent = T(editing ? "sup.edit" : "sup.new");
     $("#supplier-save").textContent = T(editing ? "sup.saveChanges" : "sup.save");
@@ -1025,6 +1027,8 @@
   }
 
   function resetSupplierForm() {
+    pendingCatalogs = [];
+    setCatalogStatus("");
     supForm.reset();
     supForm.elements.id.value = "";
     supForm.elements.company.classList.remove("is-invalid");
@@ -1070,10 +1074,17 @@
       .then(function (data) {
         if (id) suppliers = suppliers.map(function (x) { return x.id === id ? data.supplier : x; });
         else suppliers.unshift(data.supplier);
+        // Catalogs chosen before the supplier existed go up now.
+        var queued = data.supplier.productSupplier !== false ? pendingCatalogs.slice() : [];
         resetSupplierForm();
         renderPicker();
         renderList();
         setSupplierStatus(T("sup.saved"), "ok");
+        if (queued.length) {
+          return uploadCatalogs(data.supplier.id, queued, function (msg) { setSupplierStatus(msg); }).then(function (errors) {
+            setSupplierStatus(errors.length ? T("sup.savedCatalogErr", { errors: errors.join(" · ") }) : T("sup.savedWithCatalogs"), errors.length ? "error" : "ok");
+          });
+        }
       })
       .catch(function (e2) {
         if (e2.data && e2.data.missing) return markSupplierMissing(e2.data.missing);
@@ -1097,6 +1108,168 @@
   }
   supForm.addEventListener("input", function (e) { if (e.target.classList) e.target.classList.remove("is-invalid"); });
   $("#sup-cats").addEventListener("change", function () { this.classList.remove("is-invalid"); });
+
+  /* ----- Supplier catalogs: uploaded in parts of 3 MB, read back and joined ----- */
+  var CATALOG_PART = 3 * 1024 * 1024, CATALOG_MAX = 50 * 1024 * 1024;
+  var CATALOG_TYPES = {
+    pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+    xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    zip: "application/zip"
+  };
+  var pendingCatalogs = [];
+  function catalogType(file) {
+    var ext = (file.name.match(/\.([a-z0-9]+)$/i) || [])[1];
+    return ext ? CATALOG_TYPES[ext.toLowerCase()] || null : null;
+  }
+  function sizeText(n) {
+    return n < 1048576 ? Math.max(1, Math.round(n / 1024)) + " KB" : (n / 1048576).toLocaleString(HTML_LANG[current], { maximumFractionDigits: 1 }) + " MB";
+  }
+  function setCatalogStatus(msg, kind) {
+    var el = $("#sup-catalog-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+  function catalogIcon(type) {
+    return /pdf/.test(type) ? "PDF" : /image/.test(type) ? "IMG" : /sheet|excel/.test(type) ? "XLS" : /word/.test(type) ? "DOC" : /presentation|powerpoint/.test(type) ? "PPT" : "ZIP";
+  }
+  function renderCatalogs() {
+    var id = supForm.elements.id.value;
+    var s = id ? suppliers.filter(function (x) { return x.id === id; })[0] : null;
+    var saved = (s && s.catalogs) || [];
+    $("#sup-catalog-list").innerHTML = saved.map(function (c) {
+      return '<li><button type="button" class="linkbtn" data-cat-open="' + escapeHtml(c.id) + '" data-sup="' + escapeHtml(id) + '"><span class="fin-file-ico">' + catalogIcon(c.type) + "</span>" +
+        escapeHtml(c.name) + "</button><small>" + escapeHtml(sizeText(c.size)) + '</small><button type="button" class="linkbtn danger" data-cat-del="' + escapeHtml(c.id) + '">' + escapeHtml(T("sup.removeCatalog")) + "</button></li>";
+    }).join("") + (pendingCatalogs || []).map(function (f, k) {
+      return '<li class="is-pending"><span><span class="fin-file-ico">' + catalogIcon(catalogType(f) || "") + "</span>" + escapeHtml(f.name) + "</span><small>" +
+        escapeHtml(sizeText(f.size) + " · " + T("sup.catalogPending")) + '</small><button type="button" class="linkbtn danger" data-cat-unqueue="' + k + '">' + escapeHtml(T("sup.removeCatalog")) + "</button></li>";
+    }).join("");
+  }
+  function readPart(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).replace(/^data:[^,]*,/, "")); };
+      r.onerror = function () { reject(new Error(T("sup.catalogError"))); };
+      r.readAsDataURL(blob);
+    });
+  }
+  function checkCatalog(file) {
+    if (!catalogType(file)) return T("sup.catalogType", { name: file.name });
+    if (file.size > CATALOG_MAX) return T("sup.catalogBig", { name: file.name });
+    if (!file.size) return T("sup.catalogType", { name: file.name });
+    return "";
+  }
+  // One file: its parts, then the catalog entry. Parts already sent are removed on failure.
+  function uploadCatalog(supplierId, file, progress) {
+    var base = "/api/suppliers?id=" + encodeURIComponent(supplierId);
+    var count = Math.ceil(file.size / CATALOG_PART), refs = [];
+    var chain = Promise.resolve();
+    for (var k = 0; k < count; k++) {
+      (function (k) {
+        chain = chain.then(function () {
+          progress(T("sup.catalogUploading", { name: file.name, pct: Math.round(k / count * 100) }));
+          return readPart(file.slice(k * CATALOG_PART, (k + 1) * CATALOG_PART));
+        }).then(function (data) {
+          return api(base + "&kind=part", { method: "POST", body: { data: data } });
+        }).then(function (d) { refs.push(d.ref); });
+      })(k);
+    }
+    return chain.then(function () {
+      return api(base + "&kind=catalog", { method: "POST", body: { name: file.name, type: catalogType(file), size: file.size, refs: refs } });
+    }).then(function (d) {
+      suppliers = suppliers.map(function (x) { return x.id === supplierId ? d.supplier : x; });
+      return d;
+    }, function (err) {
+      if (refs.length) api(base + "&kind=discard", { method: "POST", body: { refs: refs } }).catch(function () {});
+      throw err;
+    });
+  }
+  function uploadCatalogs(supplierId, files, progress) {
+    var errors = [];
+    return files.reduce(function (chain, f) {
+      return chain.then(function () {
+        return uploadCatalog(supplierId, f, progress).catch(function (e) { errors.push(f.name + ": " + e.message); });
+      });
+    }, Promise.resolve()).then(function () {
+      renderSuppliers();
+      renderCatalogs();
+      return errors;
+    });
+  }
+  // Reads the parts back and opens the file (PDF and images in a new tab, others downloaded).
+  function openCatalog(supplierId, fileId) {
+    var s = suppliers.filter(function (x) { return x.id === supplierId; })[0];
+    var c = s && (s.catalogs || []).filter(function (x) { return x.id === fileId; })[0];
+    if (!c) return;
+    var viewable = /^(application\/pdf|image\/)/.test(c.type);
+    var win = viewable ? window.open("", "_blank") : null;
+    if (win) win.document.write("<p style=\"font:14px sans-serif;padding:20px\">" + escapeHtml(T("sup.catalogOpening")) + "</p>");
+    var parts = [];
+    var chain = Promise.resolve();
+    for (var k = 0; k < c.parts; k++) {
+      (function (k) {
+        chain = chain.then(function () {
+          return fetch("/api/suppliers?id=" + encodeURIComponent(supplierId) + "&kind=catalog&file=" + encodeURIComponent(fileId) + "&part=" + k,
+            { credentials: "same-origin", cache: "no-store" });
+        }).then(function (r) {
+          if (!r.ok) throw new Error(T("sup.catalogError"));
+          return r.arrayBuffer();
+        }).then(function (b) { parts.push(b); });
+      })(k);
+    }
+    return chain.then(function () {
+      var url = URL.createObjectURL(new Blob(parts, { type: c.type }));
+      if (win) win.location.href = url;
+      else {
+        var a = document.createElement("a");
+        a.href = url; a.download = c.name;
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
+    }).catch(function (e) {
+      if (win) win.close();
+      alert(e.message);
+    });
+  }
+  $("#sup-catalog-file").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    e.target.value = "";
+    var problems = files.map(checkCatalog).filter(Boolean);
+    files = files.filter(function (f) { return !checkCatalog(f); });
+    if (problems.length) setCatalogStatus(problems.join(" · "), "error"); else setCatalogStatus("");
+    if (!files.length) return;
+    var id = supForm.elements.id.value;
+    if (!id) {
+      // New supplier: the files go up once it is saved.
+      pendingCatalogs = pendingCatalogs.concat(files);
+      renderCatalogs();
+      if (!problems.length) setCatalogStatus(T("sup.catalogQueued"));
+      return;
+    }
+    var input = $("#sup-catalog-file"); input.disabled = true;
+    uploadCatalogs(id, files, function (msg) { setCatalogStatus(msg); }).then(function (errors) {
+      input.disabled = false;
+      var all = problems.concat(errors);
+      setCatalogStatus(all.length ? all.join(" · ") : T("sup.catalogSaved"), all.length ? "error" : "ok");
+    });
+  });
+  $("#sup-catalog-list").addEventListener("click", function (e) {
+    var open = e.target.closest("[data-cat-open]");
+    var del = e.target.closest("[data-cat-del]");
+    var unq = e.target.closest("[data-cat-unqueue]");
+    if (open) return openCatalog(open.getAttribute("data-sup"), open.getAttribute("data-cat-open"));
+    if (unq) { pendingCatalogs.splice(Number(unq.getAttribute("data-cat-unqueue")), 1); renderCatalogs(); return; }
+    if (del) {
+      if (!confirm(T("sup.catalogConfirm"))) return;
+      var id = supForm.elements.id.value;
+      api("/api/suppliers?id=" + encodeURIComponent(id) + "&kind=catalog&file=" + encodeURIComponent(del.getAttribute("data-cat-del")), { method: "DELETE" })
+        .then(function (d) {
+          suppliers = suppliers.map(function (x) { return x.id === id ? d.supplier : x; });
+          renderSuppliers(); renderCatalogs(); setCatalogStatus(T("sup.catalogRemoved"), "ok");
+        }, function (err) { setCatalogStatus(err.message, "error"); });
+    }
+  });
 
   function productName(id) {
     var p = products.filter(function (x) { return x.id === id; })[0];
@@ -1136,6 +1309,8 @@
         (s.productSupplier !== false ? '<p class="sitem__cats">' + ((s.categories || []).length ? s.categories.map(function (c) { return '<span class="pitem__cat">' + escapeHtml(T("cat." + c)) + "</span>"; }).join("")
           : '<span class="muted">' + escapeHtml(T("sup.noCategory")) + "</span>") + "</p>" : "") +
         (contact.length ? '<p class="sitem__contact">' + contact.join(" · ") + "</p>" : "") +
+        (s.productSupplier !== false && (s.catalogs || []).length ? '<p class="sitem__catalogs"><span class="sitem__label">' + escapeHtml(T("sup.catalogs")) + "</span>" +
+          s.catalogs.map(function (c) { return '<button type="button" class="linkbtn" data-cat-open="' + escapeHtml(c.id) + '" data-sup="' + escapeHtml(s.id) + '">' + escapeHtml(c.name) + "</button>"; }).join("") + "</p>" : "") +
         (s.notes ? '<p class="sitem__notes">' + escapeHtml(s.notes) + "</p>" : "") +
         '<div class="pitem__tr"><span class="sitem__label">' + escapeHtml(T("sup.products")) + "</span>" +
         (linked.length ? linked.map(function (n) { return "<span>" + escapeHtml(n) + "</span>"; }).join("")
@@ -1149,6 +1324,8 @@
   $("#supplier-kind").addEventListener("change", renderSuppliers);
 
   $("#supplier-list").addEventListener("click", function (e) {
+    var cat = e.target.closest("[data-cat-open]");
+    if (cat) return openCatalog(cat.getAttribute("data-sup"), cat.getAttribute("data-cat-open"));
     var btn = e.target.closest("button[data-act]");
     if (!btn) return;
     var id = btn.closest(".sitem").dataset.id;
