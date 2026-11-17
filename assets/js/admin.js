@@ -1534,7 +1534,34 @@
     ["França", "FR"], ["Alemanha", "DE"], ["Reino Unido", "UK"], ["Angola", "AO"], ["Moçambique", "MZ"], ["Panamá", "PA"],
     ["Costa Rica", "CR"], ["República Dominicana", "DO"], ["Emirados Árabes Unidos", "UAE"], ["Austrália", "AU"]
   ];
-  function plain(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase(); }
+  function plain(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase(); }
+  // Any country, by its name in Portuguese, English, Spanish or Chinese (the browser's own
+  // list of countries), as the server does (api/_lib/countries.js). USA, UK and UAE as the company uses them.
+  var countryTable = null;
+  function codeOfCountry(name) {
+    var key = plain(name);
+    if (!key) return "";
+    if (!countryTable) {
+      countryTable = {};
+      COUNTRIES.forEach(function (c) { countryTable[plain(c[0])] = c[1]; });
+      var own = { US: "USA", GB: "UK", AE: "UAE" };
+      var skip = ["DD", "VD", "DY", "HV", "RH", "NH", "PU", "PZ", "WK", "JT", "MI", "PC", "YU", "CS", "SU", "ZR", "TP", "BU", "NT", "YD", "FX", "QO", "EU", "EZ", "UN", "XA", "XB", "ZZ", "QU", "AN", "IC", "EA", "CP", "DG", "TA", "AC", "CQ"];
+      var extra = { "republica checa": "CZ", "hong kong": "HK", "macau": "MO", "macao": "MO", "taiwan": "TW", "eua": "USA", "usa": "USA", "inglaterra": "UK", "england": "UK", "holanda": "NL", "emirados arabes": "UAE", "dubai": "UAE", "coreia": "KR", "korea": "KR" };
+      Object.keys(extra).forEach(function (k) { if (!countryTable[k]) countryTable[k] = extra[k]; });
+      var L = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      ["pt", "en", "es", "zh"].forEach(function (lang) {
+        var names;
+        try { names = new Intl.DisplayNames([lang], { type: "region" }); } catch (e) { return; }
+        for (var i = 0; i < 26; i++) for (var j = 0; j < 26; j++) {
+          var code = L[i] + L[j], n;
+          try { n = names.of(code); } catch (e) { continue; }
+          if (!n || n === code || skip.indexOf(code) > -1) continue;
+          [plain(n), plain(n.split(/[,(（，]/)[0])].forEach(function (k) { if (k && !countryTable[k]) countryTable[k] = own[code] || code; });
+        }
+      });
+    }
+    return countryTable[key] || "";
+  }
   $("#country-list").innerHTML = COUNTRIES.map(function (c) { return '<option value="' + escapeHtml(c[0]) + '"></option>'; }).join("");
 
   function setClientStatus(msg, kind) {
@@ -1592,10 +1619,12 @@
 
   $("#client-search").addEventListener("input", renderClients);
   // Choosing a known country fills its code (which can still be edited).
-  cliForm.elements.country.addEventListener("input", function () {
-    var c = COUNTRIES.filter(function (x) { return plain(x[0]) === plain(cliForm.elements.country.value); })[0];
-    if (c) cliForm.elements.countryCode.value = c[1];
-  });
+  // (typing, picking a suggestion, the browser's auto-complete or leaving the field)
+  function fillCountryCode() {
+    var code = codeOfCountry(cliForm.elements.country.value);
+    if (code) cliForm.elements.countryCode.value = code;
+  }
+  ["input", "change", "blur"].forEach(function (ev) { cliForm.elements.country.addEventListener(ev, fillCountryCode); });
   cliForm.elements.countryCode.addEventListener("input", function () {
     this.value = this.value.toUpperCase().replace(/[^A-Z]/g, "");
   });
@@ -1632,6 +1661,7 @@
       resetClientForm();
       cliForm.elements.id.value = c.id;
       CLI_FIELDS.forEach(function (f) { cliForm.elements[f].value = c[f] || ""; });
+      if (!cliForm.elements.countryCode.value) fillCountryCode(); // saved before the code was filled automatically
       updateClientMode();
       setClientStatus("");
       renderClients();

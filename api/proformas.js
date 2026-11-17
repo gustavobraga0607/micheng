@@ -6,6 +6,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
+import { countryCode } from "./_lib/countries.js";
 import { getAllData, getPrivate, getFinance, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
@@ -123,7 +124,7 @@ function applyBody(proforma, body, priv, previous, products) {
 // repeat; the invoice uses the same number. "PF" while the client has no code.
 function numberPrefix(priv, clientId) {
   const c = priv.clients.find((x) => x.id === clientId);
-  return (c && c.countryCode) || "PF";
+  return (c && (c.countryCode || countryCode(c.country))) || "PF"; // clients saved without a code: from the country
 }
 
 function nextNumber(priv, proforma) {

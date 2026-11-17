@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
+import { countryCode } from "./_lib/countries.js";
 import { getPrivate, savePrivate, oneChangeAtATime } from "./_lib/store.js";
 
 const FIELDS = {
@@ -21,6 +22,8 @@ function clean(body) {
   // Country code used in the proforma / invoice numbers (BR-2026-005): 2 to 4 letters.
   out.countryCode = String(body.countryCode || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
   if (out.countryCode.length < 2) out.countryCode = "";
+  // Not typed: taken from the country's name ("Brasil" -> "BR").
+  if (!out.countryCode) out.countryCode = countryCode(out.country);
   return out;
 }
 
