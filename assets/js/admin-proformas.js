@@ -114,7 +114,9 @@
         '<td><span class="badge badge--' + p.status + '">' + esc(T(p.status === "closed" ? "pf.closed" : "pf.draft")) + "</span>" +
           (Object.keys(p.clientChanges || {}).length ? ' <span class="badge badge--cc">' + esc(T("cc.badge")) + "</span>" : "") + "</td>" +
         '<td class="num">' + esc(A.money(p.totals.sale, p.currency)) + "</td>" +
-        '<td class="num internal">' + (hasProfit ? esc(A.money(p.totals.profit, p.currency)) + " <small>" + esc(pct(m)) + "</small>" : "—") + "</td>" +
+        '<td class="num internal">' + (hasProfit ? esc(A.money(p.totals.profit, p.currency)) + " <small>" + esc(pct(m)) + "</small>" +
+          (p.totals.costMissing ? '<small class="pf-partial-tag" title="' + esc(T("pf.listPartialHint", { n: p.items.length - p.totals.costMissing, total: p.items.length })) + '">' +
+            esc(T("pf.listPartial", { n: p.items.length - p.totals.costMissing, total: p.items.length })) + "</small>" : "") : "—") + "</td>" +
         '<td class="num"><button type="button" class="btn btn--outline btn--sm" data-open="' + esc(p.id) + '">' + esc(T("pf.open")) + "</button></td></tr>";
     }).join("");
   }
@@ -1558,15 +1560,18 @@
 
   function recalc() {
     var cur = currency();
-    var sale = 0, cost = 0, saleWithCost = 0, noCost = 0;
+    var sale = 0, cost = 0, saleWithCost = 0, noCost = 0, items = 0;
     $("#pf-items").querySelectorAll("[data-row]").forEach(function (el) {
       var row = rows[Number(el.dataset.row)];
       var qty = row.qty || 0;
       var lineSale = (row.price || 0) * qty;
       var lineCost = row.cost == null ? null : row.cost * qty;
       sale += lineSale;
-      if (lineCost == null) noCost += 1;
-      else { cost += lineCost; saleWithCost += lineSale; }
+      if (row.productId) { // an empty item still being filled in is not counted
+        items += 1;
+        if (lineCost == null) noCost += 1;
+        else { cost += lineCost; saleWithCost += lineSale; }
+      }
       el.querySelector('[data-out="total"]').textContent = A.money(lineSale, cur);
       var m = margin(row.price, row.cost);
       var mEl = el.querySelector('[data-out="margin"]');
@@ -1574,16 +1579,26 @@
       mEl.className = m == null ? "" : m < 0 ? "is-neg" : m < 0.1 ? "is-low" : "is-ok";
       el.querySelector('[data-out="profit"]').textContent = lineCost == null || row.price == null ? "—" : A.money(lineSale - lineCost, cur);
     });
-    // Profit and margin only over items with a known cost.
-    var known = rows.length > noCost;
+    // Cost, profit and margin only exist for the items with a cost: when some have
+    // none, the figures say clearly that they cover only part of the order.
+    var withCost = items - noCost;
+    var partial = noCost > 0 && withCost > 0;
     var profit = saleWithCost - cost;
-    var m = known ? margin(saleWithCost, cost) : null;
+    var m = withCost ? margin(saleWithCost, cost) : null;
+    var line = function (label, value, cls) { return '<div class="internal' + (cls ? " " + cls : "") + '"><span>' + esc(label) + "</span><b" + value + "</b></div>"; };
     $("#pf-totals").innerHTML =
       "<div><span>" + esc(T("pf.totSale")) + "</span><b>" + esc(A.money(sale, cur)) + "</b></div>" +
-      '<div class="internal"><span>' + esc(T("pf.totCost")) + "</span><b>" + esc(A.money(cost, cur)) + "</b></div>" +
-      '<div class="internal pf-totals__profit"><span>' + esc(T("pf.totProfit")) + "</span><b class=\"" + (profit < 0 ? "is-neg" : "is-ok") + '">' + (known ? esc(A.money(profit, cur)) : "—") + "</b></div>" +
-      '<div class="internal"><span>' + esc(T("pf.totMargin")) + "</span><b>" + esc(pct(m)) + "</b></div>" +
-      (noCost ? '<p class="pf-nocost internal">' + esc(T("pf.noCost", { n: noCost })) + "</p>" : "");
+      (partial
+        ? '<p class="pf-partial internal">' + esc(T("pf.partialHead", { n: withCost, total: items })) + "</p>" +
+          line(T("pf.partSale"), ">" + esc(A.money(saleWithCost, cur))) +
+          line(T("pf.partCost"), ">" + esc(A.money(cost, cur))) +
+          line(T("pf.partProfit"), ' class="' + (profit < 0 ? "is-neg" : "is-ok") + '">' + esc(A.money(profit, cur)), "pf-totals__profit") +
+          line(T("pf.partMargin"), ">" + esc(pct(m))) +
+          '<p class="pf-nocost internal">' + esc(T("pf.noCostPartial", { n: noCost })) + "</p>"
+        : line(T("pf.totCost"), ">" + (withCost ? esc(A.money(cost, cur)) : "—")) +
+          line(T("pf.totProfit"), ' class="' + (profit < 0 ? "is-neg" : "is-ok") + '">' + (withCost ? esc(A.money(profit, cur)) : "—"), "pf-totals__profit") +
+          line(T("pf.totMargin"), ">" + esc(pct(m))) +
+          (noCost ? '<p class="pf-nocost internal">' + esc(T("pf.noCostAll")) + "</p>" : ""));
   }
 
   function newRow() {

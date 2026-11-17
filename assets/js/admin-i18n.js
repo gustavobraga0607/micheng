@@ -1,6 +1,15 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.partialHead": "Custo informado em só {n} de {total} itens. Os valores abaixo são só desses itens:",
+    "pf.partSale": "Venda desses itens",
+    "pf.partCost": "Custo desses itens",
+    "pf.partProfit": "Lucro desses itens",
+    "pf.partMargin": "Margem desses itens",
+    "pf.noCostPartial": "{n} item(ns) sem custo: o custo e o lucro do pedido inteiro só aparecem quando todos tiverem custo.",
+    "pf.noCostAll": "Nenhum item tem custo informado: não dá para calcular custo, lucro e margem.",
+    "pf.listPartial": "parcial: {n}/{total} itens",
+    "pf.listPartialHint": "Lucro só dos {n} itens com custo, de {total}.",
     "plog.open": "Histórico de alterações",
     "plog.title": "Histórico de alterações de produtos",
     "plog.thisProduct": "Histórico de alterações deste produto",
@@ -668,6 +677,15 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.partialHead": "Cost entered for only {n} of {total} items. The figures below cover only those items:",
+    "pf.partSale": "Sale of these items",
+    "pf.partCost": "Cost of these items",
+    "pf.partProfit": "Profit on these items",
+    "pf.partMargin": "Margin on these items",
+    "pf.noCostPartial": "{n} item(s) without cost: the cost and profit of the whole order show once every item has a cost.",
+    "pf.noCostAll": "No item has a cost: cost, profit and margin cannot be calculated.",
+    "pf.listPartial": "partial: {n}/{total} items",
+    "pf.listPartialHint": "Profit only on the {n} items with a cost, out of {total}.",
     "plog.open": "Change history",
     "plog.title": "Product change history",
     "plog.thisProduct": "Change history of this product",
@@ -1335,6 +1353,15 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.partialHead": "Costo informado en solo {n} de {total} ítems. Los valores abajo son solo de esos ítems:",
+    "pf.partSale": "Venta de esos ítems",
+    "pf.partCost": "Costo de esos ítems",
+    "pf.partProfit": "Ganancia de esos ítems",
+    "pf.partMargin": "Margen de esos ítems",
+    "pf.noCostPartial": "{n} ítem(s) sin costo: el costo y la ganancia del pedido completo aparecen cuando todos tengan costo.",
+    "pf.noCostAll": "Ningún ítem tiene costo: no se puede calcular costo, ganancia y margen.",
+    "pf.listPartial": "parcial: {n}/{total} ítems",
+    "pf.listPartialHint": "Ganancia solo de los {n} ítems con costo, de {total}.",
     "plog.open": "Historial de cambios",
     "plog.title": "Historial de cambios de productos",
     "plog.thisProduct": "Historial de cambios de este producto",
@@ -2002,6 +2029,15 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.partialHead": "仅 {n}/{total} 个产品填写了成本，以下数字只包括这些产品：",
+    "pf.partSale": "这些产品的销售额",
+    "pf.partCost": "这些产品的成本",
+    "pf.partProfit": "这些产品的利润",
+    "pf.partMargin": "这些产品的利润率",
+    "pf.noCostPartial": "{n} 个产品没有成本：所有产品都有成本后才显示整个订单的成本和利润。",
+    "pf.noCostAll": "没有产品填写成本，无法计算成本、利润和利润率。",
+    "pf.listPartial": "部分：{n}/{total}",
+    "pf.listPartialHint": "只计算 {total} 个中有成本的 {n} 个产品的利润。",
     "plog.open": "修改记录",
     "plog.title": "产品修改记录",
     "plog.thisProduct": "本产品的修改记录",
