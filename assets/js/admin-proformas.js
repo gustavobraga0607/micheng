@@ -1582,6 +1582,7 @@
     // Cost, profit and margin only exist for the items with a cost: when some have
     // none, the figures say clearly that they cover only part of the order.
     var withCost = items - noCost;
+    $("#pf-fill-costs").hidden = isLocked() || !noCost;
     var partial = noCost > 0 && withCost > 0;
     var profit = saleWithCost - cost;
     var m = withCost ? margin(saleWithCost, cost) : null;
@@ -1600,6 +1601,28 @@
           line(T("pf.totMargin"), ">" + esc(pct(m))) +
           (noCost ? '<p class="pf-nocost internal">' + esc(T("pf.noCostAll")) + "</p>" : ""));
   }
+
+  /* ----- Items without cost: supplier and cost taken from the product's registration ----- */
+  $("#pf-fill-costs").addEventListener("click", function () {
+    var filled = 0, still = 0;
+    rows.forEach(function (row) {
+      if (!row.productId || row.cost != null) return;
+      var product = productById(row.productId);
+      var links = (product && product.supplierLinks) || [];
+      var link = links.filter(function (l) { return l.supplierId === row.supplierId; })[0] || (row.supplierId ? null : links[0]);
+      var cost = link ? linkCost(product, link, row) : null;
+      if (cost == null) { still += 1; return; }
+      if (!row.supplierId) row.supplierId = link.supplierId;
+      row.cost = cost;
+      row.costAuto = true;
+      filled += 1;
+    });
+    renderItems();
+    var msg = filled ? T("pf.fillCostsDone", { n: filled }) : T("pf.fillCostsNone");
+    if (still) msg += " " + T("pf.fillCostsStill", { n: still });
+    if (filled) msg += " " + T(isClosed() ? "pf.fillCostsSaveOrder" : "pf.fillCostsSave");
+    setStatus(msg, filled ? "ok" : "error");
+  });
 
   function newRow() {
     return { productId: "", supplierId: "", options: {}, qty: 1, cost: null, price: null, priceAuto: true, editing: true };

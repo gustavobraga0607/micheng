@@ -1,6 +1,12 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "pf.fillCosts": "Atualizar custos pelo cadastro",
+    "pf.fillCostsDone": "{n} item(ns) receberam fornecedor e custo do cadastro do produto.",
+    "pf.fillCostsNone": "Nenhum item sem custo tem custo no cadastro do produto.",
+    "pf.fillCostsStill": "{n} continuam sem custo: falta o preço de custo no cadastro do produto.",
+    "pf.fillCostsSave": "Clique em \"Salvar rascunho\" para gravar.",
+    "pf.fillCostsSaveOrder": "Clique em \"Salvar alterações do pedido\" para gravar.",
     "pf.partialHead": "Custo informado em só {n} de {total} itens. Os valores abaixo são só desses itens:",
     "pf.partSale": "Venda desses itens",
     "pf.partCost": "Custo desses itens",
@@ -677,6 +683,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "pf.fillCosts": "Update costs from the catalog",
+    "pf.fillCostsDone": "{n} item(s) got the supplier and cost from the product catalog.",
+    "pf.fillCostsNone": "No item without cost has a cost in the product catalog.",
+    "pf.fillCostsStill": "{n} still without cost: the product catalog has no cost price for them.",
+    "pf.fillCostsSave": "Click \"Save draft\" to keep them.",
+    "pf.fillCostsSaveOrder": "Click \"Save order changes\" to keep them.",
     "pf.partialHead": "Cost entered for only {n} of {total} items. The figures below cover only those items:",
     "pf.partSale": "Sale of these items",
     "pf.partCost": "Cost of these items",
@@ -1353,6 +1365,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "pf.fillCosts": "Actualizar costos desde el catálogo",
+    "pf.fillCostsDone": "{n} ítem(s) recibieron proveedor y costo del catálogo.",
+    "pf.fillCostsNone": "Ningún ítem sin costo tiene costo en el catálogo.",
+    "pf.fillCostsStill": "{n} siguen sin costo: falta el precio de costo en el catálogo.",
+    "pf.fillCostsSave": "Haga clic en \"Guardar borrador\" para guardar.",
+    "pf.fillCostsSaveOrder": "Haga clic en \"Guardar cambios del pedido\" para guardar.",
     "pf.partialHead": "Costo informado en solo {n} de {total} ítems. Los valores abajo son solo de esos ítems:",
     "pf.partSale": "Venta de esos ítems",
     "pf.partCost": "Costo de esos ítems",
@@ -2029,6 +2047,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "pf.fillCosts": "从产品资料更新成本",
+    "pf.fillCostsDone": "{n} 个产品已从产品资料获取供应商和成本。",
+    "pf.fillCostsNone": "没有成本的产品在产品资料中也没有成本。",
+    "pf.fillCostsStill": "{n} 个仍没有成本：产品资料中没有成本价。",
+    "pf.fillCostsSave": "点击“保存草稿”以保存。",
+    "pf.fillCostsSaveOrder": "点击“保存订单修改”以保存。",
     "pf.partialHead": "仅 {n}/{total} 个产品填写了成本，以下数字只包括这些产品：",
     "pf.partSale": "这些产品的销售额",
     "pf.partCost": "这些产品的成本",
