@@ -154,6 +154,10 @@
           </div>
           <p class="status" id="form-status" role="status" aria-live="polite"></p>
         </form>
+        <details class="plog-own" id="plog-own" hidden>
+          <summary data-t="plog.thisProduct">Histórico de alterações deste produto</summary>
+          <ul class="plog-list" id="plog-own-list"></ul>
+        </details>
       </section>
 
       <section class="panel">
@@ -186,6 +190,7 @@
           <label class="date-range" hidden><span data-t="list.dateTo">Até</span><input type="date" id="date-to" /></label>
           <span class="list-filters__count" id="shown-count"></span>
           <button type="button" class="linkbtn" id="filters-clear" hidden data-t="list.clearFilters">Limpar filtros</button>
+          <button type="button" class="btn btn--outline btn--sm plog-open" id="plog-open" data-t="plog.open">Histórico de alterações</button>
         </div>
         <ul class="plist" id="product-list"></ul>
         <p class="empty" id="no-match" data-t="list.noMatch" hidden>Nenhum produto encontrado com esses filtros.</p>
@@ -536,6 +541,27 @@
       </div>
       <p class="pdf-choice__note" data-t="pf.pdfRefNote">A versão com preço com desconto (PDF ou Excel) sai identificada como documento de referência, sem valor fiscal e sem dados bancários.</p>
       <p class="status is-error" id="pf-pdf-missing"></p>
+    </dialog>
+
+    <!-- Product change log -->
+    <dialog class="mdl mdl--wide" id="plog-dlg">
+      <div class="mdl__head"><h2 data-t="plog.title">Histórico de alterações de produtos</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+      <div class="list-filters plog-filters">
+        <label><span data-t="plog.user">Usuário</span><select id="plog-user"></select></label>
+        <label><span data-t="plog.period">Período</span>
+          <select id="plog-period">
+            <option value="" data-t="list.dateAny">Em qualquer data</option>
+            <option value="today" data-t="list.dateToday">Hoje</option>
+            <option value="7" data-t="list.date7">Nos últimos 7 dias</option>
+            <option value="30" data-t="list.date30">Nos últimos 30 dias</option>
+            <option value="month" data-t="list.dateMonth">Neste mês</option>
+          </select>
+        </label>
+        <label class="plog-filters__q"><span data-t="plog.product">Produto</span><input type="search" id="plog-q" data-t-placeholder="plog.productPh" /></label>
+        <span class="list-filters__count" id="plog-count"></span>
+      </div>
+      <ul class="plog-list" id="plog-list"></ul>
+      <p class="empty" id="plog-empty" hidden data-t="plog.empty">Nenhuma alteração registrada com esses filtros.</p>
     </dialog>
 
     <!-- Purchase contract terms (per supplier) -->

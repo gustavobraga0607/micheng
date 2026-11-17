@@ -277,6 +277,26 @@ function decrypt(text) {
   return JSON.parse(plain.toString("utf8"));
 }
 
+/* ---------- Product change log (admin only, encrypted entry by entry) ----------
+   Newest first; the oldest entries go once there are more than LOG_MAX. */
+const REDIS_PRODUCT_LOG = "micheng:productlog";
+const LOG_MAX = 5000;
+
+export async function appendProductLog(entries) {
+  if (!entries.length) return;
+  if (useRedis()) {
+    await redisTransaction([["LPUSH", REDIS_PRODUCT_LOG, ...entries.map(encrypt)], ["LTRIM", REDIS_PRODUCT_LOG, "0", String(LOG_MAX - 1)]]);
+    return;
+  }
+  const list = await readLocal("productlog.json", []);
+  await writeLocal("productlog.json", entries.concat(list).slice(0, LOG_MAX));
+}
+
+export async function readProductLog() {
+  if (useRedis()) return ((await redis(["LRANGE", REDIS_PRODUCT_LOG, "0", String(LOG_MAX - 1)])) || []).map(decrypt);
+  return readLocal("productlog.json", []);
+}
+
 const readBlobPrivate = () => readData(privatePath(), ".enc", "application/octet-stream", PRIVATE_PREFIX);
 
 export async function getPrivate() {

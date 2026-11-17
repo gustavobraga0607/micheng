@@ -420,6 +420,7 @@
 
   function resetForm() {
     duplicateOf = null;
+    $("#plog-own").hidden = true;
     form.reset();
     form.elements.id.value = "";
     showAllSuppliers = false;
@@ -468,6 +469,7 @@
     updateFormMode();
     setStatus("");
     renderList();
+    loadOwnLog(p.id);
     document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -633,6 +635,82 @@
   $("#search").addEventListener("input", renderList);
   $("#cat-filter").addEventListener("change", renderList);
 
+  /* ----- Change log of the products (who changed what, and when) ----- */
+  var productLog = [];
+  function logMoney(v) { return v == null || v === "" ? "—" : money(v, defaultCurrency); }
+  function quoted(v) { return v ? "\u201c" + v + "\u201d" : "—"; }
+  function catLabel(k) { return k ? T("cat." + k) : "—"; }
+  function logChange(c) {
+    switch (c.t) {
+      case "name": return T("plog.c.name", { from: quoted(c.from), to: quoted(c.to) });
+      case "nameTr": return T("plog.c.nameTr", { lang: c.lang.toUpperCase(), from: quoted(c.from), to: quoted(c.to) });
+      case "description": return T("plog.c.description", { from: quoted(c.from), to: quoted(c.to) });
+      case "descriptionTr": return T("plog.c.descriptionTr", { lang: c.lang.toUpperCase(), from: quoted(c.from), to: quoted(c.to) });
+      case "category": return T("plog.c.category", { from: catLabel(c.from), to: catLabel(c.to) });
+      case "attrAdded": return T("plog.c.attrAdded", { attr: c.attr, options: (c.options || []).join(", ") });
+      case "attrRemoved": return T("plog.c.attrRemoved", { attr: c.attr });
+      case "attrRenamed": return T("plog.c.attrRenamed", { from: quoted(c.from), to: quoted(c.to) });
+      case "optAdded": return T("plog.c.optAdded", { attr: c.attr, option: c.option });
+      case "optRemoved": return T("plog.c.optRemoved", { attr: c.attr, option: c.option });
+      case "optRenamed": return T("plog.c.optRenamed", { attr: c.attr, from: quoted(c.from), to: quoted(c.to) });
+      case "photo": return T("plog.c.photo");
+      case "variantPhoto": return T("plog.c.variantPhoto", { code: c.code });
+      case "variantPhotoRemoved": return T("plog.c.variantPhotoRemoved", { code: c.code });
+      case "supAdded": return T("plog.c.supAdded", { supplier: c.supplier }) + (c.cost != null ? " (" + T("plog.c.costIs", { cost: logMoney(c.cost) }) + ")" : "");
+      case "supRemoved": return T("plog.c.supRemoved", { supplier: c.supplier });
+      case "cost": return T("plog.c.cost", { supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
+      case "variantCost": return T("plog.c.variantCost", { code: c.code, supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
+      case "clientRef": return T("plog.c.clientRef", { client: c.client + (c.code ? " · " + c.code : ""), from: quoted(c.from), to: quoted(c.to) });
+      default: return c.t;
+    }
+  }
+  function logItemHtml(e, withProduct) {
+    var when = new Date(e.at).toLocaleString(HTML_LANG[current], { dateStyle: "short", timeStyle: "short" });
+    var lines = (e.changes || []).map(function (c) { return "<li>" + escapeHtml(logChange(c)) + "</li>"; }).join("");
+    return '<li class="plog-entry plog-entry--' + escapeHtml(e.action) + '"><div class="plog-entry__head">' +
+      "<b>" + escapeHtml(T("plog.a." + e.action)) + "</b>" +
+      (withProduct ? '<span class="plog-entry__prod">' + (e.sku ? '<span class="sku">' + escapeHtml(e.sku) + "</span> " : "") + escapeHtml(e.name) + "</span>" : "") +
+      '<span class="plog-entry__meta">' + escapeHtml(when) + " · " + escapeHtml(e.user || "?") + "</span></div>" +
+      (lines ? "<ul>" + lines + "</ul>" : "") + "</li>";
+  }
+  function loadOwnLog(id) {
+    $("#plog-own").hidden = true;
+    api("/api/products?log=1&id=" + encodeURIComponent(id)).then(function (d) {
+      if (form.elements.id.value !== id) return; // another product opened meanwhile
+      var list = d.log || [];
+      $("#plog-own").hidden = !list.length;
+      $("#plog-own-list").innerHTML = list.map(function (e) { return logItemHtml(e, false); }).join("");
+    }).catch(function () {});
+  }
+  function renderLogDialog() {
+    var user = $("#plog-user").value, qv = $("#plog-q").value.trim().toLowerCase();
+    var period = periodOf($("#plog-period").value);
+    var shown = productLog.filter(function (e) {
+      if (user && e.user !== user) return false;
+      if (period) { var d = localDay(e.at); if (d < period.from || d > period.to) return false; }
+      return !qv || (String(e.sku || "") + " " + e.name).toLowerCase().indexOf(qv) > -1;
+    });
+    $("#plog-count").textContent = T("list.shownOf", { n: shown.length, total: productLog.length });
+    $("#plog-empty").hidden = shown.length > 0;
+    $("#plog-list").innerHTML = shown.slice(0, 300).map(function (e) { return logItemHtml(e, true); }).join("");
+  }
+  $("#plog-open").addEventListener("click", function () {
+    var dlg = $("#plog-dlg");
+    $("#plog-list").innerHTML = "<li class=\"muted\">…</li>";
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    api("/api/products?log=1").then(function (d) {
+      productLog = d.log || [];
+      var users = productLog.map(function (e) { return e.user; }).filter(function (u, i, a) { return u && a.indexOf(u) === i; }).sort();
+      var sel = $("#plog-user"), keep = sel.value;
+      sel.innerHTML = '<option value="">' + escapeHtml(T("plog.allUsers")) + "</option>" + users.map(function (u) { return '<option value="' + escapeHtml(u) + '">' + escapeHtml(u) + "</option>"; }).join("");
+      sel.value = users.indexOf(keep) > -1 ? keep : "";
+      renderLogDialog();
+    }).catch(function (err) { $("#plog-list").innerHTML = '<li class="status is-error">' + escapeHtml(err.message) + "</li>"; });
+  });
+  ["#plog-user", "#plog-period"].forEach(function (s) { $(s).addEventListener("change", renderLogDialog); });
+  $("#plog-q").addEventListener("input", renderLogDialog);
+  $("#plog-dlg").addEventListener("click", function (e) { if (e.target === this || e.target.closest("[data-close]")) this.close(); });
+
   /* ----- Filter by registration date ----- */
   function ymd(d) {
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -640,8 +718,8 @@
   // The day (in this computer's time zone) a product was registered: "2026-11-17".
   function localDay(iso) { return iso ? ymd(new Date(iso)) : ""; }
   // { from, to } as "YYYY-MM-DD" (both included), or null for any date.
-  function datePeriod() {
-    var v = $("#date-filter").value;
+  function datePeriod() { return periodOf($("#date-filter").value); }
+  function periodOf(v) {
     var now = new Date();
     if (!v) return null;
     if (v === "today") return { from: ymd(now), to: ymd(now) };

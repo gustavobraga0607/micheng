@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError } from "./_lib/store.js";
+import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError, appendProductLog, readProductLog } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
@@ -306,18 +306,103 @@ function sendPublic(res, products) {
 // upload) first, without holding up anyone else; then, taking turns with the
 // other admins (withDataLock), the latest data is read, the change is applied
 // and saved in a moment.
+/* ---------- Change log: who changed what in each product, and when ---------- */
+const short = (v, max = 300) => { const t = String(v == null ? "" : v); return t.length > max ? t.slice(0, max) + "…" : t; };
+// Everything the log compares, from the product and its private data (suppliers, client codes).
+function logView(priv, product) {
+  if (!product) return null;
+  return JSON.parse(JSON.stringify({ ...product, links: productLinks(priv, product.id), refs: priv.clientRefs[product.id] || {} }));
+}
+function variantCode(p, key) {
+  const n = p.variantSkus && p.variantSkus[key];
+  return n ? p.sku + "-" + n : String(p.sku || "") + (key ? " (" + key.slice(0, 8) + ")" : "");
+}
+function diffProduct(before, after, priv) {
+  const out = [];
+  const supName = (id) => { const s = priv.suppliers.find((x) => x.id === id); return s ? s.company : "?"; };
+  const cliName = (id) => { const c = priv.clients.find((x) => x.id === id); return c ? c.name : "?"; };
+  const srcLang = (after.source && after.source.lang) || "pt";
+  // Name and description: the text typed (a new text is translated again, so the
+  // translations are logged only when they were edited by themselves).
+  const src = (p, k) => (p.source && p.source[k]) || "";
+  const sameSrcName = src(before, "name") === src(after, "name");
+  if (!sameSrcName) out.push({ t: "name", from: short(before.source && before.source.name), to: short(after.source && after.source.name) });
+  else for (const l of Object.keys(after.name || {})) if (l !== srcLang && ((before.name || {})[l] || "") !== (after.name[l] || "")) out.push({ t: "nameTr", lang: l, from: short(before.name[l]), to: short(after.name[l]) });
+  const sameSrcDesc = src(before, "description") === src(after, "description");
+  if (!sameSrcDesc) out.push({ t: "description", from: short(before.source && before.source.description), to: short(after.source && after.source.description) });
+  else for (const l of Object.keys(after.description || {})) if (l !== srcLang && ((before.description || {})[l] || "") !== (after.description[l] || "")) out.push({ t: "descriptionTr", lang: l, from: short(before.description[l]), to: short(after.description[l]) });
+  if (before.category !== after.category) out.push({ t: "category", from: before.category, to: after.category });
+  // Characteristics and their options
+  const attrs = (p) => new Map((p.attributes || []).map((a) => [a.id, a]));
+  const A = attrs(before), B = attrs(after);
+  for (const [id, a] of A) if (!B.has(id)) out.push({ t: "attrRemoved", attr: a.source });
+  for (const [id, b] of B) {
+    const a = A.get(id);
+    if (!a) { out.push({ t: "attrAdded", attr: b.source, options: b.options.map((o) => o.source) }); continue; }
+    if (a.source !== b.source) out.push({ t: "attrRenamed", from: a.source, to: b.source });
+    const ao = new Map(a.options.map((o) => [o.id, o])), bo = new Map(b.options.map((o) => [o.id, o]));
+    for (const [oid, o] of ao) if (!bo.has(oid)) out.push({ t: "optRemoved", attr: b.source, option: o.source });
+    for (const [oid, o] of bo) {
+      if (!ao.has(oid)) out.push({ t: "optAdded", attr: b.source, option: o.source });
+      else if (ao.get(oid).source !== o.source) out.push({ t: "optRenamed", attr: b.source, from: ao.get(oid).source, to: o.source });
+    }
+  }
+  // Photos
+  if (before.image !== after.image) out.push({ t: "photo" });
+  const vb = before.variantImages || {}, va = after.variantImages || {};
+  for (const k of new Set([...Object.keys(vb), ...Object.keys(va)])) {
+    if (vb[k] !== va[k]) out.push({ t: va[k] ? "variantPhoto" : "variantPhotoRemoved", code: variantCode(after, k) });
+  }
+  // Suppliers and purchase prices
+  const lb = new Map((before.links || []).map((l) => [l.supplierId, l])), la = new Map((after.links || []).map((l) => [l.supplierId, l]));
+  for (const [sid] of lb) if (!la.has(sid)) out.push({ t: "supRemoved", supplier: supName(sid) });
+  for (const [sid, l] of la) {
+    const o = lb.get(sid);
+    if (!o) { out.push({ t: "supAdded", supplier: supName(sid), cost: l.cost }); }
+    else if (o.cost !== l.cost) out.push({ t: "cost", supplier: supName(sid), from: o.cost, to: l.cost });
+    const vo = (o && o.variantCosts) || {}, vn = l.variantCosts || {};
+    for (const k of new Set([...Object.keys(vo), ...Object.keys(vn)])) {
+      if (vo[k] !== vn[k]) out.push({ t: "variantCost", supplier: supName(sid), code: variantCode(after, k), from: vo[k] == null ? null : vo[k], to: vn[k] == null ? null : vn[k] });
+    }
+  }
+  // Codes the clients use for the product
+  const rb = before.refs || {}, ra = after.refs || {};
+  for (const cid of new Set([...Object.keys(rb), ...Object.keys(ra)])) {
+    const mb = rb[cid] || {}, ma = ra[cid] || {};
+    for (const k of new Set([...Object.keys(mb), ...Object.keys(ma)])) {
+      if ((mb[k] || "") !== (ma[k] || "")) out.push({ t: "clientRef", client: cliName(cid), code: k ? variantCode(after, k) : "", from: mb[k] || "", to: ma[k] || "" });
+    }
+  }
+  return out;
+}
+function logEntry(session, action, product, changes) {
+  return { id: crypto.randomUUID(), at: new Date().toISOString(), user: session.u, action, productId: product.id, sku: product.sku || null,
+    name: short((product.source && product.source.name) || (product.name && (product.name.pt || product.name.en)) || "", 160), changes };
+}
+async function writeLog(entries) {
+  // The change is already saved: a failure to log must not turn it into an error.
+  try { await appendProductLog(entries.filter(Boolean)); } catch (e) { console.error("Product log", e.message); }
+}
+
 async function handler(req, res) {
   const uploaded = []; // photos sent in this request: removed again if it fails
   try {
     if (req.method === "GET") {
       const products = await getProducts();
       // The admin panel asks with ?admin=1 (never cached); everyone else gets the cached public list.
+      if (queryParam(req, "log") === "1") {
+        if (!getSession(req)) return fail(res, 401, "Login required");
+        const pid = queryParam(req, "id");
+        const log = await readProductLog();
+        return send(res, 200, { log: pid ? log.filter((e) => e.productId === pid) : log });
+      }
       if (queryParam(req, "admin") !== "1") return sendPublic(res, products);
       if (!getSession(req)) return fail(res, 401, "Login required");
       return send(res, 200, { products: await adminProducts(products, await getPrivate()) });
     }
 
-    if (!getSession(req)) return fail(res, 401, "Login required");
+    const session = getSession(req);
+    if (!session) return fail(res, 401, "Login required");
     if (req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
     const id = queryParam(req, "id");
 
@@ -347,6 +432,7 @@ async function handler(req, res) {
         await saveProducts(products);
         return { product, old, priv: await getPrivate() };
       });
+      if (!result.error) await writeLog([logEntry(session, "updated", result.product, [{ t: url ? "variantPhoto" : "variantPhotoRemoved", code: variantCode(result.product, key) }])]);
       if (result.error) { await cleanup(uploaded); return fail(res, result.status, result.error); }
       uploaded.length = 0;
       if (result.old && result.old !== url) await deleteImage(result.old);
@@ -369,16 +455,19 @@ async function handler(req, res) {
         ? await saveImage(product.id, image.buffer, image.contentType)
         : await copyImage(copyFrom.image, product.id);
       uploaded.push(product.image);
-      const { links, refs, stale } = await withDataLock(async () => {
+      const { links, refs, stale, entry } = await withDataLock(async () => {
         const { products, priv } = await getAllData();
         products.unshift(product);
         const stale = prepareSkus(products, priv);
         const links = applySupplierLinks(priv, product.id, body, product);
         const refs = applyClientRefs(priv, product, body);
         await saveProductsAndPrivate(products, priv);
-        return { links, refs, stale };
+        const after = logView(priv, product);
+        const empty = { source: {}, name: {}, description: {}, attributes: [], links: [], refs: {}, variantImages: {}, image: after.image };
+        return { links, refs, stale, entry: logEntry(session, body.copyImageFrom ? "duplicated" : "created", product, diffProduct(empty, after, priv)) };
       });
       uploaded.length = 0;
+      await writeLog([entry]);
       await cleanup(stale);
       return send(res, 201, { product: withLinks(product, links, refs) });
     }
@@ -408,6 +497,7 @@ async function handler(req, res) {
         // Keep what may have changed meanwhile and is not part of this form
         // (codes, variant photos, the main photo when no new one was sent).
         const fresh = products[index];
+        const before = logView(priv, fresh);
         for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "image", "createdAt"]) {
           if (fresh[k] === undefined) delete product[k];
           else product[k] = fresh[k];
@@ -420,11 +510,14 @@ async function handler(req, res) {
         const links = applySupplierLinks(priv, product.id, body, product);
         const refs = applyClientRefs(priv, product, body);
         await saveProductsAndPrivate(products, priv);
-        return { links, refs, stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale };
+        const changes = diffProduct(before, logView(priv, product), priv);
+        return { links, refs, stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale,
+          entry: changes.length ? logEntry(session, "updated", product, changes) : null };
       });
       if (!result) { await cleanup(uploaded); return fail(res, 404, "Product not found"); }
       if (result.conflict) { await cleanup(uploaded); return fail(res, 409, "Changed by someone else"); }
       uploaded.length = 0;
+      await writeLog([result.entry]);
       await cleanup(result.stale);
       return send(res, 200, { product: withLinks(product, result.links, result.refs) });
     }
@@ -435,15 +528,17 @@ async function handler(req, res) {
         const index = products.findIndex((p) => p.id === id);
         if (index < 0) return null;
         const [gone] = products.splice(index, 1);
+        const entry = logEntry(session, "deleted", gone, []);
         applySupplierLinks(priv, gone.id, { supplierLinks: [] });
         applyClientRefs(priv, gone, { clientRefs: {} });
         forgetPrices(priv, gone.id);
         await saveProductsAndPrivate(products, priv);
         // Proformas show the product's photos: keep them while one still lists it.
         const inProforma = priv.proformas.some((pf) => pf.items.some((i) => i.productId === gone.id));
-        return { gone, keepPhotos: inProforma };
+        return { gone, keepPhotos: inProforma, entry };
       });
       if (!removed) return fail(res, 404, "Product not found");
+      await writeLog([removed.entry]);
       if (!removed.keepPhotos) await cleanup([removed.gone.image].concat(Object.values(removed.gone.variantImages || {})));
       return send(res, 200, { ok: true });
     }
