@@ -171,7 +171,24 @@
             <input type="search" id="search" data-t-placeholder="list.search" />
           </div>
         </div>
+        <div class="list-filters" id="date-filters">
+          <label><span data-t="list.dateFilter">Cadastrados</span>
+            <select id="date-filter">
+              <option value="" data-t="list.dateAny">Em qualquer data</option>
+              <option value="today" data-t="list.dateToday">Hoje</option>
+              <option value="7" data-t="list.date7">Nos últimos 7 dias</option>
+              <option value="30" data-t="list.date30">Nos últimos 30 dias</option>
+              <option value="month" data-t="list.dateMonth">Neste mês</option>
+              <option value="range" data-t="list.dateRange">Entre datas…</option>
+            </select>
+          </label>
+          <label class="date-range" hidden><span data-t="list.dateFrom">De</span><input type="date" id="date-from" /></label>
+          <label class="date-range" hidden><span data-t="list.dateTo">Até</span><input type="date" id="date-to" /></label>
+          <span class="list-filters__count" id="shown-count"></span>
+          <button type="button" class="linkbtn" id="filters-clear" hidden data-t="list.clearFilters">Limpar filtros</button>
+        </div>
         <ul class="plist" id="product-list"></ul>
+        <p class="empty" id="no-match" data-t="list.noMatch" hidden>Nenhum produto encontrado com esses filtros.</p>
         <p class="empty" id="empty" data-t="list.empty" hidden>Nenhum produto cadastrado ainda.</p>
       </section>
     </main>

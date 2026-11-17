@@ -590,8 +590,13 @@
     var q = $("#search").value.trim().toLowerCase();
     var cat = $("#cat-filter").value;
     var editing = form.elements.id.value;
+    var period = datePeriod();
     var shown = products.filter(function (p) {
       if (cat && p.category !== cat) return false;
+      if (period) {
+        var day = localDay(p.createdAt);
+        if (!day || (period.from && day < period.from) || (period.to && day > period.to)) return false;
+      }
       if (!q) return true;
       if (p.sku && (String(p.sku).indexOf(q) === 0 || variantCodes(p).some(function (v) { return v.code.indexOf(q) === 0; }))) return true;
       return LANGS.some(function (l) { return String(p.name[l] || "").toLowerCase().indexOf(q) > -1; });
@@ -599,6 +604,10 @@
     $("#count").textContent = products.length;
     $("#tab-count-products").textContent = products.length;
     $("#empty").hidden = products.length > 0;
+    var filtered = Boolean(q || cat || period);
+    $("#shown-count").textContent = filtered ? T("list.shownOf", { n: shown.length, total: products.length }) : "";
+    $("#filters-clear").hidden = !filtered;
+    $("#no-match").hidden = !(products.length && filtered && !shown.length);
     listEl.innerHTML = shown.map(function (p) {
       var chips = LANGS.map(function (l) {
         return "<span><b>" + l.toUpperCase() + "</b>" + escapeHtml(p.name[l]) + "</span>";
@@ -607,7 +616,8 @@
         '<img src="' + escapeHtml(p.image) + '" alt="" loading="lazy" />' +
         "<div><h3>" + (p.sku ? '<span class="sku">' + escapeHtml(p.sku) + "</span> " : "") + escapeHtml(p.name[current] || p.source.name) + "</h3>" +
         '<p class="pitem__lang">' + (p.category ? '<span class="pitem__cat">' + escapeHtml(T("cat." + p.category)) + "</span> · " : "") +
-        escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) + "</p>" +
+        escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) +
+        (p.createdAt ? " · " + escapeHtml(T("list.createdOn", { date: new Date(p.createdAt).toLocaleDateString(HTML_LANG[current]) })) : "") + "</p>" +
         '<div class="pitem__tr">' + chips + "</div>" +
         attributeLine(p.attributes) +
         variantLine(p) +
@@ -622,6 +632,44 @@
 
   $("#search").addEventListener("input", renderList);
   $("#cat-filter").addEventListener("change", renderList);
+
+  /* ----- Filter by registration date ----- */
+  function ymd(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  // The day (in this computer's time zone) a product was registered: "2026-11-17".
+  function localDay(iso) { return iso ? ymd(new Date(iso)) : ""; }
+  // { from, to } as "YYYY-MM-DD" (both included), or null for any date.
+  function datePeriod() {
+    var v = $("#date-filter").value;
+    var now = new Date();
+    if (!v) return null;
+    if (v === "today") return { from: ymd(now), to: ymd(now) };
+    if (v === "month") return { from: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: ymd(now) };
+    if (v === "range") {
+      var from = $("#date-from").value, to = $("#date-to").value;
+      if (from && to && from > to) { var t = from; from = to; to = t; }
+      return from || to ? { from: from, to: to } : null;
+    }
+    var start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (Number(v) - 1));
+    return { from: ymd(start), to: ymd(now) };
+  }
+  $("#date-filter").addEventListener("change", function () {
+    var range = this.value === "range";
+    document.querySelectorAll("#date-filters .date-range").forEach(function (el) { el.hidden = !range; });
+    if (range && !$("#date-from").value) $("#date-from").focus();
+    renderList();
+  });
+  $("#date-from").addEventListener("change", renderList);
+  $("#date-to").addEventListener("change", renderList);
+  $("#filters-clear").addEventListener("click", function () {
+    $("#search").value = "";
+    $("#cat-filter").value = "";
+    $("#date-filter").value = "";
+    $("#date-from").value = ""; $("#date-to").value = "";
+    document.querySelectorAll("#date-filters .date-range").forEach(function (el) { el.hidden = true; });
+    renderList();
+  });
 
   listEl.addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-act]");
