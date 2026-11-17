@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "sup.companyZh": "Nome da empresa (chinês)",
     "sup.catalogs": "Catálogos",
     "sup.catalogsHint": "PDF, imagem, Excel, Word, PowerPoint ou ZIP, até 5 MB cada. Ficam guardados criptografados.",
     "sup.attachCatalog": "Anexar catálogo",
@@ -542,7 +543,7 @@ window.ADMIN_I18N = {
     "sup.new": "Novo fornecedor",
     "sup.edit": "Editar fornecedor",
     "sup.privateNote": "Os dados dos fornecedores aparecem somente neste painel e ficam guardados criptografados. Visitantes do site não têm acesso.",
-    "sup.company": "Empresa *",
+    "sup.company": "Nome da empresa (inglês) *",
     "sup.contact": "Pessoa de contato",
     "sup.phone": "Telefone / WhatsApp",
     "sup.wechat": "WeChat",
@@ -615,6 +616,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "sup.companyZh": "Company name (Chinese)",
     "sup.catalogs": "Catalogs",
     "sup.catalogsHint": "PDF, image, Excel, Word, PowerPoint or ZIP, up to 5 MB each. Stored encrypted.",
     "sup.attachCatalog": "Attach catalog",
@@ -1156,7 +1158,7 @@ window.ADMIN_I18N = {
     "sup.new": "New supplier",
     "sup.edit": "Edit supplier",
     "sup.privateNote": "Supplier details are shown only in this panel and are stored encrypted. Website visitors cannot see them.",
-    "sup.company": "Company *",
+    "sup.company": "Company name (English) *",
     "sup.contact": "Contact person",
     "sup.phone": "Phone / WhatsApp",
     "sup.wechat": "WeChat",
@@ -1229,6 +1231,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "sup.companyZh": "Nombre de la empresa (chino)",
     "sup.catalogs": "Catálogos",
     "sup.catalogsHint": "PDF, imagen, Excel, Word, PowerPoint o ZIP, hasta 5 MB cada uno. Se guardan cifrados.",
     "sup.attachCatalog": "Adjuntar catálogo",
@@ -1770,7 +1773,7 @@ window.ADMIN_I18N = {
     "sup.new": "Nuevo proveedor",
     "sup.edit": "Editar proveedor",
     "sup.privateNote": "Los datos de los proveedores solo se muestran en este panel y se guardan cifrados. Los visitantes del sitio no tienen acceso.",
-    "sup.company": "Empresa *",
+    "sup.company": "Nombre de la empresa (inglés) *",
     "sup.contact": "Persona de contacto",
     "sup.phone": "Teléfono / WhatsApp",
     "sup.wechat": "WeChat",
@@ -1843,6 +1846,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "sup.companyZh": "公司名称（中文）",
     "sup.catalogs": "产品目录",
     "sup.catalogsHint": "PDF、图片、Excel、Word、PowerPoint 或 ZIP，每个最大 5 MB，加密保存。",
     "sup.attachCatalog": "上传目录",
@@ -2384,7 +2388,7 @@ window.ADMIN_I18N = {
     "sup.new": "新增供应商",
     "sup.edit": "编辑供应商",
     "sup.privateNote": "供应商信息仅在此后台显示，并加密存储。网站访客无法查看。",
-    "sup.company": "公司名称 *",
+    "sup.company": "公司名称（英文）*",
     "sup.contact": "联系人",
     "sup.phone": "电话 / WhatsApp",
     "sup.wechat": "微信",

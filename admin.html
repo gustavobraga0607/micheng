@@ -183,7 +183,8 @@
         <p class="hint hint--lock" data-t="sup.privateNote">Os dados dos fornecedores aparecem somente neste painel e ficam guardados criptografados. Visitantes do site não têm acesso.</p>
         <form id="supplier-form" novalidate>
           <input type="hidden" name="id" />
-          <label><span data-t="sup.company">Empresa *</span><input type="text" name="company" maxlength="120" required /></label>
+          <label><span data-t="sup.company">Nome da empresa (inglês) *</span><input type="text" name="company" maxlength="120" required /></label>
+          <label><span><span data-t="sup.companyZh">Nome da empresa (chinês)</span><b class="req-prod"> *</b></span><input type="text" name="companyZh" maxlength="120" lang="zh" /></label>
           <label class="check sup-flag"><input type="checkbox" name="productSupplier" checked /> <span><b data-t="sup.productSupplier">Fornecedor de produtos</b><small data-t="sup.productSupplierHint">Aparece no cadastro de produtos. Desmarque para fornecedores de despesas, como aluguel, frete ou serviços.</small></span></label>
           <fieldset class="sup-cats" id="sup-cats">
             <legend><span data-t="sup.categories">Categorias de produtos</span><b class="req-prod"> *</b></legend>

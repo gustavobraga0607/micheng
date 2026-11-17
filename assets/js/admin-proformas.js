@@ -1021,7 +1021,8 @@
       var wrap = function (lines) { return [].concat.apply([], lines.filter(Boolean).map(function (l) { return doc.splitTextToSize(l, colW - 8); })); };
       var bl = wrap([s0.companyName || "Shenzhen Micheng International Trading Co., Ltd.",
         s0.companyTaxId && "统一社会信用代码: " + s0.companyTaxId, s0.address && "地址: " + s0.address, s0.phone && "电话: " + s0.phone]);
-      var sl = wrap([sup.company || "", sup.contact && "联系人: " + sup.contact, sup.phone && "电话: " + sup.phone,
+      var supName = sup.companyZh ? sup.companyZh + (sup.company ? "\n" + sup.company : "") : sup.company || "";
+      var sl = wrap([supName, sup.contact && "联系人: " + sup.contact, sup.phone && "电话: " + sup.phone,
         sup.wechat && "微信: " + sup.wechat, sup.email && "邮箱: " + sup.email, sup.city && "地址: " + sup.city]);
       var bh = 10 + Math.max(bl.length, sl.length) * 4.1;
       [[bl, "需方（甲方）BUYER", M], [sl, "供方（乙方）SELLER", M + colW + 6]].forEach(function (c) {
@@ -1146,7 +1147,7 @@
       if (y + 36 > 287) { doc.addPage(); y = M; }
       y += 3;
       [[M, "需方（甲方）Buyer", s0.companyName || "Shenzhen Micheng International Trading Co., Ltd.", true],
-       [M + colW + 6, "供方（乙方）Seller", sup.company || "", false]].forEach(function (c) {
+       [M + colW + 6, "供方（乙方）Seller", sup.companyZh || sup.company || "", false]].forEach(function (c) {
         var x = c[0];
         doc.setFont("NotoSC", "bold"); doc.setFontSize(9); doc.setTextColor.apply(doc, navy); doc.text(c[1], x, y);
         doc.setFont("NotoSC", "normal"); doc.setFontSize(8.5); doc.setTextColor.apply(doc, text);

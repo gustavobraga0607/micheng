@@ -8,7 +8,8 @@ import { getPrivate, savePrivate, productLinks, oneChangeAtATime, saveSecretFile
 const CATEGORIES = ["building", "sanitary", "fitness", "general"];
 
 const FIELDS = {
-  company: 120,
+  company: 120, // name in English
+  companyZh: 120, // name in Chinese (typed, not translated)
   contact: 120,
   phone: 60,
   wechat: 60,
@@ -34,7 +35,7 @@ function clean(body) {
 }
 
 // A product supplier needs every field except website, phone/WhatsApp and notes.
-const REQUIRED_FOR_PRODUCTS = ["contact", "wechat", "email", "city"];
+const REQUIRED_FOR_PRODUCTS = ["companyZh", "contact", "wechat", "email", "city"];
 function missingFields(data) {
   const missing = [];
   if (!data.company) missing.push("company");

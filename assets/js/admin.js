@@ -927,7 +927,7 @@
     picker.hidden = candidates.length === 0;
     $("#supplier-selected").textContent = selectedSuppliers.size ? T("form.suppliersSelected", { n: selectedSuppliers.size }) : "";
     var shown = candidates.filter(function (s) {
-      return !q || (s.company + " " + s.city + " " + s.contact).toLowerCase().indexOf(q) > -1;
+      return !q || (s.company + " " + (s.companyZh || "") + " " + s.city + " " + s.contact).toLowerCase().indexOf(q) > -1;
     });
     // Ticked suppliers first, so the choice stays visible.
     shown.sort(function (a, b) { return selectedSuppliers.has(b.id) - selectedSuppliers.has(a.id); });
@@ -953,7 +953,7 @@
       }).join("") : "") + '<p class="vcosts__hint">' + escapeHtml(T(variants.length ? "form.variantCostsHint" : "form.variantCostsSaveFirst")) + "</p></div>" : "";
       var noCat = s.productSupplier !== false && !(s.categories || []).length;
       return '<div class="picker__item' + (on ? " is-on" : "") + '"><label><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
-        (on ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + "</b>" +
+        (on ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + (s.companyZh ? ' <span class="sitem__zh" lang="zh">' + escapeHtml(s.companyZh) + "</span>" : "") + "</b>" +
         (s.city || noCat ? "<small>" + escapeHtml(s.city || "") + (noCat ? '<em class="picker__nocat">' + (s.city ? " · " : "") + escapeHtml(T("sup.noCategory")) + "</em>" : "") + "</small>" : "") +
         "</span></label>" + cost + toggle + table + "</div>";
     }).join("") : '<p class="picker__none">' + escapeHtml(T("form.noMatch")) + "</p>";
@@ -998,7 +998,7 @@
   /* ---------- Suppliers tab ---------- */
   var supForm = $("#supplier-form");
   var supStatus = $("#supplier-status");
-  var SUP_FIELDS = ["company", "contact", "phone", "wechat", "email", "city", "website", "notes"];
+  var SUP_FIELDS = ["company", "companyZh", "contact", "phone", "wechat", "email", "city", "website", "notes"];
 
   function setSupplierStatus(msg, kind) {
     supStatus.textContent = msg || "";
@@ -1063,7 +1063,7 @@
     var missing = [];
     if (!body.company.trim()) missing.push("company");
     if (body.productSupplier) {
-      ["contact", "wechat", "email", "city"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
+      ["companyZh", "contact", "wechat", "email", "city"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
       if (body.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()) && missing.indexOf("email") < 0) missing.push("email");
       if (!body.categories.length) missing.push("categories");
     }
@@ -1095,7 +1095,7 @@
 
   // Marks the missing fields and says which they are; true when something is missing.
   function markSupplierMissing(missing) {
-    ["company", "contact", "wechat", "email", "city", "notes"].forEach(function (f) {
+    ["company", "companyZh", "contact", "wechat", "email", "city", "notes"].forEach(function (f) {
       supForm.elements[f].classList.toggle("is-invalid", missing.indexOf(f) > -1);
     });
     $("#sup-cats").classList.toggle("is-invalid", missing.indexOf("categories") > -1);
@@ -1305,7 +1305,7 @@
       if (s.website) contact.push('<a href="' + escapeHtml(safeUrl(s.website)) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(s.website) + "</a>");
       var linked = (s.productIds || []).map(productName).filter(Boolean);
       return '<li class="pitem sitem' + (s.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(s.id) + '">' +
-        "<div><h3>" + escapeHtml(s.company) + ' <span class="sup-tag' + (s.productSupplier === false ? " sup-tag--other" : "") + '">' +
+        "<div><h3>" + escapeHtml(s.company) + (s.companyZh ? ' <span class="sitem__zh" lang="zh">' + escapeHtml(s.companyZh) + "</span>" : "") + ' <span class="sup-tag' + (s.productSupplier === false ? " sup-tag--other" : "") + '">' +
           escapeHtml(T(s.productSupplier === false ? "sup.tagOther" : "sup.tagProducts")) + "</span></h3>" +
         (s.city ? '<p class="pitem__lang">' + escapeHtml(s.city) + "</p>" : "") +
         (s.productSupplier !== false ? '<p class="sitem__cats">' + ((s.categories || []).length ? s.categories.map(function (c) { return '<span class="pitem__cat">' + escapeHtml(T("cat." + c)) + "</span>"; }).join("")
