@@ -1,6 +1,12 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "sup.province": "Província",
+    "sup.cityPick": "Cidade",
+    "sup.address": "Endereço (bairro, rua, número)",
+    "sup.choose": "Selecione…",
+    "sup.provinceFirst": "Escolha a província primeiro",
+    "sup.cityZh": "Cidade",
     "sup.companyZh": "Nome da empresa (chinês)",
     "sup.catalogs": "Catálogos",
     "sup.catalogsHint": "PDF, imagem, Excel, Word, PowerPoint ou ZIP, até 5 MB cada. Ficam guardados criptografados.",
@@ -616,6 +622,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "sup.province": "Province",
+    "sup.cityPick": "City",
+    "sup.address": "Address (district, street, number)",
+    "sup.choose": "Select…",
+    "sup.provinceFirst": "Choose the province first",
+    "sup.cityZh": "City",
     "sup.companyZh": "Company name (Chinese)",
     "sup.catalogs": "Catalogs",
     "sup.catalogsHint": "PDF, image, Excel, Word, PowerPoint or ZIP, up to 5 MB each. Stored encrypted.",
@@ -1231,6 +1243,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "sup.province": "Provincia",
+    "sup.cityPick": "Ciudad",
+    "sup.address": "Dirección (barrio, calle, número)",
+    "sup.choose": "Seleccione…",
+    "sup.provinceFirst": "Elija primero la provincia",
+    "sup.cityZh": "Ciudad",
     "sup.companyZh": "Nombre de la empresa (chino)",
     "sup.catalogs": "Catálogos",
     "sup.catalogsHint": "PDF, imagen, Excel, Word, PowerPoint o ZIP, hasta 5 MB cada uno. Se guardan cifrados.",
@@ -1846,6 +1864,12 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "sup.province": "省份",
+    "sup.cityPick": "城市",
+    "sup.address": "详细地址（区、街道、门牌号）",
+    "sup.choose": "请选择…",
+    "sup.provinceFirst": "请先选择省份",
+    "sup.cityZh": "城市",
     "sup.companyZh": "公司名称（中文）",
     "sup.catalogs": "产品目录",
     "sup.catalogsHint": "PDF、图片、Excel、Word、PowerPoint 或 ZIP，每个最大 5 MB，加密保存。",

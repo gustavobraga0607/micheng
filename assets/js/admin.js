@@ -927,7 +927,7 @@
     picker.hidden = candidates.length === 0;
     $("#supplier-selected").textContent = selectedSuppliers.size ? T("form.suppliersSelected", { n: selectedSuppliers.size }) : "";
     var shown = candidates.filter(function (s) {
-      return !q || (s.company + " " + (s.companyZh || "") + " " + s.city + " " + s.contact).toLowerCase().indexOf(q) > -1;
+      return !q || (s.company + " " + (s.companyZh || "") + " " + placeLabel(s) + " " + (s.province || "") + (s.cityZh || "") + " " + s.contact).toLowerCase().indexOf(q) > -1;
     });
     // Ticked suppliers first, so the choice stays visible.
     shown.sort(function (a, b) { return selectedSuppliers.has(b.id) - selectedSuppliers.has(a.id); });
@@ -954,7 +954,7 @@
       var noCat = s.productSupplier !== false && !(s.categories || []).length;
       return '<div class="picker__item' + (on ? " is-on" : "") + '"><label><input type="checkbox" value="' + escapeHtml(s.id) + '"' +
         (on ? " checked" : "") + " /><span><b>" + escapeHtml(s.company) + (s.companyZh ? ' <span class="sitem__zh" lang="zh">' + escapeHtml(s.companyZh) + "</span>" : "") + "</b>" +
-        (s.city || noCat ? "<small>" + escapeHtml(s.city || "") + (noCat ? '<em class="picker__nocat">' + (s.city ? " · " : "") + escapeHtml(T("sup.noCategory")) + "</em>" : "") + "</small>" : "") +
+        (placeLabel(s) || noCat ? "<small>" + escapeHtml(placeLabel(s)) + (noCat ? '<em class="picker__nocat">' + (placeLabel(s) ? " · " : "") + escapeHtml(T("sup.noCategory")) + "</em>" : "") + "</small>" : "") +
         "</span></label>" + cost + toggle + table + "</div>";
     }).join("") : '<p class="picker__none">' + escapeHtml(T("form.noMatch")) + "</p>";
   }
@@ -1000,6 +1000,42 @@
   var supStatus = $("#supplier-status");
   var SUP_FIELDS = ["company", "companyZh", "contact", "phone", "wechat", "email", "city", "website", "notes"];
 
+  /* ----- Province and city in China (lists; city depends on the province) ----- */
+  var PLACES = window.CHINA_PLACES || [];
+  function provinceOf(zh) { return PLACES.filter(function (p) { return p[1] === zh; })[0]; }
+  function fillProvinces(value) {
+    var sel = supForm.elements.province;
+    sel.innerHTML = '<option value="">' + escapeHtml(T("sup.choose")) + "</option>" + PLACES.map(function (p) {
+      return '<option value="' + escapeHtml(p[1]) + '">' + escapeHtml(p[0] + " · " + p[1]) + "</option>";
+    }).join("");
+    sel.value = value || "";
+  }
+  function fillCities(value) {
+    var sel = supForm.elements.cityZh;
+    var p = provinceOf(supForm.elements.province.value);
+    sel.disabled = !p;
+    sel.innerHTML = '<option value="">' + escapeHtml(T(p ? "sup.choose" : "sup.provinceFirst")) + "</option>" + (p ? p[2].map(function (c) {
+      return '<option value="' + escapeHtml(c[1]) + '">' + escapeHtml(c[0] + " · " + c[1]) + "</option>";
+    }).join("") : "");
+    sel.value = value || "";
+  }
+  // "Foshan, Guangdong" (plus the address typed); older suppliers show the city they typed.
+  function placeLabel(s) {
+    var p = s.province && provinceOf(s.province);
+    var c = p && p[2].filter(function (x) { return x[1] === s.cityZh; })[0];
+    var where = p ? (c ? c[0] + ", " : "") + p[0] : "";
+    return [where, s.city || ""].filter(Boolean).join(" · ");
+  }
+  supForm.elements.province.addEventListener("change", function () { fillCities(""); this.classList.remove("is-invalid"); });
+  supForm.elements.cityZh.addEventListener("change", function () { this.classList.remove("is-invalid"); });
+  fillProvinces("");
+  fillCities("");
+  document.addEventListener("admin:lang", function () { // placeholders in the new language, choice kept
+    var city = supForm.elements.cityZh.value;
+    fillProvinces(supForm.elements.province.value);
+    fillCities(city);
+  });
+
   function setSupplierStatus(msg, kind) {
     supStatus.textContent = msg || "";
     supStatus.className = "status" + (kind ? " is-" + kind : "");
@@ -1030,6 +1066,8 @@
     pendingCatalogs = [];
     setCatalogStatus("");
     supForm.reset();
+    fillProvinces("");
+    fillCities("");
     supForm.elements.id.value = "";
     supForm.elements.company.classList.remove("is-invalid");
     updateSupplierMode();
@@ -1040,6 +1078,8 @@
     resetSupplierForm();
     supForm.elements.id.value = s.id;
     SUP_FIELDS.forEach(function (f) { supForm.elements[f].value = s[f] || ""; });
+    fillProvinces(s.province);
+    fillCities(s.cityZh);
     supForm.elements.productSupplier.checked = s.productSupplier !== false;
     supForm.querySelectorAll('input[name="cat"]').forEach(function (c) { c.checked = (s.categories || []).indexOf(c.value) > -1; });
     updateSupplierMode();
@@ -1056,6 +1096,8 @@
     var id = supForm.elements.id.value;
     var body = {};
     SUP_FIELDS.forEach(function (f) { body[f] = supForm.elements[f].value; });
+    body.province = supForm.elements.province.value;
+    body.cityZh = supForm.elements.cityZh.value;
     body.productSupplier = supForm.elements.productSupplier.checked;
     body.categories = body.productSupplier ? Array.prototype.filter.call(supForm.querySelectorAll('input[name="cat"]'), function (c) { return c.checked; })
       .map(function (c) { return c.value; }) : [];
@@ -1063,7 +1105,7 @@
     var missing = [];
     if (!body.company.trim()) missing.push("company");
     if (body.productSupplier) {
-      ["companyZh", "contact", "wechat", "email", "city"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
+      ["companyZh", "contact", "wechat", "email", "province", "cityZh"].forEach(function (f) { if (!String(body[f] || "").trim()) missing.push(f); });
       if (body.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()) && missing.indexOf("email") < 0) missing.push("email");
       if (!body.categories.length) missing.push("categories");
     }
@@ -1095,7 +1137,7 @@
 
   // Marks the missing fields and says which they are; true when something is missing.
   function markSupplierMissing(missing) {
-    ["company", "companyZh", "contact", "wechat", "email", "city", "notes"].forEach(function (f) {
+    ["company", "companyZh", "contact", "wechat", "email", "province", "cityZh", "notes"].forEach(function (f) {
       supForm.elements[f].classList.toggle("is-invalid", missing.indexOf(f) > -1);
     });
     $("#sup-cats").classList.toggle("is-invalid", missing.indexOf("categories") > -1);
@@ -1294,7 +1336,7 @@
     var shown = suppliers.filter(function (s) {
       var forProducts = s.productSupplier !== false;
       if ((kind === "products" && !forProducts) || (kind === "other" && forProducts)) return false;
-      return !q || SUP_FIELDS.some(function (f) { return String(s[f] || "").toLowerCase().indexOf(q) > -1; });
+      return !q || SUP_FIELDS.concat(["province", "cityZh"]).some(function (f) { return String(s[f] || "").toLowerCase().indexOf(q) > -1; }) || placeLabel(s).toLowerCase().indexOf(q) > -1;
     });
     $("#supplier-list").innerHTML = shown.map(function (s) {
       var contact = [];
@@ -1307,7 +1349,7 @@
       return '<li class="pitem sitem' + (s.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(s.id) + '">' +
         "<div><h3>" + escapeHtml(s.company) + (s.companyZh ? ' <span class="sitem__zh" lang="zh">' + escapeHtml(s.companyZh) + "</span>" : "") + ' <span class="sup-tag' + (s.productSupplier === false ? " sup-tag--other" : "") + '">' +
           escapeHtml(T(s.productSupplier === false ? "sup.tagOther" : "sup.tagProducts")) + "</span></h3>" +
-        (s.city ? '<p class="pitem__lang">' + escapeHtml(s.city) + "</p>" : "") +
+        (placeLabel(s) ? '<p class="pitem__lang">' + escapeHtml(placeLabel(s)) + "</p>" : "") +
         (s.productSupplier !== false ? '<p class="sitem__cats">' + ((s.categories || []).length ? s.categories.map(function (c) { return '<span class="pitem__cat">' + escapeHtml(T("cat." + c)) + "</span>"; }).join("")
           : '<span class="muted">' + escapeHtml(T("sup.noCategory")) + "</span>") + "</p>" : "") +
         (contact.length ? '<p class="sitem__contact">' + contact.join(" · ") + "</p>" : "") +

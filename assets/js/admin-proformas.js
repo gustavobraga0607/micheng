@@ -1023,7 +1023,7 @@
         s0.companyTaxId && "统一社会信用代码: " + s0.companyTaxId, s0.address && "地址: " + s0.address, s0.phone && "电话: " + s0.phone]);
       var supName = sup.companyZh ? sup.companyZh + (sup.company ? "\n" + sup.company : "") : sup.company || "";
       var sl = wrap([supName, sup.contact && "联系人: " + sup.contact, sup.phone && "电话: " + sup.phone,
-        sup.wechat && "微信: " + sup.wechat, sup.email && "邮箱: " + sup.email, sup.city && "地址: " + sup.city]);
+        sup.wechat && "微信: " + sup.wechat, sup.email && "邮箱: " + sup.email, (sup.province || sup.cityZh || sup.city) && "地址: " + [(sup.province || "") + (sup.cityZh || ""), sup.city || ""].filter(Boolean).join(" ")]);
       var bh = 10 + Math.max(bl.length, sl.length) * 4.1;
       [[bl, "需方（甲方）BUYER", M], [sl, "供方（乙方）SELLER", M + colW + 6]].forEach(function (c) {
         doc.setDrawColor(220, 226, 234); doc.setFillColor(246, 248, 251); doc.roundedRect(c[2], y, colW, bh, 1.2, 1.2, "FD");

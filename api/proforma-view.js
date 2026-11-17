@@ -57,7 +57,7 @@ function sendPo(res, priv, products, pf, supplierId) {
     language: "zh",
     company: { name: s.companyName || "", address: s.address || "", phone: s.phone || "", email: s.email || "", website: s.website || "" },
     client: null,
-    supplier: { name: sup.companyZh ? sup.companyZh + (sup.company ? " (" + sup.company + ")" : "") : sup.company || "", contact: sup.contact || "", phone: sup.phone || "", wechat: sup.wechat || "", email: sup.email || "", city: sup.city || "" },
+    supplier: { name: sup.companyZh ? sup.companyZh + (sup.company ? " (" + sup.company + ")" : "") : sup.company || "", contact: sup.contact || "", phone: sup.phone || "", wechat: sup.wechat || "", email: sup.email || "", city: [(sup.province || "") + (sup.cityZh || ""), sup.city || ""].filter(Boolean).join(" ") },
     items,
     total: Math.round(items.reduce((t, i) => t + (i.amount || 0), 0) * 100) / 100,
     terms: "",

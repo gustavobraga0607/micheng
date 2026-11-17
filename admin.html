@@ -202,7 +202,9 @@
             <label><span><span data-t="sup.wechat">WeChat</span><b class="req-prod"> *</b></span><input type="text" name="wechat" maxlength="60" /></label>
           </div>
           <label><span><span data-t="sup.email">E-mail</span><b class="req-prod"> *</b></span><input type="text" name="email" maxlength="160" inputmode="email" /></label>
-          <label><span><span data-t="sup.city">Cidade / endereço</span><b class="req-prod"> *</b></span><input type="text" name="city" maxlength="160" /></label>
+          <label><span><span data-t="sup.province">Província</span><b class="req-prod"> *</b></span><select name="province"></select></label>
+          <label><span><span data-t="sup.cityPick">Cidade</span><b class="req-prod"> *</b></span><select name="cityZh" disabled></select></label>
+          <label><span data-t="sup.address">Endereço (bairro, rua, número)</span><input type="text" name="city" maxlength="160" /></label>
           <label><span data-t="sup.website">Site / loja online</span><input type="text" name="website" maxlength="200" inputmode="url" /></label>
           <label><span data-t="sup.notes">Observações</span><textarea name="notes" rows="4" maxlength="2000" data-t-placeholder="sup.notesPh"></textarea></label>
           <div class="sup-catalogs" id="sup-catalogs">
@@ -728,6 +730,7 @@
   </div>
 
   <script src="assets/js/admin-i18n.js?v=dev"></script>
+  <script src="assets/js/china-places.js?v=dev"></script>
   <script src="assets/js/admin.js?v=dev"></script>
   <script src="assets/js/proforma-doc.js?v=dev"></script>
   <script src="assets/js/admin-proformas.js?v=dev"></script>

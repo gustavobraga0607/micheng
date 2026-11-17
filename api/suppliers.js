@@ -14,7 +14,9 @@ const FIELDS = {
   phone: 60,
   wechat: 60,
   email: 160,
-  city: 160,
+  province: 40, // Chinese name, from the list of provinces (assets/js/china-places.js)
+  cityZh: 40, // Chinese name of the city in that province
+  city: 160, // street address (district, street, number); older suppliers have the city typed here
   website: 200,
   notes: 2000,
 };
@@ -35,7 +37,7 @@ function clean(body) {
 }
 
 // A product supplier needs every field except website, phone/WhatsApp and notes.
-const REQUIRED_FOR_PRODUCTS = ["companyZh", "contact", "wechat", "email", "city"];
+const REQUIRED_FOR_PRODUCTS = ["companyZh", "contact", "wechat", "email", "province", "cityZh"];
 function missingFields(data) {
   const missing = [];
   if (!data.company) missing.push("company");
