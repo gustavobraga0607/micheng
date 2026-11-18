@@ -439,9 +439,15 @@
     }
     return decState.values;
   }
-  function itemText(i) {
+  // "Cor: Preto" — characteristic name and chosen value, in the current language.
+  function optionText(o) {
     var lang = A.lang();
-    var opts = i.options.map(function (o) { return (o.optionLabel && (o.optionLabel[lang] || o.optionLabel.en)) || ""; }).filter(Boolean).join(" · ");
+    var value = (o.optionLabel && (o.optionLabel[lang] || o.optionLabel.en)) || "";
+    var name = (o.attrName && (o.attrName[lang] || o.attrName.en)) || "";
+    return value && name ? name + ": " + value : value;
+  }
+  function itemText(i) {
+    var opts = i.options.map(optionText).filter(Boolean).join(" · ");
     return { name: pname(i.product), opts: opts };
   }
 
@@ -565,7 +571,7 @@
     var items = inv.items || {};
     $("#inv-items").innerHTML = editing.items.map(function (i, n) {
       var it = items[i.id] || {};
-      var opts = i.options.map(function (o) { return (o.optionLabel && (o.optionLabel[A.lang()] || o.optionLabel.en)) || ""; }).filter(Boolean).join(" · ");
+      var opts = i.options.map(optionText).filter(Boolean).join(" · ");
       return "<tr><td>" + (n + 1) + '</td><td class="fin-desc"><b>' + (i.sku ? '<span class="sku">' + esc(i.sku) + "</span> " : "") + esc(pname(i.product)) + "</b>" +
         (opts ? "<small>" + esc(opts) + "</small>" : "") + '</td><td class="num">' + esc(String(i.qty)) + "</td>" +
         '<td><label class="inv-mini"><span>' + esc(T("inv.unit")) + '</span><input type="text" maxlength="20" data-inv-unit="' + esc(i.id) + '" value="' + esc(it.unit || "PCS") + '" /></label></td></tr>';

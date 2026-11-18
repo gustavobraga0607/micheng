@@ -873,11 +873,14 @@
     var map = p.variantSkus || {};
     return Object.keys(map).sort(function (a, b) { return map[a] - map[b]; }).map(function (key) {
       var ids = key.split(",");
-      // Labels in the order of the characteristics (e.g. "75° / 3/4"").
+      // "Name: value" in the order of the characteristics (e.g. "Ângulo: 75° · Rosca: 3/4"").
       var label = (p.attributes || []).map(function (a) {
         var o = a.options.filter(function (x) { return ids.indexOf(x.id) > -1; })[0];
-        return o ? (o.label && o.label[current]) || o.source : "";
-      }).filter(Boolean).join(" / ");
+        if (!o) return "";
+        var value = (o.label && o.label[current]) || o.source;
+        var name = (a.name && a.name[current]) || a.source;
+        return name ? name + ": " + value : value;
+      }).filter(Boolean).join(" · ");
       return { key: key, code: p.sku + "-" + map[key], label: label };
     });
   }

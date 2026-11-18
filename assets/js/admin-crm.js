@@ -56,7 +56,7 @@
           k: k, productId: productId, key: key, product: p,
           code: variantCode(p, key, item && item.sku),
           name: p ? A.productName(p) : item && item.product ? pickName(item.product.name) : "?",
-          label: p ? variantLabel(p, key) : item ? (item.options || []).map(function (o) { return pickName(o.optionLabel); }).join(" / ") : "",
+          label: p ? variantLabel(p, key) : item ? (item.options || []).map(function (o) { var n = pickName(o.attrName); return (n ? n + ": " : "") + pickName(o.optionLabel); }).join(" · ") : "",
           image: p ? ((key && p.variantImages && p.variantImages[key]) || p.image) : item && item.product ? item.product.image : null,
           ref: "", history: [], bought: 0, orders: 0, quoted: 0, prices: [], last: null
         };
