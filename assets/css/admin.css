@@ -82,7 +82,6 @@
 
 .tabs__inner { overflow-x: auto; align-items: center; }
 .tab { flex: none; }
-.tabs__lock { margin-left: auto; flex: none; }
 .dash.dash--single { grid-template-columns: minmax(0, 860px); justify-content: center; }
 .group { border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px 18px; margin: 0; display: grid; gap: 16px; }
 .group legend { font-weight: 700; color: var(--navy); padding: 0 6px; font-size: 14px; }
@@ -398,7 +397,6 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
   .pitem__actions { grid-column: 1 / -1; }
   .pitem.sitem { grid-template-columns: 1fr; }
   .form-row, .form-row.form-row--3 { grid-template-columns: 1fr; }
-  .tabs__lock { display: none; }
   .tabs__inner { padding: 0 8px; }
   .tab { padding: 14px 10px 12px; font-size: 14px; }
   .tab .lock { display: none; }
