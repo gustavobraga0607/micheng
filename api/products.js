@@ -210,6 +210,7 @@ async function applyAttributes(product, body, existing) {
 // Supplier links are admin-only: they live in the encrypted private data,
 // never in the public product list.
 const money = parseDecimal; // accepts "15,9" as well as "15.9"
+const MAX_TECH_IMAGES = 20;
 
 // The helpers below change the private data (priv) in memory; each request reads
 // it once and saves it once, since every Blob write counts against a quota.
@@ -296,6 +297,8 @@ function prepareSkus(products, priv) {
 // Public product list: cached by Vercel's CDN, so site visits do not read the
 // database each time (changes show up on the site within about a minute).
 function sendPublic(res, products) {
+  // Technical drawings are internal: not in the public list.
+  products = products.map((p) => { if (!p.techImages) return p; const { techImages, ...rest } = p; return rest; });
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=86400");
@@ -353,6 +356,11 @@ function diffProduct(before, after, priv) {
   for (const k of new Set([...Object.keys(vb), ...Object.keys(va)])) {
     if (vb[k] !== va[k]) out.push({ t: va[k] ? "variantPhoto" : "variantPhotoRemoved", code: variantCode(after, k) });
   }
+  // Technical drawings
+  const tb = new Set((before.techImages || []).map((t) => t.url)), ta = new Set((after.techImages || []).map((t) => t.url));
+  const addedT = [...ta].filter((u) => !tb.has(u)).length, removedT = [...tb].filter((u) => !ta.has(u)).length;
+  if (addedT) out.push({ t: "techAdded", n: addedT });
+  if (removedT) out.push({ t: "techRemoved", n: removedT });
   // Suppliers and purchase prices
   const lb = new Map((before.links || []).map((l) => [l.supplierId, l])), la = new Map((after.links || []).map((l) => [l.supplierId, l]));
   for (const [sid] of lb) if (!la.has(sid)) out.push({ t: "supRemoved", supplier: supName(sid) });
@@ -467,6 +475,42 @@ async function handler(req, res) {
       return send(res, 200, { products: result.updated, pricing: result.pricing });
     }
 
+    // Technical drawings of a product (any number, not per variant), kept apart from the photos.
+    if (req.method === "POST" && queryParam(req, "action") === "techImage") {
+      const body = await readJson(req);
+      let url = null;
+      if (!body.remove) {
+        const current = (await getProducts()).find((p) => p.id === id);
+        if (!current) return fail(res, 404, "Product not found");
+        if ((current.techImages || []).length >= MAX_TECH_IMAGES) return fail(res, 400, "Too many technical drawings");
+        const image = decodeImage(body.image);
+        url = await saveImage(current.id + "-tech", image.buffer, image.contentType);
+        uploaded.push(url);
+      }
+      const result = await withDataLock(async () => {
+        const { products, priv } = await getAllData();
+        const product = products.find((p) => p.id === id);
+        if (!product) return { status: 404, error: "Product not found" };
+        const before = logView(priv, product);
+        const list = product.techImages || [];
+        let gone = null;
+        if (url) product.techImages = list.concat({ url, name: String(body.name || "").slice(0, 120), at: new Date().toISOString(), by: session.u });
+        else {
+          gone = list.find((t) => t.url === body.remove);
+          if (!gone) return { status: 404, error: "Drawing not found" };
+          product.techImages = list.filter((t) => t !== gone);
+        }
+        product.updatedAt = new Date().toISOString();
+        await saveProducts(products);
+        return { product, priv, gone, entry: logEntry(session, "updated", product, diffProduct(before, logView(priv, product), priv)) };
+      });
+      if (result.error) { await cleanup(uploaded); return fail(res, result.status, result.error); }
+      uploaded.length = 0;
+      await writeLog([result.entry]);
+      if (result.gone) await cleanup([result.gone.url]);
+      return send(res, 200, { product: adminView(result.priv, result.product) });
+    }
+
     // Photo of one variant (option combination), sent on its own so requests stay small.
     if (req.method === "POST" && queryParam(req, "action") === "variantImage") {
       const body = await readJson(req);
@@ -559,7 +603,7 @@ async function handler(req, res) {
         // (codes, variant photos, the main photo when no new one was sent).
         const fresh = products[index];
         const before = logView(priv, fresh);
-        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "image", "createdAt"]) {
+        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "techImages", "image", "createdAt"]) {
           if (fresh[k] === undefined) delete product[k];
           else product[k] = fresh[k];
         }
@@ -602,6 +646,7 @@ async function handler(req, res) {
       if (!removed) return fail(res, 404, "Product not found");
       await writeLog([removed.entry]);
       if (!removed.keepPhotos) await cleanup([removed.gone.image].concat(Object.values(removed.gone.variantImages || {})));
+      await cleanup((removed.gone.techImages || []).map((t) => t.url)); // technical drawings are not shown on proformas
       return send(res, 200, { ok: true });
     }
 

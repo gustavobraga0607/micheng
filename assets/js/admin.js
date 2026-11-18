@@ -421,6 +421,8 @@
 
   function resetForm() {
     duplicateOf = null;
+    pendingTech = [];
+    setTechStatus("");
     $("#plog-own").hidden = true;
     form.reset();
     form.elements.id.value = "";
@@ -471,6 +473,7 @@
     setStatus("");
     renderList();
     loadOwnLog(p.id);
+    renderTech();
     document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -562,7 +565,9 @@
         }).length;
         if (id) products = products.map(function (x) { return x.id === id ? p : x; });
         else products.unshift(p);
+        var queuedTech = !id ? pendingTech.slice() : [];
         resetForm();
+        if (queuedTech.length) uploadTech(p.id, queuedTech, true);
         loadSuppliers(); // linked-product lists changed
         if (newVariants) {
           // The variants only now have codes: reopen so their prices and photos can be entered.
@@ -578,6 +583,93 @@
       })
       .catch(function (e2) { setStatus(/Server error|Erro \d/.test(e2.message) ? T("status.error") : e2.message, "error"); })
       .then(function () { btn.disabled = false; });
+  });
+
+  /* ---------- Technical drawings (any number per product, apart from the photos) ---------- */
+  var pendingTech = []; // files chosen for a product not saved yet
+  var TECH_MAX_SIDE = 2400;
+  function setTechStatus(msg, kind) {
+    var el = $("#techimgs-status");
+    el.textContent = msg || "";
+    el.className = "status" + (kind ? " is-" + kind : "");
+  }
+  function renderTech() {
+    var id = form.elements.id.value;
+    var p = id && products.filter(function (x) { return x.id === id; })[0];
+    var saved = (p && p.techImages) || [];
+    $("#techimgs-grid").innerHTML = saved.map(function (t) {
+      return '<figure class="techimg"><a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(T("tech.open")) + '"><img src="' + escapeHtml(t.url) + '" alt="' + escapeHtml(t.name || "") + '" loading="lazy" /></a>' +
+        '<figcaption>' + escapeHtml(t.name || "") + '</figcaption><button type="button" class="techimg__x" data-tech-del="' + escapeHtml(t.url) + '" aria-label="' + escapeHtml(T("tech.remove")) + '" title="' + escapeHtml(T("tech.remove")) + '">×</button></figure>';
+    }).join("") + (pendingTech || []).map(function (f, k) {
+      return '<figure class="techimg is-pending"><span class="techimg__wait">' + escapeHtml(T("tech.pending")) + "</span><figcaption>" + escapeHtml(f.name) + '</figcaption><button type="button" class="techimg__x" data-tech-unq="' + k + '" aria-label="' + escapeHtml(T("tech.remove")) + '">×</button></figure>';
+    }).join("");
+  }
+  // Keeps the drawing's own shape (no square crop, unlike the photos); only very large ones are reduced.
+  function prepareTech(file) {
+    return new Promise(function (resolve, reject) {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return reject(new Error(T("status.imageType")));
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, TECH_MAX_SIDE / Math.max(img.width, img.height));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        var ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        // Line drawings stay sharp as PNG when that is small enough; otherwise JPEG.
+        var data = file.type === "image/png" ? c.toDataURL("image/png") : "";
+        if (!data || data.length * 0.75 > 2.5 * 1048576) data = c.toDataURL("image/jpeg", 0.9);
+        if (data.length * 0.75 > 2.8 * 1048576) data = c.toDataURL("image/jpeg", 0.75);
+        resolve(data);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(T("status.imageRead"))); };
+      img.src = url;
+    });
+  }
+  function uploadTech(productId, files, afterCreate) {
+    var errors = [], done = 0;
+    var chain = Promise.resolve();
+    files.forEach(function (f) {
+      chain = chain.then(function () {
+        setTechStatus(T("tech.uploading", { n: done + 1, total: files.length }));
+        return prepareTech(f).then(function (data) {
+          return api("/api/products?id=" + encodeURIComponent(productId) + "&action=techImage", { method: "POST", body: { image: data, name: f.name } });
+        }).then(function (d) {
+          done += 1;
+          products = products.map(function (x) { return x.id === productId ? d.product : x; });
+        }).catch(function (e) { errors.push(f.name + ": " + e.message); });
+      });
+    });
+    return chain.then(function () {
+      renderList();
+      if (form.elements.id.value === productId) renderTech();
+      var msg = done ? T("tech.added", { n: done }) : "";
+      if (errors.length) msg += (msg ? " " : "") + errors.join(" · ");
+      if (afterCreate) setStatus(($("#form-status").textContent + " " + msg).trim(), errors.length ? "error" : "ok");
+      else setTechStatus(msg, errors.length ? "error" : "ok");
+    });
+  }
+  $("#techimgs-file").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    e.target.value = "";
+    if (!files.length) return;
+    var id = form.elements.id.value;
+    if (!id) { pendingTech = pendingTech.concat(files); renderTech(); setTechStatus(T("tech.queued")); return; }
+    uploadTech(id, files, false);
+  });
+  $("#techimgs-grid").addEventListener("click", function (e) {
+    var unq = e.target.closest("[data-tech-unq]");
+    if (unq) { pendingTech.splice(Number(unq.getAttribute("data-tech-unq")), 1); renderTech(); return; }
+    var del = e.target.closest("[data-tech-del]");
+    if (!del || !confirm(T("tech.confirmRemove"))) return;
+    var id = form.elements.id.value;
+    api("/api/products?id=" + encodeURIComponent(id) + "&action=techImage", { method: "POST", body: { remove: del.getAttribute("data-tech-del") } })
+      .then(function (d) {
+        products = products.map(function (x) { return x.id === id ? d.product : x; });
+        renderTech(); renderList(); setTechStatus(T("tech.removed"), "ok");
+      }, function (err) { setTechStatus(err.message, "error"); });
   });
 
   /* ---------- List ---------- */
@@ -624,6 +716,7 @@
         '<div class="pitem__tr">' + chips + "</div>" +
         attributeLine(p.attributes) +
         variantLine(p) +
+        ((p.techImages || []).length ? '<p class="pitem__tech">' + escapeHtml(T("tech.count", { n: p.techImages.length })) + "</p>" : "") +
         supplierLine(p.supplierLinks) +
         refLine(p.clientRefs) +
         (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
@@ -661,6 +754,8 @@
       case "supRemoved": return T("plog.c.supRemoved", { supplier: c.supplier });
       case "cost": return T("plog.c.cost", { supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
       case "variantCost": return T("plog.c.variantCost", { code: c.code, supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
+      case "techAdded": return T("plog.c.techAdded", { n: c.n });
+      case "techRemoved": return T("plog.c.techRemoved", { n: c.n });
       case "price": return T("plog.c.price", { code: c.code, from: logMoney(c.from), to: logMoney(c.to) });
       case "clientRef": return T("plog.c.clientRef", { client: c.client + (c.code ? " · " + c.code : ""), from: quoted(c.from), to: quoted(c.to) });
       default: return c.t;

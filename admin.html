@@ -137,6 +137,17 @@
             <select id="crefs-add" aria-label="Client"></select>
           </div>
 
+          <div class="techimgs" id="techimgs">
+            <div class="suppliers-field__head">
+              <span class="photo__label" data-t="tech.title">Desenhos técnicos</span>
+              <span class="lock" data-t="tech.internal">Só no painel</span>
+            </div>
+            <p class="hint" data-t="tech.hint">Separados das fotos do produto: não aparecem no site nem na proforma. Pode enviar vários (JPG, PNG ou WEBP); valem para todas as variações.</p>
+            <div class="techimgs__grid" id="techimgs-grid"></div>
+            <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="techimgs-file" accept="image/jpeg,image/png,image/webp" multiple hidden /><span data-t="tech.add">+ Adicionar desenho técnico</span></label>
+            <p class="status" id="techimgs-status" role="status" aria-live="polite"></p>
+          </div>
+
           <details class="translations" id="translations" hidden>
             <summary><span data-t="form.translations">Traduções (pode corrigir manualmente)</span> <span class="detected" id="detected-lang"></span></summary>
             <div class="translations__grid">
