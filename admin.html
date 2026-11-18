@@ -272,6 +272,7 @@
             <p class="hint" data-t="pr.hint">Uma linha por variação. O fornecedor principal é o de menor custo. Digite direto na tabela e salve no fim.</p>
           </div>
           <div class="pr-head__tools">
+            <button type="button" class="btn btn--primary pr-link-open" id="prlink-open" data-t="prl.open">+ Incluir produtos a fornecedor</button>
             <label><span data-t="pr.client">Último preço do cliente</span><select id="pr-client"></select></label>
             <label><span data-t="pr.target">Margem-alvo (%)</span><input type="text" inputmode="decimal" id="pr-target" value="30" autocomplete="off" /></label>
           </div>
@@ -607,6 +608,31 @@
       </div>
       <p class="pdf-choice__note" data-t="pf.pdfRefNote">A versão com preço com desconto (PDF ou Excel) sai identificada como documento de referência, sem valor fiscal e sem dados bancários.</p>
       <p class="status is-error" id="pf-pdf-missing"></p>
+    </dialog>
+
+    <!-- Pricing: link many products to one supplier, with the cost of each -->
+    <dialog class="mdl mdl--wide" id="prlink-dlg">
+      <div class="mdl__head"><h2 data-t="prl.title">Incluir produtos a um fornecedor</h2><button type="button" class="mdl__x" data-close aria-label="×">×</button></div>
+      <div class="prl">
+        <label class="prl__step"><span><b>1</b> <span data-t="prl.supplier">Fornecedor</span></span><select id="prl-supplier"></select></label>
+        <div class="prl__step">
+          <span><b>2</b> <span data-t="prl.products">Produtos</span></span>
+          <div class="prl__searchrow">
+            <input type="search" id="prl-search" autocomplete="off" data-t-placeholder="prl.searchPh" />
+            <label class="check"><input type="checkbox" id="prl-allcats" /> <span data-t="prl.allCats">Todas as categorias</span></label>
+          </div>
+          <div class="prl__results" id="prl-results"></div>
+        </div>
+        <div class="prl__step">
+          <span><b>3</b> <span data-t="prl.costs">Custo de cada um</span> <small class="muted" id="prl-count"></small></span>
+          <div class="prl__picked" id="prl-picked"></div>
+        </div>
+        <p class="status" id="prl-status" role="status" aria-live="polite"></p>
+        <div class="form-actions">
+          <button type="button" class="btn btn--outline" data-close data-t="fin.cancel">Cancelar</button>
+          <button type="button" class="btn btn--primary" id="prl-save" data-t="prl.save">Incluir</button>
+        </div>
+      </div>
     </dialog>
 
     <!-- Product change log -->

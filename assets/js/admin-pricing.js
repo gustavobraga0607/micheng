@@ -424,6 +424,151 @@
     if (Object.keys(drafts).length) { e.preventDefault(); e.returnValue = ""; }
   });
 
+  /* ---------- "Incluir produtos a fornecedor": one supplier, many variants, a cost each ---------- */
+  var linkPicked = [];  // [{ id, productId, key, code, name, label, image, cost: "typed" }]
+  function linkSupplier() { return supplierById($("#prl-supplier").value); }
+  function linkCostOf(row, sid) {
+    var l = row.links.filter(function (x) { return x.supplierId === sid; })[0];
+    return l ? l.saved : null;
+  }
+  function openLinkDialog() {
+    buildRows();
+    var sel = $("#prl-supplier");
+    var list = A.suppliers().filter(function (s) { return s.productSupplier !== false; });
+    sel.innerHTML = '<option value="">' + esc(T("prl.chooseSupplier")) + "</option>" + list.map(function (s) {
+      var cats = (s.categories || []).map(function (c) { return T("cat." + c); }).join(", ");
+      return '<option value="' + esc(s.id) + '">' + esc(supplierName(s) + (cats ? " — " + cats : "")) + "</option>";
+    }).join("");
+    linkPicked = [];
+    $("#prl-search").value = "";
+    $("#prl-allcats").checked = false;
+    linkStatus("");
+    renderLinkDialog();
+    var dlg = $("#prlink-dlg");
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+    sel.focus();
+  }
+  function linkStatus(msg, kind) { var el = $("#prl-status"); el.textContent = msg || ""; el.className = "status" + (kind ? " is-" + kind : ""); }
+  function linkResults() {
+    var sup = linkSupplier();
+    if (!sup) return [];
+    var cats = sup.categories || [];
+    var q = plain($("#prl-search").value.trim());
+    var words = q ? q.split(/\s+/) : [];
+    return rowsCache.filter(function (r) {
+      if (!$("#prl-allcats").checked && cats.length && cats.indexOf(r.product.category) < 0) return false;
+      if (!words.length) return true;
+      var hay = plain(r.code + " " + A.productName(r.product) + " " + r.label);
+      return words.every(function (w) { return hay.indexOf(w) > -1; });
+    });
+  }
+  function renderLinkDialog() {
+    var sup = linkSupplier();
+    $("#prl-search").disabled = !sup;
+    var res = linkResults();
+    var picked = {};
+    linkPicked.forEach(function (x) { picked[x.id] = true; });
+    var shown = res.slice(0, 60);
+    $("#prl-results").innerHTML = !sup ? '<p class="muted">' + esc(T("prl.pickSupplierFirst")) + "</p>" :
+      (shown.length ? '<div class="prl__reshead"><span>' + esc(T("prl.found", { n: res.length })) + "</span>" +
+        (res.some(function (r) { return !picked[r.id]; }) ? '<button type="button" class="linkbtn" data-addall>' + esc(T("prl.addAll", { n: res.filter(function (r) { return !picked[r.id]; }).length })) + "</button>" : "") + "</div>" +
+        shown.map(function (r) {
+          var linked = r.links.some(function (l) { return l.supplierId === sup.id && !l.added; });
+          return '<div class="prl__res' + (picked[r.id] ? " is-picked" : "") + '">' +
+            (r.image ? '<img src="' + esc(r.image) + '" alt="" loading="lazy" />' : "<span></span>") +
+            '<span class="prl__txt"><b><span class="sku">' + esc(r.code) + "</span> " + esc(A.productName(r.product)) + "</b>" + (r.label ? "<small>" + esc(r.label) + "</small>" : "") + "</span>" +
+            (linked ? '<em class="pr-tag">' + esc(T("prl.linked")) + "</em>" : "<span></span>") +
+            (picked[r.id] ? '<span class="muted">' + esc(T("prl.added")) + "</span>" : '<button type="button" class="btn btn--outline btn--sm" data-add="' + esc(r.id) + '">' + esc(T("prl.add")) + "</button>") +
+            "</div>";
+        }).join("") + (res.length > shown.length ? '<p class="muted">' + esc(T("prl.more", { n: res.length - shown.length })) + "</p>" : "")
+        : '<p class="muted">' + esc(T("prl.noneFound")) + "</p>");
+    $("#prl-count").textContent = linkPicked.length ? T("prl.pickedCount", { n: linkPicked.length }) : "";
+    $("#prl-picked").innerHTML = linkPicked.length ? linkPicked.map(function (x, k) {
+      return '<div class="prl__pick" data-k="' + k + '">' +
+        '<span class="prl__txt"><b><span class="sku">' + esc(x.code) + "</span> " + esc(x.name) + "</b>" + (x.label ? "<small>" + esc(x.label) + "</small>" : "") + "</span>" +
+        '<input type="text" inputmode="decimal" autocomplete="off" data-cost="' + k + '" value="' + esc(x.cost) + '" placeholder="' + esc(T("prl.costPh")) + '" aria-label="' + esc(T("pr.cost") + " " + x.code) + '" />' +
+        '<button type="button" class="icon-btn icon-btn--danger" data-remove="' + k + '" aria-label="' + esc(T("prl.remove")) + '" title="' + esc(T("prl.remove")) + '">×</button></div>';
+    }).join("") : '<p class="muted">' + esc(T("prl.nonePicked")) + "</p>";
+    $("#prl-save").disabled = !sup || !linkPicked.length;
+    $("#prl-save").textContent = T("prl.saveN", { n: linkPicked.length });
+  }
+  function pick(r) {
+    if (linkPicked.some(function (x) { return x.id === r.id; })) return;
+    var sup = linkSupplier();
+    var c = sup ? linkCostOf(r, sup.id) : null;
+    linkPicked.push({ id: r.id, productId: r.product.id, key: r.key, code: r.code, name: A.productName(r.product), label: r.label, cost: c != null ? plainNum(c) : "" });
+  }
+  $("#prl-supplier").addEventListener("change", function () {
+    // Costs already registered with the new supplier fill the empty fields.
+    var sup = linkSupplier();
+    linkPicked.forEach(function (x) {
+      var r = findRow(x.id);
+      var c = sup && r ? linkCostOf(r, sup.id) : null;
+      if (!x.cost && c != null) x.cost = plainNum(c);
+    });
+    renderLinkDialog();
+    if (sup) $("#prl-search").focus();
+  });
+  $("#prl-search").addEventListener("input", renderLinkDialog);
+  $("#prl-allcats").addEventListener("change", renderLinkDialog);
+  $("#prl-results").addEventListener("click", function (e) {
+    var add = e.target.closest("[data-add]");
+    if (add) { var r = findRow(add.getAttribute("data-add")); if (r) pick(r); renderLinkDialog(); return; }
+    if (e.target.closest("[data-addall]")) { linkResults().forEach(pick); renderLinkDialog(); }
+  });
+  $("#prl-picked").addEventListener("input", function (e) {
+    var k = e.target.getAttribute("data-cost");
+    if (k != null) linkPicked[Number(k)].cost = e.target.value;
+  });
+  $("#prl-picked").addEventListener("click", function (e) {
+    var rm = e.target.closest("[data-remove]");
+    if (rm) { linkPicked.splice(Number(rm.getAttribute("data-remove")), 1); renderLinkDialog(); }
+  });
+  $("#prl-picked").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || !e.target.matches("[data-cost]")) return;
+    e.preventDefault();
+    var next = $("#prl-picked").querySelector('[data-cost="' + (Number(e.target.getAttribute("data-cost")) + 1) + '"]');
+    if (next) { next.focus(); next.select(); } else $("#prl-save").focus();
+  });
+  // A column pasted from Excel fills the costs from this line down.
+  $("#prl-picked").addEventListener("paste", function (e) {
+    if (!e.target.matches("[data-cost]")) return;
+    var values = String((e.clipboardData || window.clipboardData).getData("text") || "").replace(/\r/g, "").split("\n").map(function (x) { return x.split("\t")[0].trim(); });
+    while (values.length && values[values.length - 1] === "") values.pop();
+    if (values.length < 2) return;
+    e.preventDefault();
+    var start = Number(e.target.getAttribute("data-cost"));
+    values.forEach(function (v, i) { if (linkPicked[start + i] && num(v) != null) linkPicked[start + i].cost = v; });
+    renderLinkDialog();
+  });
+  $("#prlink-dlg").addEventListener("click", function (e) { if (e.target === this || e.target.closest("[data-close]")) this.close(); });
+  $("#prlink-open").addEventListener("click", openLinkDialog);
+  $("#prl-save").addEventListener("click", function () {
+    var sup = linkSupplier();
+    if (!sup || !linkPicked.length) return;
+    var bad = linkPicked.filter(function (x) { return x.cost !== "" && num(x.cost) == null; })[0];
+    if (bad) return linkStatus(T("pr.badNumber", { code: bad.code }), "error");
+    var changes = linkPicked.map(function (x) {
+      var costs = {};
+      costs[sup.id] = num(x.cost);
+      return { productId: x.productId, key: x.key, costs: costs };
+    });
+    var btn = this;
+    btn.disabled = true;
+    linkStatus(T("pr.saving"));
+    A.api("/api/products?action=pricing", { method: "POST", body: { changes: changes } })
+      .then(function (d) {
+        A.replaceProducts(d.products || []);
+        // Values typed in the table for this supplier and these rows are now saved.
+        linkPicked.forEach(function (x) { if (drafts[x.id]) { delete drafts[x.id].costs[sup.id]; tidy(x.id); } });
+        var n = linkPicked.length;
+        $("#prlink-dlg").close();
+        render();
+        setStatus(T("prl.done", { n: n, supplier: sup.company }), "ok");
+      }, function (err) { linkStatus(err.message, "error"); })
+      .then(function () { btn.disabled = false; });
+  });
+
   /* ---------- Options of the selects, data from the panel ---------- */
   function fillSelects() {
     var sup = $("#pr-sup"), keep = sup.value;
