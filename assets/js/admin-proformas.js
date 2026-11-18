@@ -2347,5 +2347,23 @@
   });
 
   // Expose for tests and for loading when the panel opens.
-  window.Proformas = { load: load, list: function () { return proformas; } };
+  window.Proformas = {
+    load: load,
+    list: function () { return proformas; },
+    // From the client file: open a proforma / order, or start a new proforma for the client.
+    open: function (id) {
+      var p = proformas.filter(function (x) { return x.id === id; })[0];
+      if (!p) return;
+      A.showTab("proformas");
+      openEditor(p);
+    },
+    startFor: function (clientId) {
+      A.showTab("proformas");
+      openEditor(null);
+      form.elements.clientId.value = clientId;
+      form.elements.clientId.dispatchEvent(new Event("change", { bubbles: true }));
+      rows.push(newRow());
+      renderItems();
+    }
+  };
 })();

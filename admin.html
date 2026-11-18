@@ -366,7 +366,7 @@
         </form>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="client-list-panel">
         <div class="list-head">
           <h2><span data-t="cli.listTitle">Clientes cadastrados</span> <span class="count" id="client-count">0</span></h2>
           <button type="button" class="btn btn--primary btn--sm mob-new" data-new="clients" data-t="mob.newClient">+ Novo cliente</button>
@@ -374,6 +374,58 @@
         </div>
         <ul class="plist" id="client-list"></ul>
         <p class="empty" id="client-empty" data-t="cli.empty" hidden>Nenhum cliente cadastrado ainda.</p>
+      </section>
+          <section class="panel crm" id="crm" hidden>
+        <button type="button" class="linkbtn" id="crm-back">← <span data-t="crm.back">Voltar aos clientes</span></button>
+        <div class="crm-head">
+          <div>
+            <h2 id="crm-name"></h2>
+            <p class="crm-details" id="crm-details"></p>
+          </div>
+          <div class="crm-head__actions">
+            <button type="button" class="btn btn--outline btn--sm" id="crm-edit" data-t="crm.edit">Editar cadastro</button>
+            <button type="button" class="btn btn--primary btn--sm" id="crm-newpf" data-t="crm.newProforma">+ Nova proforma</button>
+          </div>
+        </div>
+        <div class="crm-kpis" id="crm-kpis"></div>
+        <div class="otabs crm-tabs" role="tablist">
+          <button type="button" class="otab crm-tab is-active" role="tab" data-crmtab="products"><span data-t="crm.tabProducts">Produtos</span> <span class="count" id="crm-tab-products">0</span></button>
+          <button type="button" class="otab crm-tab" role="tab" data-crmtab="orders"><span data-t="crm.tabOrders">Pedidos e proformas</span> <span class="count" id="crm-tab-orders">0</span></button>
+        </div>
+        <div id="crm-products">
+          <div class="pr-filters">
+            <div class="pr-quick" id="crm-chips">
+              <button type="button" class="pr-chip crm-chip is-active" data-crmf=""><b data-t="pr.qAll">Todos</b> <span>0</span></button>
+              <button type="button" class="pr-chip crm-chip" data-crmf="bought"><b data-t="crm.fBought">Já comprados</b> <span>0</span></button>
+              <button type="button" class="pr-chip crm-chip" data-crmf="quoted"><b data-t="crm.fQuoted">Em proforma aberta</b> <span>0</span></button>
+              <button type="button" class="pr-chip crm-chip" data-crmf="registered"><b data-t="crm.fRegistered">Cadastrados, nunca comprados</b> <span>0</span></button>
+            </div>
+            <div class="pr-filters__tools"><input type="search" id="crm-search" data-t-placeholder="crm.search" /></div>
+          </div>
+          <div class="pr-table">
+            <div class="crm-row crm-row--head">
+              <span class="crm-c crm-c--img"></span>
+              <span class="crm-c" data-t="pr.product">Produto</span>
+              <span class="crm-c" data-t="crm.ref">Ref. do cliente</span>
+              <span class="crm-c crm-c--num" data-t="crm.qtyBought">Qtd. comprada</span>
+              <span class="crm-c crm-c--num" data-t="crm.lastPrice">Último preço</span>
+              <span class="crm-c crm-c--num" data-t="crm.range">Faixa de preço</span>
+              <span class="crm-c crm-c--num" data-t="crm.quoted">Em proforma aberta</span>
+              <span class="crm-c"></span>
+            </div>
+            <div id="crm-prod-body"></div>
+          </div>
+        </div>
+        <div id="crm-orders" hidden>
+          <div class="pr-table">
+            <div class="crm-orow crm-orow--head">
+              <span data-t="crm.number">Número</span><span data-t="crm.date">Data</span><span data-t="crm.status">Situação</span>
+              <span class="crm-c--num" data-t="crm.itemsCol">Itens</span><span class="crm-c--num" data-t="crm.value">Valor</span>
+              <span class="crm-c--num" data-t="crm.received">Recebido</span><span class="crm-c--num" data-t="crm.toReceive">Falta receber</span>
+            </div>
+            <div id="crm-ord-body"></div>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -882,5 +934,6 @@
   <script src="assets/js/admin-proformas.js?v=dev"></script>
   <script src="assets/js/admin-finance.js?v=dev"></script>
   <script src="assets/js/admin-pricing.js?v=dev"></script>
+  <script src="assets/js/admin-crm.js?v=dev"></script>
 </body>
 </html>

@@ -1709,7 +1709,8 @@
         "<div><h3>" + escapeHtml(c.name) + "</h3>" +
         (c.address ? '<p class="sitem__notes">' + escapeHtml(c.address) + "</p>" : "") +
         (details.length ? '<p class="sitem__contact">' + details.join(" · ") + "</p>" : "") + "</div>" +
-        '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
+        '<div class="pitem__actions"><button type="button" class="crm-open" data-act="crm">' + escapeHtml(T("crm.open")) + "</button>" +
+        '<button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
         '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
     }).join("");
   }
@@ -1748,23 +1749,26 @@
       .then(function () { btn.disabled = false; });
   });
 
+  function editClient(id) {
+    var c = clients.filter(function (x) { return x.id === id; })[0];
+    if (!c) return;
+    resetClientForm();
+    cliForm.elements.id.value = c.id;
+    CLI_FIELDS.forEach(function (f) { cliForm.elements[f].value = c[f] || ""; });
+    if (!cliForm.elements.countryCode.value) fillCountryCode(); // saved before the code was filled automatically
+    updateClientMode();
+    setClientStatus("");
+    renderClients();
+    $("#client-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   $("#client-list").addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-act]");
     if (!btn) return;
     var id = btn.closest(".sitem").dataset.id;
     var c = clients.filter(function (x) { return x.id === id; })[0];
     if (!c) return;
-    if (btn.dataset.act === "edit") {
-      resetClientForm();
-      cliForm.elements.id.value = c.id;
-      CLI_FIELDS.forEach(function (f) { cliForm.elements[f].value = c[f] || ""; });
-      if (!cliForm.elements.countryCode.value) fillCountryCode(); // saved before the code was filled automatically
-      updateClientMode();
-      setClientStatus("");
-      renderClients();
-      $("#client-panel").scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
+    if (btn.dataset.act === "crm") { if (window.CRM) window.CRM.open(c.id); return; }
+    if (btn.dataset.act === "edit") { editClient(c.id); return; }
     if (!confirm(T("cli.confirmDelete", { name: c.name }))) return;
     btn.disabled = true;
     api("/api/clients?id=" + encodeURIComponent(id), { method: "DELETE" })
@@ -1946,6 +1950,8 @@
     stampDataUrl: stampDataUrl,
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
+    showTab: showTab,
+    editClient: editClient,
     productName: function (p) { return (p.name && (p.name[current] || p.name.en || p.name.pt)) || (p.source && p.source.name) || ""; },
     // Products changed elsewhere (pricing screen): replaced in the list.
     replaceProducts: function (list) {
