@@ -2,8 +2,8 @@
 window.ADMIN_I18N = {
   pt: {
     "tech.title": "Desenhos técnicos",
-    "tech.internal": "Só no painel",
-    "tech.hint": "Separados das fotos do produto: não aparecem no site nem na proforma. Pode enviar vários (JPG, PNG ou WEBP); valem para todas as variações.",
+    "tech.internal": "Não vai para o site",
+    "tech.hint": "Separados das fotos do produto. Na página da proforma, o cliente vê os desenhos ao ampliar a foto (setas). Não aparecem no site nem no PDF. Pode enviar vários (JPG, PNG ou WEBP); valem para todas as variações.",
     "tech.add": "+ Adicionar desenho técnico",
     "tech.open": "Abrir em tamanho real",
     "tech.remove": "Remover desenho",
@@ -776,8 +776,8 @@ window.ADMIN_I18N = {
   },
   en: {
     "tech.title": "Technical drawings",
-    "tech.internal": "Panel only",
-    "tech.hint": "Kept apart from the product photos: not shown on the website or the proforma. You can send several (JPG, PNG or WEBP); they apply to all variants.",
+    "tech.internal": "Not on the website",
+    "tech.hint": "Kept apart from the product photos. On the proforma page the client sees them when enlarging the photo (arrows). Not on the website or the PDF. You can send several (JPG, PNG or WEBP); they apply to all variants.",
     "tech.add": "+ Add technical drawing",
     "tech.open": "Open full size",
     "tech.remove": "Remove drawing",
@@ -1550,8 +1550,8 @@ window.ADMIN_I18N = {
   },
   es: {
     "tech.title": "Dibujos técnicos",
-    "tech.internal": "Solo en el panel",
-    "tech.hint": "Separados de las fotos: no aparecen en el sitio ni en la proforma. Puede enviar varios (JPG, PNG o WEBP); valen para todas las variantes.",
+    "tech.internal": "No va al sitio",
+    "tech.hint": "Separados de las fotos. En la página de la proforma el cliente los ve al ampliar la foto (flechas). No aparecen en el sitio ni en el PDF. Puede enviar varios (JPG, PNG o WEBP); valen para todas las variantes.",
     "tech.add": "+ Añadir dibujo técnico",
     "tech.open": "Abrir en tamaño real",
     "tech.remove": "Quitar dibujo",
@@ -2324,8 +2324,8 @@ window.ADMIN_I18N = {
   },
   zh: {
     "tech.title": "技术图纸",
-    "tech.internal": "仅后台",
-    "tech.hint": "与产品照片分开：不在网站和形式发票中显示。可上传多张（JPG、PNG 或 WEBP），适用于所有规格。",
+    "tech.internal": "不在网站显示",
+    "tech.hint": "与产品照片分开。客户在形式发票页面放大照片时可通过箭头查看图纸。不在网站和 PDF 中显示。可上传多张（JPG、PNG 或 WEBP），适用于所有规格。",
     "tech.add": "+ 添加技术图纸",
     "tech.open": "查看原图",
     "tech.remove": "删除图纸",

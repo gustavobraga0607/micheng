@@ -144,3 +144,8 @@ main.pv-wrap { padding-top: 24px; padding-bottom: 48px; }
   .pv-cc { grid-column: 1 / -1; }
 }
 @media print { .pv-cc, .pv-cc-note { display: none !important; } .pv-item--removed > * { opacity: 1; } }
+
+/* Technical drawings: link on the item, white background when enlarged */
+.pv-tech { margin-top: 6px; padding: 0; border: 0; background: none; color: #1a6fd8; font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.pv-zoom.is-tech #pv-zoom-img { background: #fff; }
+@media print { .pv-tech { display: none; } }

@@ -4,7 +4,7 @@
   "use strict";
 
   var L = {
-    en: { title: "Proforma invoice", no: "No.", date: "Date", valid: "Valid until", currency: "Currency", billTo: "Bill to", taxId: "Tax ID",
+    en: { tech: "Technical drawing", techLink: "Technical drawings ({n})", title: "Proforma invoice", no: "No.", date: "Date", valid: "Valid until", currency: "Currency", billTo: "Bill to", taxId: "Tax ID",
       phone: "Phone", email: "E-mail", web: "Website", code: "Code", ref: "Your ref.", qty: "Qty", unit: "Unit price", total: "Total",
       terms: "Terms & notes", hint: "Click a photo to see it in full size.", print: "Print / PDF", excel: "Download Excel", loading: "Loading…",
       missingTitle: "Proforma not found", missingText: "This link is not valid anymore. Please ask us for a new one.", close: "Close",
@@ -12,7 +12,7 @@
       reqQty: "Requested quantity", reqRemove: "Removal requested", newTotal: "Total with your changes", origTotal: "Current total",
       ccNote: "You requested changes to {n} item(s). They will be reviewed by us and only apply after we confirm them.",
       ccHint: "You can ask to change quantities or remove items below; we will review your request.", ccError: "Could not send. Please try again." },
-    pt: { title: "Fatura proforma", no: "Nº", date: "Data", valid: "Válida até", currency: "Moeda", billTo: "Cliente", taxId: "Tax ID",
+    pt: { tech: "Desenho técnico", techLink: "Desenhos técnicos ({n})", title: "Fatura proforma", no: "Nº", date: "Data", valid: "Válida até", currency: "Moeda", billTo: "Cliente", taxId: "Tax ID",
       phone: "Telefone", email: "E-mail", web: "Site", code: "Código", ref: "Sua ref.", qty: "Qtd.", unit: "Preço unit.", total: "Total",
       terms: "Condições e observações", hint: "Clique em uma foto para vê-la em tamanho real.", print: "Imprimir / PDF", excel: "Baixar Excel", loading: "Carregando…",
       missingTitle: "Proforma não encontrada", missingText: "Este link não é mais válido. Peça um novo link para nós.", close: "Fechar",
@@ -20,7 +20,7 @@
       reqQty: "Quantidade solicitada", reqRemove: "Remoção solicitada", newTotal: "Total com suas alterações", origTotal: "Total atual",
       ccNote: "Você solicitou alterações em {n} item(ns). Elas serão analisadas por nós e só valem depois de confirmadas.",
       ccHint: "Você pode pedir para alterar quantidades ou remover itens abaixo; analisaremos o seu pedido.", ccError: "Não foi possível enviar. Tente novamente." },
-    es: { title: "Factura proforma", no: "Nº", date: "Fecha", valid: "Válida hasta", currency: "Moneda", billTo: "Cliente", taxId: "Tax ID",
+    es: { tech: "Dibujo técnico", techLink: "Dibujos técnicos ({n})", title: "Factura proforma", no: "Nº", date: "Fecha", valid: "Válida hasta", currency: "Moneda", billTo: "Cliente", taxId: "Tax ID",
       phone: "Teléfono", email: "Correo", web: "Sitio web", code: "Código", ref: "Su ref.", qty: "Cant.", unit: "Precio unit.", total: "Total",
       terms: "Condiciones y observaciones", hint: "Haga clic en una foto para verla en tamaño real.", print: "Imprimir / PDF", excel: "Descargar Excel", loading: "Cargando…",
       missingTitle: "Proforma no encontrada", missingText: "Este enlace ya no es válido. Pídanos uno nuevo.", close: "Cerrar",
@@ -28,7 +28,7 @@
       reqQty: "Cantidad solicitada", reqRemove: "Eliminación solicitada", newTotal: "Total con sus cambios", origTotal: "Total actual",
       ccNote: "Usted solicitó cambios en {n} ítem(s). Los revisaremos y solo valen después de confirmarlos.",
       ccHint: "Puede pedir cambiar cantidades o quitar ítems abajo; revisaremos su pedido.", ccError: "No se pudo enviar. Inténtelo de nuevo." },
-    zh: { title: "形式发票", no: "编号", date: "日期", valid: "有效期至", currency: "币种", billTo: "客户", taxId: "税号",
+    zh: { tech: "技术图纸", techLink: "技术图纸（{n}）", title: "形式发票", no: "编号", date: "日期", valid: "有效期至", currency: "币种", billTo: "客户", taxId: "税号",
       phone: "电话", email: "邮箱", web: "网站", code: "编码", ref: "客户编号", qty: "数量", unit: "单价", total: "合计",
       terms: "条款与备注", hint: "点击图片可查看大图。", print: "打印 / PDF", excel: "下载 Excel", loading: "加载中…",
       missingTitle: "未找到", missingText: "此链接已失效，请联系我们获取新链接。", close: "关闭",
@@ -129,7 +129,8 @@
         '<div class="pv-item__info">' + (codes ? '<div class="pv-codes">' + codes + "</div>" : "") +
           "<h3>" + esc(pick(it.name)) + "</h3>" +
           (pick(it.description) ? '<p class="pv-item__desc">' + esc(pick(it.description)) + "</p>" : "") +
-          (opts ? '<p class="pv-item__opts">' + opts + "</p>" : "") + "</div>" +
+          (opts ? '<p class="pv-item__opts">' + opts + "</p>" : "") +
+          ((it.drawings || []).length ? '<button type="button" class="pv-tech" data-zoom-tech="' + i + '">' + esc(tx("techLink", { n: it.drawings.length })) + "</button>" : "") + "</div>" +
         '<div class="pv-item__price">' + esc(num(it.qty)) + " × " + esc(money(it.price)) + "<b>" + esc(money(it.amount)) + "</b></div>" +
         (editable && it.id ? changeBox(it, ch) : "") +
         "</li>";
@@ -204,29 +205,48 @@
     sendChange({ itemId: f.getAttribute("data-qty-form"), qty: qty });
   });
 
-  /* ---------- Full-size photo, with previous / next ---------- */
-  var withPhoto = function () { return data.items.map(function (it, i) { return it.image ? i : -1; }).filter(function (i) { return i > -1; }); };
-
-  function showZoom(i) {
-    var it = data.items[i];
-    zoomAt = i;
-    $("pv-zoom-img").src = it.image;
-    $("pv-zoom-cap").textContent = it.n + ". " + caption(it);
-    var list = withPhoto();
+  /* ---------- Full-size photo, with previous / next ----------
+     The arrows go through each item's photo and then its technical drawings,
+     then on to the next item. */
+  function slides() {
+    var out = [];
+    data.items.forEach(function (it, i) {
+      if (it.image) out.push({ item: i, url: it.image });
+      (it.drawings || []).forEach(function (u, k) { out.push({ item: i, url: u, tech: k + 1, of: it.drawings.length }); });
+    });
+    return out;
+  }
+  function showZoom(k) {
+    var list = slides();
+    var sl = list[k];
+    if (!sl) return closeZoom();
+    var it = data.items[sl.item];
+    zoomAt = k;
+    $("pv-zoom-img").src = sl.url;
+    $("pv-zoom").classList.toggle("is-tech", Boolean(sl.tech));
+    $("pv-zoom-cap").textContent = it.n + ". " + caption(it) + (sl.tech ? " — " + t("tech") + " " + sl.tech + "/" + sl.of : "");
     $("pv-zoom-prev").hidden = $("pv-zoom-next").hidden = list.length < 2;
     var z = $("pv-zoom");
     if (!z.open) { if (typeof z.showModal === "function") z.showModal(); else z.setAttribute("open", ""); }
   }
+  // First picture of an item (its photo, or its first drawing).
+  function openItem(i, drawingsFirst) {
+    var list = slides();
+    var k = -1;
+    list.some(function (sl, n) { if (sl.item === i && (!drawingsFirst || sl.tech)) { k = n; return true; } return false; });
+    if (k > -1) showZoom(k);
+  }
   function step(dir) {
-    var list = withPhoto();
-    var k = list.indexOf(zoomAt);
-    showZoom(list[(k + dir + list.length) % list.length]);
+    var list = slides();
+    showZoom((zoomAt + dir + list.length) % list.length);
   }
   function closeZoom() { zoomAt = -1; var z = $("pv-zoom"); if (z.open) z.close(); }
 
   $("pv-items").addEventListener("click", function (e) {
     var b = e.target.closest("[data-zoom]");
-    if (b) showZoom(Number(b.getAttribute("data-zoom")));
+    if (b) return openItem(Number(b.getAttribute("data-zoom")), false);
+    var d = e.target.closest("[data-zoom-tech]");
+    if (d) openItem(Number(d.getAttribute("data-zoom-tech")), true);
   });
   $("pv-zoom-close").addEventListener("click", closeZoom);
   $("pv-zoom-prev").addEventListener("click", function () { step(-1); });

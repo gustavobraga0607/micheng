@@ -153,6 +153,8 @@ export default async function handler(req, res) {
         description: snap.description || (product && product.description) || {},
         options: i.options.map((o) => ({ name: o.attrName || {}, value: o.optionLabel || {} })),
         image: product ? variantImage(product, ids) : snap.image || null,
+        // Technical drawings of the product: seen after the photo when it is enlarged.
+        drawings: product && product.techImages ? product.techImages.map((t) => t.url) : [],
         qty: i.qty,
         price: i.price,
         amount: Math.round((i.price || 0) * i.qty * 100) / 100,
