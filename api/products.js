@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
-import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError, appendProductLog, readProductLog } from "./_lib/store.js";
+import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError, appendProductLog, readProductLog, savePrivate } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
@@ -243,12 +243,12 @@ function applySupplierLinks(priv, productId, body, product) {
   return links;
 }
 
-function withLinks(product, links, refs) {
-  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId), clientRefs: refs || {} };
+function withLinks(product, links, refs, prices) {
+  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId), clientRefs: refs || {}, listPrices: prices || {} };
 }
 
 function adminView(priv, product) {
-  return withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id]);
+  return withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id], priv.productPrices[product.id]);
 }
 
 // Client references (the client's own code for this product), one per variant
@@ -311,7 +311,7 @@ const short = (v, max = 300) => { const t = String(v == null ? "" : v); return t
 // Everything the log compares, from the product and its private data (suppliers, client codes).
 function logView(priv, product) {
   if (!product) return null;
-  return JSON.parse(JSON.stringify({ ...product, links: productLinks(priv, product.id), refs: priv.clientRefs[product.id] || {} }));
+  return JSON.parse(JSON.stringify({ ...product, links: productLinks(priv, product.id), refs: priv.clientRefs[product.id] || {}, prices: priv.productPrices[product.id] || {} }));
 }
 function variantCode(p, key) {
   const n = p.variantSkus && p.variantSkus[key];
@@ -365,6 +365,11 @@ function diffProduct(before, after, priv) {
       if (vo[k] !== vn[k]) out.push({ t: "variantCost", supplier: supName(sid), code: variantCode(after, k), from: vo[k] == null ? null : vo[k], to: vn[k] == null ? null : vn[k] });
     }
   }
+  // List sale prices (pricing screen)
+  const pb = before.prices || {}, pa = after.prices || {};
+  for (const k of new Set([...Object.keys(pb), ...Object.keys(pa)])) {
+    if (pb[k] !== pa[k]) out.push({ t: "price", code: k ? variantCode(after, k) : String(after.sku || ""), from: pb[k] == null ? null : pb[k], to: pa[k] == null ? null : pa[k] });
+  }
   // Codes the clients use for the product
   const rb = before.refs || {}, ra = after.refs || {};
   for (const cid of new Set([...Object.keys(rb), ...Object.keys(ra)])) {
@@ -405,6 +410,62 @@ async function handler(req, res) {
     if (!session) return fail(res, 401, "Login required");
     if (req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
     const id = queryParam(req, "id");
+
+    // Pricing screen: list prices and purchase prices of many variants at once.
+    // changes: [{ productId, key ("" = no variants), price?, costs?: { supplierId: cost | null } }]
+    if (req.method === "POST" && queryParam(req, "action") === "pricing") {
+      const body = await readJson(req);
+      const changes = Array.isArray(body.changes) ? body.changes.slice(0, 2000) : [];
+      const result = await withDataLock(async () => {
+        const { products, priv } = await getAllData();
+        const byId = new Map(products.map((p) => [p.id, p]));
+        const productSupplier = new Set(priv.suppliers.filter((x) => x.productSupplier !== false).map((x) => x.id));
+        const before = new Map();
+        for (const c of changes) {
+          const product = byId.get(String(c.productId || ""));
+          if (!product) return { status: 400, error: "Unknown product" };
+          const key = String(c.key || "");
+          if (key ? !(product.variantSkus && Object.hasOwn(product.variantSkus, key)) : (product.attributes || []).some((a) => a.options.length)) {
+            return { status: 400, error: "Unknown variant" };
+          }
+          if (!before.has(product.id)) before.set(product.id, logView(priv, product));
+          if (Object.hasOwn(c, "price")) {
+            const price = money(c.price);
+            const prices = { ...(priv.productPrices[product.id] || {}) };
+            if (price == null) delete prices[key]; else prices[key] = price;
+            if (Object.keys(prices).length) priv.productPrices[product.id] = prices; else delete priv.productPrices[product.id];
+          }
+          for (const [supplierId, value] of Object.entries(c.costs || {})) {
+            const links = productLinks(priv, product.id);
+            let link = links.find((l) => l.supplierId === supplierId);
+            if (!link) {
+              if (!productSupplier.has(supplierId)) return { status: 400, error: "Unknown supplier" };
+              link = { supplierId, cost: null, variantCosts: {} };
+              links.push(link);
+            }
+            const cost = money(value);
+            if (key) { if (cost == null) delete link.variantCosts[key]; else link.variantCosts[key] = cost; }
+            else link.cost = cost;
+            priv.productSuppliers[product.id] = links;
+          }
+        }
+        if (body.targetMargin != null) {
+          const m = Number(body.targetMargin);
+          if (m >= 0 && m < 1) priv.pricing = { ...(priv.pricing || {}), targetMargin: Math.round(m * 1000) / 1000 };
+        }
+        await savePrivate(priv);
+        const entries = [];
+        for (const [id, b] of before) {
+          const product = byId.get(id);
+          const diff = diffProduct(b, logView(priv, product), priv);
+          if (diff.length) entries.push(logEntry(session, "updated", product, diff));
+        }
+        return { entries, updated: [...before.keys()].map((id) => adminView(priv, byId.get(id))), pricing: priv.pricing };
+      });
+      if (result.error) return fail(res, result.status, result.error);
+      await writeLog(result.entries);
+      return send(res, 200, { products: result.updated, pricing: result.pricing });
+    }
 
     // Photo of one variant (option combination), sent on its own so requests stay small.
     if (req.method === "POST" && queryParam(req, "action") === "variantImage") {
@@ -455,7 +516,7 @@ async function handler(req, res) {
         ? await saveImage(product.id, image.buffer, image.contentType)
         : await copyImage(copyFrom.image, product.id);
       uploaded.push(product.image);
-      const { links, refs, stale, entry } = await withDataLock(async () => {
+      const { links, refs, stale, prices, entry } = await withDataLock(async () => {
         const { products, priv } = await getAllData();
         products.unshift(product);
         const stale = prepareSkus(products, priv);
@@ -464,12 +525,12 @@ async function handler(req, res) {
         await saveProductsAndPrivate(products, priv);
         const after = logView(priv, product);
         const empty = { source: {}, name: {}, description: {}, attributes: [], links: [], refs: {}, variantImages: {}, image: after.image };
-        return { links, refs, stale, entry: logEntry(session, body.copyImageFrom ? "duplicated" : "created", product, diffProduct(empty, after, priv)) };
+        return { links, refs, stale, prices: priv.productPrices[product.id], entry: logEntry(session, body.copyImageFrom ? "duplicated" : "created", product, diffProduct(empty, after, priv)) };
       });
       uploaded.length = 0;
       await writeLog([entry]);
       await cleanup(stale);
-      return send(res, 201, { product: withLinks(product, links, refs) });
+      return send(res, 201, { product: withLinks(product, links, refs, prices) });
     }
 
     if (req.method === "PUT") {
@@ -511,7 +572,7 @@ async function handler(req, res) {
         const refs = applyClientRefs(priv, product, body);
         await saveProductsAndPrivate(products, priv);
         const changes = diffProduct(before, logView(priv, product), priv);
-        return { links, refs, stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale,
+        return { links, refs, prices: priv.productPrices[product.id], stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale,
           entry: changes.length ? logEntry(session, "updated", product, changes) : null };
       });
       if (!result) { await cleanup(uploaded); return fail(res, 404, "Product not found"); }
@@ -519,7 +580,7 @@ async function handler(req, res) {
       uploaded.length = 0;
       await writeLog([result.entry]);
       await cleanup(result.stale);
-      return send(res, 200, { product: withLinks(product, result.links, result.refs) });
+      return send(res, 200, { product: withLinks(product, result.links, result.refs, result.prices) });
     }
 
     if (req.method === "DELETE") {
@@ -532,6 +593,7 @@ async function handler(req, res) {
         applySupplierLinks(priv, gone.id, { supplierLinks: [] });
         applyClientRefs(priv, gone, { clientRefs: {} });
         forgetPrices(priv, gone.id);
+        delete priv.productPrices[gone.id];
         await saveProductsAndPrivate(products, priv);
         // Proformas show the product's photos: keep them while one still lists it.
         const inProforma = priv.proformas.some((pf) => pf.items.some((i) => i.productId === gone.id));

@@ -236,6 +236,8 @@ const emptyPrivate = () => ({
   clientDeclared: {}, // clientId -> { priceKey: { value, currency, number, at } }: declared values, internal control
   proformaSeq: {}, // year -> last proforma number used
   clientRefs: {}, // productId -> clientId -> { comboKey ("" = no variants): client's reference }
+  productPrices: {}, // productId -> { comboKey ("" = no variants): list sale price }, from the pricing screen
+  pricing: { targetMargin: 0.3 }, // pricing screen: target margin (0-1)
 });
 
 // Supplier links of a product, as [{ supplierId, cost }]. Links saved before

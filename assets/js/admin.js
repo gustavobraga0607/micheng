@@ -212,7 +212,7 @@
       renderClients();
       renderClientRefs();
       fillSettings(data.settings, true);
-      document.dispatchEvent(new CustomEvent("admin:data", { detail: { proformas: data.proformas || [], finance: data.finance } }));
+      document.dispatchEvent(new CustomEvent("admin:data", { detail: { proformas: data.proformas || [], finance: data.finance, pricing: data.pricing } }));
     }).catch(function (e) { setStatus(e.message, "error"); })
       .then(function () { loadingAll = null; });
     return loadingAll;
@@ -232,9 +232,10 @@
     var gear = $(".tab-gear");
     gear.classList.toggle("is-active", name === "settings");
     gear.setAttribute("aria-pressed", name === "settings" ? "true" : "false");
-    ["products", "suppliers", "clients", "proformas", "finance", "settings"].forEach(function (view) {
+    ["products", "suppliers", "pricing", "clients", "proformas", "finance", "settings"].forEach(function (view) {
       $("#" + view + "-view").hidden = view !== name;
     });
+    document.dispatchEvent(new CustomEvent("admin:tab", { detail: name }));
     // On a phone the tab bar scrolls sideways: bring the chosen tab into view.
     var activeTab = $('.tab[data-tab="' + name + '"]');
     var bar = $(".tabs__inner");
@@ -660,6 +661,7 @@
       case "supRemoved": return T("plog.c.supRemoved", { supplier: c.supplier });
       case "cost": return T("plog.c.cost", { supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
       case "variantCost": return T("plog.c.variantCost", { code: c.code, supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
+      case "price": return T("plog.c.price", { code: c.code, from: logMoney(c.from), to: logMoney(c.to) });
       case "clientRef": return T("plog.c.clientRef", { client: c.client + (c.code ? " · " + c.code : ""), from: quoted(c.from), to: quoted(c.to) });
       default: return c.t;
     }
@@ -1849,6 +1851,16 @@
     stampDataUrl: stampDataUrl,
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
+    productName: function (p) { return (p.name && (p.name[current] || p.name.en || p.name.pt)) || (p.source && p.source.name) || ""; },
+    // Products changed elsewhere (pricing screen): replaced in the list.
+    replaceProducts: function (list) {
+      list.forEach(function (np) {
+        var i = products.findIndex(function (x) { return x.id === np.id; });
+        if (i > -1) products[i] = np; else products.unshift(np);
+      });
+      renderList();
+      renderPicker();
+    },
     reloadProducts: loadProducts,
     reloadAll: loadAll,
     parseDecimal: parseDecimal,

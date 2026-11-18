@@ -164,7 +164,7 @@
     var opts = {};
     i.options.forEach(function (o) { opts[o.attrId] = o.optionId; });
     return { id: i.id, productId: i.productId, sku: i.sku, snapshot: i.product, supplierId: i.supplierId || "", options: opts,
-      qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, editing: false,
+      qty: i.qty, cost: i.cost, price: i.price, priceAuto: false, supplierAuto: false, editing: false,
       clientRef: i.clientRef || "", refManual: false };
   }
 
@@ -1609,7 +1609,7 @@
       if (!row.productId || row.cost != null) return;
       var product = productById(row.productId);
       var links = (product && product.supplierLinks) || [];
-      var link = links.filter(function (l) { return l.supplierId === row.supplierId; })[0] || (row.supplierId ? null : links[0]);
+      var link = links.filter(function (l) { return l.supplierId === row.supplierId; })[0] || (row.supplierId ? null : cheapestLink(product, row));
       var cost = link ? linkCost(product, link, row) : null;
       if (cost == null) { still += 1; return; }
       if (!row.supplierId) row.supplierId = link.supplierId;
@@ -1653,17 +1653,43 @@
     return map[key] || map[""] || "";
   }
 
+  // The main supplier of a configuration: the one with the lowest cost (as on
+  // the pricing screen); without any cost, the first one.
+  function cheapestLink(product, row) {
+    var links = (product && product.supplierLinks) || [];
+    var best = null, bestCost = null;
+    links.forEach(function (l) {
+      var c = linkCost(product, l, row);
+      if (c != null && (bestCost == null || c < bestCost)) { best = l; bestCost = c; }
+    });
+    return best || links[0] || null;
+  }
+  // List sale price of the row's configuration (pricing screen), when all options are chosen.
+  function listPrice(product, row) {
+    if (!product || !product.listPrices) return null;
+    var attrs = (product.attributes || []).filter(function (a) { return a.options.length; });
+    var ids = attrs.map(function (a) { return row.options[a.id]; });
+    if (ids.some(function (x) { return !x; })) return null;
+    var v = product.listPrices[ids.slice().sort().join(",")];
+    return v == null ? null : v;
+  }
+
   function applyDefaults(row, changed) {
     var product = productById(row.productId);
     var links = (product && product.supplierLinks) || [];
     if (changed === "productId") {
       row.options = {};
-      row.supplierId = links.length ? links[0].supplierId : "";
+      row.supplierAuto = true;
       row.costAuto = true;
       row.priceAuto = true;
       row.price = null;
     }
-    if (changed === "supplierId") row.costAuto = true;
+    if (changed === "supplierId") { row.costAuto = true; row.supplierAuto = false; }
+    // Supplier not chosen by hand: the cheapest for this configuration.
+    if (row.supplierAuto !== false && changed !== "supplierId") {
+      var main = cheapestLink(product, row);
+      row.supplierId = main ? main.supplierId : "";
+    }
     if (changed === "productId") row.refManual = false;
     if (!row.refManual) row.clientRef = catalogRef(row);
     // Product, supplier or options changed: take the price of that configuration
@@ -1674,7 +1700,9 @@
     }
     if (row.priceAuto) {
       var memo = rememberedPrice(row);
+      var list = listPrice(product, row);
       if (memo) row.price = memo.price;
+      else if (list != null && currency() === A.defaultCurrency()) row.price = list; // the client never bought it: list price
     }
   }
 

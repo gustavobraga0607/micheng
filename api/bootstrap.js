@@ -19,6 +19,7 @@ export default async function handler(req, res) {
       suppliers: withProducts(priv),
       clients: priv.clients,
       settings: settingsOut(priv),
+      pricing: priv.pricing || { targetMargin: 0.3 },
       proformas: proformaList(priv, products),
       finance: { accounts: fin.accounts.map(accountOut), entries: fin.entries.map(entryOut) },
     });
