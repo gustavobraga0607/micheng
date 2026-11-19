@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "mob.backList": "Voltar à lista",
     "list.allClients": "Todos os clientes",
     "list.clientFilter": "Produtos de um cliente",
     "pr.openPanel": "Abrir fornecedores, preço e clientes",
@@ -1051,6 +1052,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "mob.backList": "Back to the list",
     "list.allClients": "All clients",
     "list.clientFilter": "Products of a client",
     "pr.openPanel": "Open suppliers, price and clients",
@@ -2101,6 +2103,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "mob.backList": "Volver a la lista",
     "list.allClients": "Todos los clientes",
     "list.clientFilter": "Productos de un cliente",
     "pr.openPanel": "Abrir proveedores, precio y clientes",
@@ -3151,6 +3154,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "mob.backList": "返回列表",
     "list.allClients": "全部客户",
     "list.clientFilter": "某客户的产品",
     "pr.openPanel": "打开供应商、价格和客户",

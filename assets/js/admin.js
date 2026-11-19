@@ -249,12 +249,26 @@
   }
 
   /* ---------- Phone layout helpers ---------- */
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-mob-back]");
+    if (!b) return;
+    if (b.getAttribute("data-mob-back") === "suppliers") { resetSupplierForm(); setSupplierStatus(""); }
+    else { resetClientForm(); setClientStatus(""); }
+  });
   // On a phone the lists come first; "+ Novo" opens an empty form below them.
   document.addEventListener("click", function (e) {
     var b = e.target.closest("[data-new]");
     if (!b) return;
     var kind = b.getAttribute("data-new");
     if (kind === "products") { resetForm(); setStatus(""); return openNewPage(); }
+    if (kind === "suppliers" || kind === "clients") {
+      if (kind === "suppliers") resetSupplierForm(); else resetClientForm();
+      phoneForm(kind, true);
+      var panel = $(kind === "suppliers" ? "#supplier-panel" : "#client-panel");
+      var first0 = panel.querySelector("input:not([type=hidden]), textarea");
+      if (first0) setTimeout(function () { first0.focus({ preventScroll: true }); }, 200);
+      return;
+    }
     var target = kind === "products" ? (resetForm(), "#form-panel") : kind === "suppliers" ? (resetSupplierForm(), "#supplier-panel") : (resetClientForm(), "#client-panel");
     $(target).scrollIntoView({ behavior: "smooth", block: "start" });
     var first = $(target).querySelector("input:not([type=hidden]), textarea");
@@ -1517,6 +1531,27 @@
   function setSupplierStatus(msg, kind) {
     supStatus.textContent = msg || "";
     supStatus.className = "status" + (kind ? " is-" + kind : "");
+    if (kind === "ok") toast(msg);
+  }
+  // On a phone a form takes the whole screen (the list comes back on save, cancel or back).
+  function isPhone() { return window.innerWidth <= 760; }
+  function phoneForm(view, on) {
+    var el = $("#" + view + "-view");
+    if (!el) return;
+    var was = el.classList.contains("is-form-open");
+    el.classList.toggle("is-form-open", on);
+    if (on !== was && isPhone()) window.scrollTo(0, 0);
+  }
+  // A short message over the page (on a phone the form that showed it may be gone).
+  var toastTimer = null;
+  function toast(msg) {
+    if (!msg || !isPhone()) return;
+    var el = $("#toast");
+    if (!el) { el = document.createElement("div"); el.id = "toast"; el.className = "toast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+    el.textContent = msg;
+    el.classList.add("is-on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("is-on"); }, 2600);
   }
 
   function loadSuppliers() {
@@ -1550,6 +1585,7 @@
     supForm.elements.company.classList.remove("is-invalid");
     updateSupplierMode();
     renderSuppliers();
+    phoneForm("suppliers", false);
   }
 
   function editSupplier(s) {
@@ -1563,7 +1599,8 @@
     updateSupplierMode();
     setSupplierStatus("");
     renderSuppliers();
-    $("#supplier-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    phoneForm("suppliers", true);
+    if (!isPhone()) $("#supplier-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   $("#supplier-cancel").addEventListener("click", function () { resetSupplierForm(); setSupplierStatus(""); });
@@ -1920,6 +1957,7 @@
     var el = $("#client-status");
     el.textContent = msg || "";
     el.className = "status" + (kind ? " is-" + kind : "");
+    if (kind === "ok") toast(msg);
   }
 
   function loadClients() {
@@ -1944,6 +1982,7 @@
     cliForm.elements.name.classList.remove("is-invalid");
     updateClientMode();
     renderClients();
+    phoneForm("clients", false);
   }
 
   function renderClients() {
@@ -2014,7 +2053,8 @@
     updateClientMode();
     setClientStatus("");
     renderClients();
-    $("#client-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    phoneForm("clients", true);
+    if (!isPhone()) $("#client-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
   $("#client-list").addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-act]");

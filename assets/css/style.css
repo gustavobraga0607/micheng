@@ -475,3 +475,6 @@ p { margin: 0; }
 .wc-dlg__id b { font-size: 16px; color: var(--navy); word-break: break-all; }
 .wc-dlg__id .btn { flex: none; padding: 9px 16px; }
 .wc-dlg__x { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+
+/* Phone: no automatic zoom when a field is touched */
+@media (max-width: 760px) { input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px; } }

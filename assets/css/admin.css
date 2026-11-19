@@ -1471,3 +1471,34 @@ body.has-drawer { overflow: hidden; }
   .crm-row > .crm-c--num:nth-child(even) { grid-column: 2; }
   .crm-row > .crm-c--num:nth-child(odd) { grid-column: 3; }
 }
+
+/* ===================== Phone UX ===================== */
+.mob-back { display: none; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #0b2a4f; color: #fff; padding: 12px 18px; border-radius: 10px; font: 600 14px var(--font); box-shadow: 0 12px 30px rgba(11,42,79,.3); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 100; max-width: calc(100vw - 32px); text-align: center; }
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 760px) {
+  /* No automatic zoom when a field is touched (iPhone zooms text under 16px) */
+  .admin input:not([type=checkbox]):not([type=radio]):not([type=file]), .admin select, .admin textarea { font-size: 16px; }
+  /* Finger-sized targets */
+  .admin .btn { min-height: 44px; }
+  .admin .btn--sm { min-height: 40px; }
+  .admin .sitem button, .admin .pitem__actions button, .admin .icon-btn { min-height: 40px; min-width: 40px; }
+  .admin .linkbtn { min-height: 36px; display: inline-flex; align-items: center; }
+  .admin input[type=checkbox], .admin input[type=radio] { width: 20px; height: 20px; }
+  /* Supplier and client forms: a screen of their own */
+  .mob-back { display: inline-flex; margin-bottom: 6px; }
+  #suppliers-view:not(.is-form-open) > #supplier-panel, #clients-view:not(.is-form-open) > #client-panel { display: none; }
+  #suppliers-view.is-form-open > section:not(#supplier-panel), #clients-view.is-form-open > section:not(#client-panel) { display: none; }
+  #supplier-form .form-actions, #client-form .form-actions { position: sticky; bottom: 0; background: #fff; padding: 10px 0; border-top: 1px solid var(--line); z-index: 5; display: flex; gap: 8px; }
+  #supplier-form .form-actions .btn, #client-form .form-actions .btn { flex: 1; }
+  /* Proforma editor: save and close always at hand, at the bottom */
+  #pf-editor:not([hidden]) { padding-bottom: 84px; }
+  #pf-editor #pf-save, #pf-editor #pf-close { position: fixed; bottom: 12px; z-index: 41; height: 48px; min-height: 48px; width: calc(50vw - 18px); justify-content: center; }
+  #pf-editor #pf-save { left: 12px; background: #fff; }
+  #pf-editor #pf-close { right: 12px; }
+  #pf-editor:has(#pf-close:not([hidden]))::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 72px; background: rgba(255,255,255,.97); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(11,42,79,.08); z-index: 40; }
+  #pf-editor #pf-close[hidden], #pf-editor #pf-save[hidden] { display: none; }
+  /* Dialogs: the whole screen */
+  .mdl, .mdl--sm { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: 16px; }
+  .toast { bottom: 92px; }
+}

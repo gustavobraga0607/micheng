@@ -149,3 +149,6 @@ main.pv-wrap { padding-top: 24px; padding-bottom: 48px; }
 .pv-tech { margin-top: 6px; padding: 0; border: 0; background: none; color: #1a6fd8; font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .pv-zoom.is-tech #pv-zoom-img { background: #fff; }
 @media print { .pv-tech { display: none; } }
+
+/* Phone: no automatic zoom when a field is touched */
+@media (max-width: 760px) { input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px; } }
