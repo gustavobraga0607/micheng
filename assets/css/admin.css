@@ -1004,3 +1004,22 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .pf-row__req, .crm-req { color: #7a4e00 !important; }
 .crm-cname { color: var(--navy) !important; font-weight: 600; }
 .crm-c--prod .spec-tag { justify-self: start; margin-top: 2px; }
+
+/* Specifications tab: characteristics on top, drawings at the bottom */
+.suppliers-field { display: none !important; }
+.spec-section { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 16px 18px; margin-bottom: 16px; }
+.spec-section .attrs, .spec-section .techimgs { margin: 0; }
+#spec-tech-slot { margin: 16px 0 0; }
+#spec-tech-slot:empty { display: none; }
+.spec-section__foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+.spec-section__foot .hint { margin: 0 auto 0 0; }
+.spec-section__foot .status { margin: 0; }
+.spec-sup { display: grid; gap: 8px; max-width: 560px; }
+.spec-sup__row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 82px 32px; gap: 10px; align-items: center; }
+.spec-sup__name { font-size: 14px; overflow-wrap: anywhere; }
+.admin .spec-sup__row input { height: 38px; }
+.spec-sup__main[hidden] { display: inline-block !important; visibility: hidden; }
+.admin .spec-sup select { max-width: 280px; height: 38px; }
+.spec-sup__price { max-width: 200px; margin-top: 4px; }
+.spec-edit--single { max-width: 760px; }
+@media (max-width: 560px) { .spec-sup__row { grid-template-columns: minmax(0, 1fr) 110px 32px; } .spec-sup__main { display: none !important; } }

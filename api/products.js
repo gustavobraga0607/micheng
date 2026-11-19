@@ -592,7 +592,7 @@ async function handler(req, res) {
     }
 
     // Pricing screen: list prices and purchase prices of many variants at once.
-    // changes: [{ productId, key ("" = no variants), price?, costs?: { supplierId: cost | null } }]
+    // changes: [{ productId, key ("" = no variants), price?, costs?: { supplierId: cost | null }, unlink?: [supplierId] }]
     if (req.method === "POST" && queryParam(req, "action") === "pricing") {
       const body = await readJson(req);
       const changes = Array.isArray(body.changes) ? body.changes.slice(0, 2000) : [];
@@ -614,6 +614,11 @@ async function handler(req, res) {
             const prices = { ...(priv.productPrices[product.id] || {}) };
             if (price == null) delete prices[key]; else prices[key] = price;
             if (Object.keys(prices).length) priv.productPrices[product.id] = prices; else delete priv.productPrices[product.id];
+          }
+          // A supplier taken off the product (all its specifications)
+          for (const sid of Array.isArray(c.unlink) ? c.unlink.map(String) : []) {
+            const links = productLinks(priv, product.id).filter((l) => l.supplierId !== sid);
+            if (links.length) priv.productSuppliers[product.id] = links; else delete priv.productSuppliers[product.id];
           }
           for (const [supplierId, value] of Object.entries(c.costs || {})) {
             const links = productLinks(priv, product.id);

@@ -173,8 +173,10 @@
   }
 
   function setStatus(msg, kind) {
-    statusEl.textContent = msg || "";
-    statusEl.className = "status" + (kind ? " is-" + kind : "");
+    [statusEl, $("#spec-attrs-status")].forEach(function (el) {
+      el.textContent = msg || "";
+      el.className = "status" + (kind ? " is-" + kind : "");
+    });
   }
 
   function escapeHtml(s) {
@@ -444,7 +446,22 @@
   }
 
   /* ----- Product page: tabs Geral | Especificações | Clientes | Histórico ----- */
+  // On the product page, the characteristics and the drawings live on the
+  // Specifications tab; on the new-product form they stay in the form.
+  var attrsBox = document.querySelector("#product-form .attrs"), techBox = $("#techimgs");
+  var attrsHome = attrsBox.nextElementSibling, techHome = techBox.nextElementSibling;
+  function placeBlocks(onPage) {
+    if (onPage) {
+      $("#spec-attrs-slot").insertBefore(attrsBox, $("#spec-attrs-slot").firstChild);
+      $("#spec-tech-slot").appendChild(techBox);
+    } else {
+      attrsHome.parentNode.insertBefore(attrsBox, attrsHome);
+      techHome.parentNode.insertBefore(techBox, techHome);
+    }
+  }
+  $("#spec-attrs-save").addEventListener("click", function () { form.requestSubmit(); });
   function setProductPage(on) {
+    placeBlocks(on);
     $("#products-view").classList.toggle("is-product-open", on);
     $("#ptabs").hidden = !on;
     $("#pback").hidden = !on;
@@ -568,11 +585,13 @@
       name: name,
       category: category,
       description: form.elements.description.value,
-      supplierLinks: Array.from(selectedSuppliers, function (entry) {
-        return { supplierId: entry[0], cost: entry[1].cost, variantCosts: entry[1].variants };
-      }),
       attributes: attrState.filter(function (a) { return a.name.trim(); })
     };
+    // Suppliers and costs are edited per specification; the form only carries
+    // them when it creates a product (a duplicate keeps the original's).
+    if (!id) body.supplierLinks = Array.from(selectedSuppliers, function (entry) {
+      return { supplierId: entry[0], cost: entry[1].cost, variantCosts: entry[1].variants };
+    });
     if (pendingImage) body.image = pendingImage;
     else if (!id && duplicateOf) body.copyImageFrom = duplicateOf.id;
     if (id) {

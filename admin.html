@@ -78,7 +78,15 @@
           <button type="button" class="otab" role="tab" data-ptab="clients"><span data-t="ptab.clients">Clientes</span> <span class="count" id="ptab-clients-count">0</span></button>
           <button type="button" class="otab" role="tab" data-ptab="history"><span data-t="ptab.history">Histórico</span></button>
         </nav>
-        <div class="ppane" id="specs-pane" hidden></div>
+        <div class="ppane" id="specs-pane" hidden>
+          <section class="spec-section" id="spec-attrs-slot">
+            <div class="spec-section__foot"><p class="hint" data-t="spec.attrsSaveHint">Depois de salvar, crie as especificações com as opções novas.</p>
+              <p class="status" id="spec-attrs-status" role="status" aria-live="polite"></p>
+              <button type="button" class="btn btn--outline btn--sm" id="spec-attrs-save" data-t="spec.attrsSave">Salvar características</button></div>
+          </section>
+          <div id="specs-body"></div>
+          <section class="spec-section" id="spec-tech-slot"></section>
+        </div>
         <div class="ppane" id="pclients-pane" hidden></div>
         <form id="product-form" novalidate>
           <input type="hidden" name="id" />

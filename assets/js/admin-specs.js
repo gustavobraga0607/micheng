@@ -64,13 +64,19 @@
   /* ---------- Especificações ---------- */
   function renderSpecs() {
     var p = product();
-    var box = $("#specs-pane");
+    var box = $("#specs-body");
     if (!p) { box.innerHTML = ""; return; }
     var attrs = attrsOf(p);
     var all = specKeys(p, true), active = specKeys(p, false);
     $("#ptab-specs-count").textContent = active.length;
     if (!attrs.length) {
-      box.innerHTML = '<p class="spec-empty">' + esc(T("spec.noAttrs")) + "</p>";
+      // Single model: no specifications, only its suppliers, costs and price.
+      current = ""; if (!draft || draft.from !== "") draft = null;
+      box.innerHTML = '<section class="spec-edit spec-edit--single">' +
+        '<div class="spec-edit__head"><div><h3>' + esc(T("spec.single")) + "</h3><small>" + esc(T("spec.noAttrs")) + "</small></div></div>" +
+        commercialHtml(p, "", ensureDraft(p, "")) +
+        '<div class="spec-edit__foot"><p class="status" id="spec-status" role="status" aria-live="polite"></p>' +
+        '<button type="button" class="btn btn--primary" data-spec-save>' + esc(T("spec.save")) + "</button></div></section>";
       return;
     }
     var archived = all.length - active.length;
@@ -102,20 +108,13 @@
     if (current == null && !draft) return '<p class="spec-empty">' + esc(T("spec.pick")) + "</p>";
     var key = current;
     var isNew = draft && draft.from === undefined;
-    var d = draft || { from: key, options: optionsOfKey(p, key), info: Object.assign({}, (p.specs || {})[key] || {}) };
-    draft = d;
+    var d = isNew ? draft : ensureDraft(p, key);
     var need = checklist(p);
     var info = d.info || {};
     var arch = !isNew && (p.specs || {})[key] && p.specs[key].archived;
     var miss = isNew ? [] : missingOf(p, key);
     var title = isNew ? (d.copyOf != null ? T("spec.titleCopy", { code: codeOf(p, d.copyOf) }) : T("spec.titleNew")) : codeOf(p, key);
     var photo = !isNew && (p.variantImages || {})[key];
-    var costs = (p.supplierLinks || []).map(function (l) {
-      var c = !isNew && l.variantCosts && l.variantCosts[key] != null ? l.variantCosts[key] : l.cost;
-      var s = A.suppliers().filter(function (x) { return x.id === l.supplierId; })[0];
-      return { name: s ? s.company : "?", cost: c };
-    });
-    var list = !isNew && p.listPrices ? p.listPrices[key] : null;
     var f = function (name, label, wide, rows) {
       var req = need.indexOf(name) > -1;
       var empty = req && !String(info[name] || "").trim();
@@ -143,56 +142,137 @@
           '<div class="spec-photo">' + (photo ? '<img src="' + esc(photo) + '" alt="" />' : '<span class="spec-photo__none">' + esc(T("spec.noPhoto")) + "</span>") +
           '<label class="btn btn--outline btn--sm fin-file-btn"><input type="file" accept="image/jpeg,image/png,image/webp" data-spec-photo hidden /><span>' + esc(T(photo ? "spec.changePhoto" : "spec.addPhoto")) + "</span></label>" +
           (photo ? '<button type="button" class="linkbtn danger" data-spec-photo-del>' + esc(T("spec.removePhoto")) + "</button>" : "") + "</div>") + "</div>" +
-      (isNew ? "" : '<div class="spec-block"><b>' + esc(T("spec.commercial")) + '</b><div class="spec-costs">' +
-        (costs.length ? costs.map(function (c) { return "<span>" + esc(c.name) + "</span><b>" + esc(c.cost == null ? "—" : A.money(c.cost, A.defaultCurrency())) + "</b>"; }).join("") : "<span>" + esc(T("spec.noSuppliers")) + "</span><b></b>") +
-        "<span>" + esc(T("spec.listPrice")) + "</span><b>" + esc(list == null ? "—" : A.money(list, A.defaultCurrency())) + "</b></div>" +
-        '<p class="hint">' + esc(T("spec.commercialHint")) + "</p></div>") +
+      commercialHtml(p, key, d) +
       '<div class="spec-edit__foot"><p class="status" id="spec-status" role="status" aria-live="polite"></p>' +
         (isNew ? '<button type="button" class="btn btn--outline" data-spec-cancel>' + esc(T("form.cancel")) + "</button>" : "") +
         '<button type="button" class="btn btn--primary" data-spec-save>' + esc(T(isNew ? "spec.create" : "spec.save")) + "</button></div>";
   }
+  /* ---------- Suppliers, costs and list price of one specification ---------- */
+  function numText(n) { return n == null ? "" : /^(pt|es)$/.test(A.lang()) ? String(n).replace(".", ",") : String(n); }
+  // Editing state of a specification (key "" = single model).
+  function comState(p, key, explicit) {
+    return {
+      sup: (p.supplierLinks || []).map(function (l) {
+        var own = key ? (l.variantCosts || {})[key] : l.cost;
+        return { id: l.supplierId, cost: numText(own != null ? own : explicit ? (key ? l.cost : null) : null), base: key && !explicit ? l.cost : null };
+      }),
+      price: numText((p.listPrices || {})[key]), unlink: []
+    };
+  }
+  function ensureDraft(p, key) {
+    if (draft && draft.from === key) return draft;
+    draft = Object.assign({ from: key, options: optionsOfKey(p, key), info: Object.assign({}, (p.specs || {})[key] || {}) }, comState(p, key, false));
+    return draft;
+  }
+  function supName(id) { var s = A.suppliers().filter(function (x) { return x.id === id; })[0]; return s ? s.company : "?"; }
+  function effCost(r) { var v = String(r.cost || "").trim(); return v ? A.parseDecimal(v) : r.base; }
+  function principalId(d) {
+    var best = null;
+    d.sup.forEach(function (r) { var c = effCost(r); if (c != null && (best == null || c < best.c)) best = { id: r.id, c: c }; });
+    return best ? best.id : null;
+  }
+  function commercialHtml(p, key, d) {
+    var cur = A.defaultCurrency(), main = principalId(d);
+    var used = d.sup.map(function (r) { return r.id; });
+    var free = A.suppliers().filter(function (x) { return x.productSupplier !== false && used.indexOf(x.id) < 0; });
+    return '<div class="spec-block"><b>' + esc(T("spec.commercial")) + '</b><div class="spec-sup">' +
+      (d.sup.length ? d.sup.map(function (r) {
+        return '<div class="spec-sup__row" data-sup="' + esc(r.id) + '"><span class="spec-sup__name">' + esc(supName(r.id)) + "</span>" +
+          '<input type="text" inputmode="decimal" data-cost="' + esc(r.id) + '" value="' + esc(r.cost) + '" placeholder="' +
+            esc(r.base != null ? T("spec.supBase", { v: A.money(r.base, cur) }) : T("spec.supCostPh")) + '" aria-label="' + esc(T("spec.supCost") + " · " + supName(r.id)) + '" />' +
+          '<em class="spec-tag spec-tag--ok spec-sup__main"' + (r.id === main ? "" : " hidden") + ">" + esc(T("spec.supPrincipal")) + "</em>" +
+          '<button type="button" class="icon-btn icon-btn--danger" data-unlink="' + esc(r.id) + '" title="' + esc(T("spec.supRemove")) + '" aria-label="' + esc(T("spec.supRemove")) + '">×</button></div>';
+      }).join("") : '<p class="spec-empty">' + esc(T("spec.noSuppliers")) + "</p>") +
+      (free.length ? '<select data-sup-add aria-label="' + esc(T("spec.supAdd")) + '"><option value="">' + esc(T("spec.supAdd")) + "</option>" +
+        free.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.company) + "</option>"; }).join("") + "</select>" : "") +
+      '<label class="spec-f spec-sup__price"><span>' + esc(T("spec.listPrice")) + " (" + esc(cur) + ')</span><input type="text" inputmode="decimal" data-price value="' + esc(d.price) + '" /></label>' +
+      '</div><p class="hint">' + esc(T("spec.supHint")) + "</p></div>";
+  }
+  function updatePrincipal() {
+    if (!draft) return;
+    var main = principalId(draft);
+    document.querySelectorAll("#specs-body .spec-sup__row").forEach(function (row) {
+      row.querySelector(".spec-sup__main").hidden = row.getAttribute("data-sup") !== main;
+    });
+  }
+  function pricingChange(p, key, d) {
+    var costs = {};
+    d.sup.forEach(function (r) { costs[r.id] = String(r.cost || "").trim() ? A.parseDecimal(r.cost) : null; });
+    var change = { productId: p.id, key: key, costs: costs, price: String(d.price || "").trim() ? A.parseDecimal(d.price) : null };
+    if (d.unlink.length) change.unlink = d.unlink.slice();
+    return A.api("/api/products?action=pricing", { method: "POST", body: { changes: [change] } }).then(function (r) {
+      A.replaceProducts(r.products || []);
+      d.comDirty = false; d.unlink = [];
+    });
+  }
+  function badNumber(d) {
+    var vals = d.sup.map(function (r) { return r.cost; }).concat([d.price]);
+    return vals.filter(function (v) { return String(v || "").trim() && A.parseDecimal(v) == null; })[0];
+  }
+
   function setSpecStatus(msg, kind) { var el = $("#spec-status"); if (!el) return; el.textContent = msg || ""; el.className = "status" + (kind ? " is-" + kind : ""); }
 
   function saveSpec(extra) {
     var p = product();
     if (!p || !draft) return;
-    var isNew = draft.from === undefined;
-    var body = { options: draft.options, info: draft.info };
-    if (!isNew) body.key = current;
-    if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
+    var d = draft;
+    var isNew = d.from === undefined;
+    var single = !attrsOf(p).length;
+    var bad = !extra && badNumber(d);
+    if (bad) return setSpecStatus(T("status.badPrice", { value: bad }), "error");
     var btn = $("[data-spec-save]");
     if (btn) btn.disabled = true;
     setSpecStatus("…");
-    A.api("/api/products?id=" + encodeURIComponent(p.id) + "&action=spec", { method: "POST", body: body })
-      .then(function (d) {
-        A.replaceProducts([d.product]);
-        current = d.key; draft = null;
-        render();
-        setSpecStatus(T(extra && "archived" in extra ? (extra.archived ? "spec.archivedOk" : "spec.restoredOk") : isNew ? "spec.created" : "spec.saved", { code: codeOf(d.product, d.key) }), "ok");
-      }, function (err) {
-        if (btn) btn.disabled = false;
-        var data = err.data || {};
-        if (data.error === "Checklist incomplete") setSpecStatus(T("spec.needFields", { fields: (data.fields || []).map(function (f) { return T("spec.f." + f); }).join(", ") }), "error");
-        else if (data.error === "Missing characteristics") setSpecStatus(T("spec.needAttrs", { attrs: (data.missing || []).join(", ") }), "error");
-        else if (data.error === "Specification exists") setSpecStatus(T("spec.exists", { code: data.code }), "error");
-        else setSpecStatus(err.message, "error");
-        markNeeds();
+    var key = isNew ? null : current;
+    var step = Promise.resolve();
+    // Costs of an existing specification go first: they do not depend on its checklist.
+    if (!extra && !isNew && d.comDirty) step = step.then(function () { return pricingChange(p, key, d); });
+    if (!single && (extra || isNew || d.specDirty)) step = step.then(function () {
+      var body = { options: d.options, info: d.info };
+      if (!isNew) body.key = current;
+      if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
+      return A.api("/api/products?id=" + encodeURIComponent(p.id) + "&action=spec", { method: "POST", body: body }).then(function (r) {
+        A.replaceProducts([r.product]);
+        key = r.key; d.specDirty = false;
       });
+    });
+    if (!extra && isNew) step = step.then(function () { if (d.comDirty || d.sup.length) return pricingChange(product(), key, d); });
+    step.then(function () {
+      var q = product();
+      current = key; draft = null;
+      render();
+      setSpecStatus(T(extra && "archived" in extra ? (extra.archived ? "spec.archivedOk" : "spec.restoredOk") : isNew ? "spec.created" : "spec.saved", { code: codeOf(q, key) }), "ok");
+    }, function (err) {
+      if (btn) btn.disabled = false;
+      var data = err.data || {};
+      if (data.error === "Checklist incomplete") setSpecStatus(T("spec.needFields", { fields: (data.fields || []).map(function (f) { return T("spec.f." + f); }).join(", ") }), "error");
+      else if (data.error === "Missing characteristics") setSpecStatus(T("spec.needAttrs", { attrs: (data.missing || []).join(", ") }), "error");
+      else if (data.error === "Specification exists") setSpecStatus(T("spec.exists", { code: data.code }), "error");
+      else setSpecStatus(err.message, "error");
+      markNeeds();
+    });
   }
   function markNeeds() {
     document.querySelectorAll("#spec-edit [data-attr]").forEach(function (s) { s.classList.toggle("is-need", !s.value); });
   }
 
-  $("#specs-pane").addEventListener("click", function (e) {
+  $("#specs-body").addEventListener("click", function (e) {
     var p = product();
     if (!p) return;
     var li = e.target.closest("[data-spec]");
     if (li) { current = li.getAttribute("data-spec"); draft = null; return render(); }
-    if (e.target.closest("[data-spec-new]")) { current = null; draft = { options: {}, info: {} }; return render(); }
+    if (e.target.closest("[data-spec-new]")) {
+      current = null;
+      draft = Object.assign({ options: {}, info: {} }, comState(p, "", false));
+      draft.sup.forEach(function (r) { r.cost = ""; r.base = null; });
+      draft.price = "";
+      return render();
+    }
     if (e.target.closest("[data-spec-copy]")) {
       // A copy of this specification to change: same characteristics and details, new code when saved.
       var from = current;
-      draft = { options: optionsOfKey(p, from), info: Object.assign({}, (p.specs || {})[from] || {}), copyOf: from };
+      draft = Object.assign({ options: optionsOfKey(p, from), info: Object.assign({}, (p.specs || {})[from] || {}), copyOf: from }, comState(p, from, true));
+      draft.comDirty = true;
       delete draft.info.archived; delete draft.info.archivedBy;
       current = null;
       render();
@@ -200,6 +280,15 @@
       return;
     }
     if (e.target.closest("[data-spec-cancel]")) { draft = null; current = null; return render(); }
+    var un = e.target.closest("[data-unlink]");
+    if (un && draft) {
+      var sid = un.getAttribute("data-unlink");
+      if (!confirm(T("spec.supRemoveConfirm", { name: supName(sid) }))) return;
+      draft.sup = draft.sup.filter(function (r) { return r.id !== sid; });
+      if ((p.supplierLinks || []).some(function (l) { return l.supplierId === sid; })) draft.unlink.push(sid);
+      draft.comDirty = true;
+      return render();
+    }
     if (e.target.closest("[data-spec-save]")) return saveSpec();
     if (e.target.closest("[data-spec-archive]")) {
       var arch = (p.specs || {})[current] && p.specs[current].archived;
@@ -212,10 +301,17 @@
         .then(function (d) { A.replaceProducts([d.product]); render(); }, function (err) { setSpecStatus(err.message, "error"); });
     }
   });
-  $("#specs-pane").addEventListener("change", function (e) {
+  $("#specs-body").addEventListener("change", function (e) {
     if (e.target.id === "spec-arch") { showArchived = e.target.checked; return render(); }
     var a = e.target.getAttribute("data-attr");
-    if (a && draft) { draft.options[a] = e.target.value; e.target.classList.toggle("is-need", !e.target.value); return; }
+    if (a && draft) { draft.options[a] = e.target.value; draft.specDirty = true; e.target.classList.toggle("is-need", !e.target.value); return; }
+    if (e.target.matches("[data-sup-add]") && draft && e.target.value) {
+      var sid = e.target.value;
+      draft.unlink = draft.unlink.filter(function (x) { return x !== sid; });
+      draft.sup.push({ id: sid, cost: "", base: null });
+      draft.comDirty = true;
+      return render();
+    }
     if (e.target.matches("[data-spec-photo]")) {
       var p = product(), file = e.target.files[0];
       e.target.value = "";
@@ -226,9 +322,16 @@
       }).then(function (d) { A.replaceProducts([d.product]); render(); setSpecStatus(T("spec.photoOk"), "ok"); }, function (err) { setSpecStatus(err.message, "error"); });
     }
   });
-  $("#specs-pane").addEventListener("input", function (e) {
+  $("#specs-body").addEventListener("input", function (e) {
     var f = e.target.getAttribute("data-f");
-    if (f && draft) { draft.info[f] = e.target.value; e.target.classList.remove("is-need"); }
+    if (f && draft) { draft.info[f] = e.target.value; draft.specDirty = true; e.target.classList.remove("is-need"); return; }
+    var c = e.target.getAttribute("data-cost");
+    if (c && draft) {
+      draft.sup.forEach(function (r) { if (r.id === c) r.cost = e.target.value; });
+      draft.comDirty = true;
+      return updatePrincipal();
+    }
+    if (e.target.hasAttribute("data-price") && draft) { draft.price = e.target.value; draft.comDirty = true; }
   });
 
   /* ---------- Clientes ---------- */
