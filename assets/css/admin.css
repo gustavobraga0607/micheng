@@ -1502,3 +1502,24 @@ body.has-drawer { overflow: hidden; }
   .mdl, .mdl--sm { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: 16px; }
   .toast { bottom: 92px; }
 }
+
+/* Finance: never wider than the screen; phone layout */
+.fin-toolbar { grid-template-columns: minmax(0, 1fr); }
+.fin-ftoggle { display: none; }
+@media (max-width: 760px) {
+  .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-self: stretch; }
+  .seg__btn { padding: 11px 8px; min-height: 44px; }
+  .fin-new { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .fin-new #fin-accounts-btn { grid-column: 1 / -1; order: 3; }
+  .fin-new .btn { width: 100%; padding: 0 8px; }
+  .fin-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fin-card--acc, .fin-card--empty { grid-column: 1 / -1; }
+  .fin-card--acc > span { text-transform: none; letter-spacing: 0; font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fin-card b { font-size: 17px; }
+  .fin-ftoggle { display: inline-flex; justify-self: start; gap: 4px; }
+  .fin-filters > :not(#fin-search) { display: none; }
+  .fin-filters.is-open > :not(#fin-search) { display: flex; }
+  .fin-filters.is-open > select { display: block; }
+  .fin-filters > #fin-search { order: -1; }
+  .fin-toolbar { gap: 10px; }
+}

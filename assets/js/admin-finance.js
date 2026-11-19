@@ -953,3 +953,20 @@
   });
   document.addEventListener("admin:lang", function () { if (loaded) render(); });
 })();
+
+/* Phone: the filters (account, status, dates, Excel) fold under a "Filters" button */
+(function () {
+  var btn = document.getElementById("fin-ftoggle"), box = document.getElementById("fin-filters");
+  if (!btn || !box) return;
+  function count() {
+    var n = ["fin-account", "fin-status", "fin-from", "fin-to"].filter(function (id) { var el = document.getElementById(id); return el && el.value; }).length;
+    document.getElementById("fin-fcount").textContent = n ? "(" + n + ")" : "";
+  }
+  btn.addEventListener("click", function () {
+    var open = !box.classList.contains("is-open");
+    box.classList.toggle("is-open", open);
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  box.addEventListener("change", count);
+  document.addEventListener("admin:tab", count);
+})();

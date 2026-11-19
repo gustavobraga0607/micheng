@@ -618,7 +618,8 @@
             <button type="button" class="seg__btn" data-mode="out" data-t="fin.modeOut">A pagar</button>
             <button type="button" class="seg__btn" data-mode="statement" data-t="fin.modeStatement">Extrato bancário</button>
           </div>
-          <div class="fin-filters">
+          <button type="button" class="btn btn--outline btn--sm fin-ftoggle" id="fin-ftoggle" aria-expanded="false"><span data-t="fin.filters">Filtros</span> <b id="fin-fcount"></b></button>
+          <div class="fin-filters" id="fin-filters">
             <input type="search" id="fin-search" data-t-placeholder="fin.search" />
             <select id="fin-account"></select>
             <select id="fin-status">

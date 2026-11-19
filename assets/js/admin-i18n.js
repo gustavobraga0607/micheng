@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "fin.filters": "Filtros",
     "mob.backList": "Voltar à lista",
     "list.allClients": "Todos os clientes",
     "list.clientFilter": "Produtos de um cliente",
@@ -1052,6 +1053,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "fin.filters": "Filters",
     "mob.backList": "Back to the list",
     "list.allClients": "All clients",
     "list.clientFilter": "Products of a client",
@@ -2103,6 +2105,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "fin.filters": "Filtros",
     "mob.backList": "Volver a la lista",
     "list.allClients": "Todos los clientes",
     "list.clientFilter": "Productos de un cliente",
@@ -3154,6 +3157,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "fin.filters": "筛选",
     "mob.backList": "返回列表",
     "list.allClients": "全部客户",
     "list.clientFilter": "某客户的产品",
