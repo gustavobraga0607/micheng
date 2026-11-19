@@ -1023,3 +1023,12 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .spec-sup__price { max-width: 200px; margin-top: 4px; }
 .spec-edit--single { max-width: 760px; }
 @media (max-width: 560px) { .spec-sup__row { grid-template-columns: minmax(0, 1fr) 110px 32px; } .spec-sup__main { display: none !important; } }
+
+/* Products: the list is a page of its own; "+ Novo produto" / "Editar" open the product page */
+#products-view { grid-template-columns: minmax(0, 1fr); }
+#products-view:not(.is-product-open) > #form-panel { display: none; }
+#products-view .mob-new { display: inline-flex; }
+#products-view .list-head { flex-wrap: wrap; }
+#products-view .list-head .list-tools { margin-left: auto; }
+#products-view .list-head .mob-new { order: 3; height: 44px; padding: 0 18px; font-size: 14px; }
+@media (max-width: 980px) { #products-view .list-head .list-tools { margin-left: 0; order: 4; width: 100%; } }

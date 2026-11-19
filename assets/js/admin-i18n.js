@@ -1,6 +1,7 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "spec.createNowSingle": "Produto salvo. Agora informe os fornecedores e custos dele.",
     "spec.attrsSave": "Salvar características",
     "spec.attrsSaveHint": "Depois de salvar, crie as especificações com as opções novas.",
     "spec.single": "Modelo único",
@@ -912,6 +913,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "spec.createNowSingle": "Product saved. Now enter its suppliers and costs.",
     "spec.attrsSave": "Save characteristics",
     "spec.attrsSaveHint": "After saving, create the specifications with the new options.",
     "spec.single": "Single model",
@@ -1823,6 +1825,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "spec.createNowSingle": "Producto guardado. Ahora indique sus proveedores y costos.",
     "spec.attrsSave": "Guardar características",
     "spec.attrsSaveHint": "Después de guardar, cree las especificaciones con las opciones nuevas.",
     "spec.single": "Modelo único",
@@ -2734,6 +2737,7 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "spec.createNowSingle": "产品已保存。现在填写它的供应商和成本。",
     "spec.attrsSave": "保存特征",
     "spec.attrsSaveHint": "保存后，用新选项创建规格。",
     "spec.single": "单一型号",

@@ -253,6 +253,7 @@
     var b = e.target.closest("[data-new]");
     if (!b) return;
     var kind = b.getAttribute("data-new");
+    if (kind === "products") { resetForm(); setStatus(""); return openNewPage(); }
     var target = kind === "products" ? (resetForm(), "#form-panel") : kind === "suppliers" ? (resetSupplierForm(), "#supplier-panel") : (resetClientForm(), "#client-panel");
     $(target).scrollIntoView({ behavior: "smooth", block: "start" });
     var first = $(target).querySelector("input:not([type=hidden]), textarea");
@@ -460,7 +461,16 @@
     }
   }
   $("#spec-attrs-save").addEventListener("click", function () { form.requestSubmit(); });
+  // The new-product form also takes the whole page (the list is a page of its own).
+  function openNewPage() {
+    $("#products-view").classList.add("is-product-open", "is-new");
+    $("#pback").hidden = false;
+    $("#ptabs").hidden = true;
+    window.scrollTo(0, 0);
+    setTimeout(function () { form.elements.name.focus(); }, 50);
+  }
   function setProductPage(on) {
+    $("#products-view").classList.remove("is-new");
     placeBlocks(on);
     $("#products-view").classList.toggle("is-product-open", on);
     $("#ptabs").hidden = !on;
@@ -549,9 +559,8 @@
     updateFormMode();
     setStatus(T("status.duplicating"), "ok");
     renderList();
-    document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
-    form.elements.name.focus();
-    form.elements.name.select();
+    openNewPage();
+    setTimeout(function () { form.elements.name.select(); }, 60);
   }
 
   $("#cancel-edit").addEventListener("click", function () { resetForm(); setStatus(""); });
@@ -619,10 +628,11 @@
         var stillOpen = id && form.elements.id.value === id ? currentPtab : null;
         resetForm();
         if (queuedTech.length) uploadTech(p.id, queuedTech, true);
-        if (!id && (p.attributes || []).some(function (a) { return a.options.length; })) {
-          // A new product with characteristics: next step, its specifications.
+        if (!id) {
+          // A new product: next step, its specifications (or, for a single model, its suppliers and costs).
+          loadSuppliers();
           editProduct(p, "specs");
-          setStatus(T("spec.createNow"), "ok");
+          setStatus(T((p.attributes || []).some(function (a) { return a.options.length; }) ? "spec.createNow" : "spec.createNowSingle"), "ok");
           return;
         }
         loadSuppliers(); // linked-product lists changed
