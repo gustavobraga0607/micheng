@@ -381,6 +381,7 @@
     prev.src = src || "";
     prev.hidden = !src;
     $("#photo-hint").hidden = Boolean(src);
+    renderPreview();
   }
 
   var drop = $("#photo-drop");
@@ -406,6 +407,45 @@
     return Array.prototype.slice.call(form.querySelectorAll('[data-tr="' + kind + '"]'));
   }
 
+  // Product page header: photo, code, name and a few facts at a glance.
+  function renderHead(p) {
+    $("#phead-img").src = p.image || "";
+    $("#phead-img").hidden = !p.image;
+    $("#phead-sku").textContent = p.sku || "";
+    $("#phead-name").textContent = productName(p.id);
+    var keys = Object.keys(p.variantSkus || {}).filter(function (k) { return !((p.specs || {})[k] || {}).archived; });
+    var single = !(p.attributes || []).some(function (a) { return a.options.length; });
+    var clients = Object.keys(p.clientRefs || {}).concat(Object.keys(p.clientSpecs || {})).filter(function (c, i, all) { return all.indexOf(c) === i; }).length;
+    var chips = [];
+    if (p.category) chips.push('<span class="phead__cat">' + escapeHtml(T("cat." + p.category)) + "</span>");
+    chips.push('<span class="phead__chip phead__chip--ok">' + escapeHtml(T("pp.onSite")) + "</span>");
+    chips.push('<span class="phead__chip">' + escapeHtml(single ? T("spec.single") : T("pp.specs", { n: keys.length })) + "</span>");
+    chips.push('<span class="phead__chip">' + escapeHtml(T("pp.clients", { n: clients })) + "</span>");
+    if (p.translationOk === false) chips.push('<span class="phead__chip phead__chip--warn">' + escapeHtml(T("list.pending")) + "</span>");
+    $("#phead-chips").innerHTML = chips.join("");
+  }
+  // "How it shows on the site": photo, category, name and the characteristics.
+  function renderPreview() {
+    var box = $("#pv-preview");
+    if (!box) return;
+    var id = form.elements.id.value;
+    var p = id && products.filter(function (x) { return x.id === id; })[0];
+    var name = (p && p.name[current]) || form.elements.name.value.trim();
+    var cat = form.elements.category.value;
+    var img = $("#photo-preview").hidden ? "" : $("#photo-preview").src;
+    var attrs = attrState.filter(function (a) { return a.name.trim() && a.options.length; }).map(function (a) {
+      var saved = p && (p.attributes || []).filter(function (x) { return x.id === a.id; })[0];
+      var label = function (o) { var so = saved && saved.options.filter(function (x) { return x.id === o.id; })[0]; return (so && so.label && so.label[current]) || o.label; };
+      return '<span class="pv-attr"><b>' + escapeHtml((saved && saved.name && saved.name[current]) || a.name) + ":</b> " + escapeHtml(a.options.map(label).join(" · ")) + "</span>";
+    });
+    box.innerHTML = '<small class="pv-preview__label">' + escapeHtml(T("pv.preview")) + "</small>" +
+      '<div class="pv-preview__card">' + (img ? '<img src="' + escapeHtml(img) + '" alt="" />' : '<span class="pv-preview__noimg"></span>') +
+      "<div>" + (cat ? '<small class="pv-preview__cat">' + escapeHtml(T("cat." + cat)) + "</small>" : "") +
+      "<b>" + escapeHtml(name || T("pv.noName")) + "</b>" + attrs.join("") + "</div></div>";
+  }
+  form.addEventListener("input", function (e) { if (e.target.name === "name" || e.target.closest("#attr-list")) renderPreview(); });
+  form.addEventListener("change", function (e) { if (e.target.name === "category") renderPreview(); });
+
   // Title and button labels depend on whether a product is being edited.
   function updateFormMode() {
     var editing = Boolean(form.elements.id.value);
@@ -416,14 +456,7 @@
     if (editingProduct && editingProduct.sku) $("#form-title").textContent += " · SKU " + editingProduct.sku;
     // On the product page: its name, photo and characteristics, always in view above the tabs.
     $("#phead").hidden = !editingProduct;
-    if (editingProduct) {
-      $("#phead-img").src = editingProduct.image || "";
-      $("#phead-img").hidden = !editingProduct.image;
-      $("#phead-name").textContent = productName(editingProduct.id);
-      $("#phead-attrs").textContent = (editingProduct.attributes || []).filter(function (a) { return a.options.length; }).map(function (a) {
-        return ((a.name && a.name[current]) || a.source) + ": " + a.options.map(function (o) { return (o.label && o.label[current]) || o.source; }).join(", ");
-      }).join("  ·  ");
-    }
+    if (editingProduct) renderHead(editingProduct);
     $("#save-btn").textContent = T(editing ? "form.saveChanges" : "form.save");
     $("#cancel-edit").hidden = !editing && !duplicateOf;
     var p = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
@@ -456,29 +489,26 @@
   }
 
   /* ----- Product page: tabs Geral | Especificações | Clientes | Histórico ----- */
-  // On the product page, the drawings live on the Specifications tab; on the
-  // new-product form they stay in the form. The characteristics stay on General
-  // (the site shows them as the product's options).
-  var techBox = $("#techimgs"), techHome = techBox.nextElementSibling;
-  function placeBlocks(onPage) {
-    if (onPage) $("#spec-tech-slot").appendChild(techBox);
-    else techHome.parentNode.insertBefore(techBox, techHome);
-  }
-  // The new-product form also takes the whole page (the list is a page of its own).
+  // The new-product form also takes the whole page (the list is a page of its own),
+  // with the steps: 1 showcase, 2 characteristics (this form), 3 specifications.
   function openNewPage() {
     $("#products-view").classList.add("is-product-open", "is-new");
     $("#pback").hidden = false;
     $("#ptabs").hidden = true;
+    $("#wiz").hidden = false;
+    $("#form-title").hidden = false;
+    renderPreview();
     window.scrollTo(0, 0);
     setTimeout(function () { form.elements.name.focus(); }, 50);
   }
   function setProductPage(on) {
     $("#products-view").classList.remove("is-new");
-    placeBlocks(on);
     $("#products-view").classList.toggle("is-product-open", on);
     $("#ptabs").hidden = !on;
     $("#pback").hidden = !on;
-    if (!on) showPtab("general");
+    $("#wiz").hidden = true;
+    $("#form-title").hidden = on;
+    if (!on) { showPtab("general"); $("#plog-own").hidden = true; $("#pp-menu").hidden = true; }
   }
   var currentPtab = "general";
   function showPtab(name) {
@@ -490,8 +520,6 @@
     });
     form.hidden = name !== "general";
     $("#specs-pane").hidden = name !== "specs";
-    var own = $("#plog-own");
-    if (name === "history") { own.hidden = false; own.open = true; } else own.hidden = true;
     document.dispatchEvent(new CustomEvent("admin:ptab", { detail: { tab: name, productId: form.elements.id.value } }));
   }
   $("#ptabs").addEventListener("click", function (e) {
@@ -732,6 +760,7 @@
     var id = form.elements.id.value;
     var p = id && products.filter(function (x) { return x.id === id; })[0];
     var saved = (p && p.techImages) || [];
+    $("#tech-count").textContent = saved.length + pendingTech.length ? "(" + (saved.length + pendingTech.length) + ")" : "";
     $("#techimgs-grid").innerHTML = saved.map(function (t) {
       return '<figure class="techimg"><a href="' + escapeHtml(t.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(T("tech.open")) + '"><img src="' + escapeHtml(t.url) + '" alt="' + escapeHtml(t.name || "") + '" loading="lazy" /></a>' +
         '<figcaption>' + escapeHtml(t.name || "") + '</figcaption><button type="button" class="techimg__x" data-tech-del="' + escapeHtml(t.url) + '" aria-label="' + escapeHtml(T("tech.remove")) + '" title="' + escapeHtml(T("tech.remove")) + '">×</button></figure>';
@@ -827,11 +856,13 @@
         var day = localDay(p.createdAt);
         if (!day || (period.from && day < period.from) || (period.to && day > period.to)) return false;
       }
+      if (onlyPending && !pendingOf(p).length) return false;
       if (!q) return true;
       if (p.sku && (String(p.sku).indexOf(q) === 0 || variantCodes(p).some(function (v) { return v.code.indexOf(q) === 0; }))) return true;
       return LANGS.some(function (l) { return String(p.name[l] || "").toLowerCase().indexOf(q) > -1; });
     });
     $("#count").textContent = products.length;
+    renderListChips(products.length, products.filter(function (p) { return pendingOf(p).length; }).length);
     $("#tab-count-products").textContent = products.length;
     $("#empty").hidden = products.length > 0;
     var filtered = Boolean(q || cat || period);
@@ -839,27 +870,59 @@
     $("#filters-clear").hidden = !filtered;
     $("#no-match").hidden = !(products.length && filtered && !shown.length);
     listEl.innerHTML = shown.map(function (p) {
-      var chips = LANGS.map(function (l) {
-        return "<span><b>" + l.toUpperCase() + "</b>" + escapeHtml(p.name[l]) + "</span>";
-      }).join("");
-      return '<li class="pitem' + (p.id === editing ? " is-editing" : "") + '" data-id="' + escapeHtml(p.id) + '">' +
-        '<img src="' + escapeHtml(p.image) + '" alt="" loading="lazy" />' +
-        "<div><h3>" + (p.sku ? '<span class="sku">' + escapeHtml(p.sku) + "</span> " : "") + escapeHtml(p.name[current] || p.source.name) + "</h3>" +
-        '<p class="pitem__lang">' + (p.category ? '<span class="pitem__cat">' + escapeHtml(T("cat." + p.category)) + "</span> · " : "") +
-        escapeHtml(T("list.registeredIn") + ": " + langName(p.source.lang)) +
-        (p.createdAt ? " · " + escapeHtml(T("list.createdOn", { date: new Date(p.createdAt).toLocaleDateString(HTML_LANG[current]) })) : "") + "</p>" +
-        '<div class="pitem__tr">' + chips + "</div>" +
-        attributeLine(p.attributes) +
-        variantLine(p) +
-        ((p.techImages || []).length ? '<p class="pitem__tech">' + escapeHtml(T("tech.count", { n: p.techImages.length })) + "</p>" : "") +
-        supplierLine(p.supplierLinks) +
-        refLine(p.clientRefs) +
-        (p.translationOk === false ? '<p class="pitem__warn">' + escapeHtml(T("list.pending")) + "</p>" : "") + "</div>" +
-        '<div class="pitem__actions"><button type="button" data-act="edit">' + escapeHtml(T("list.edit")) + "</button>" +
-        '<button type="button" data-act="duplicate">' + escapeHtml(T("list.duplicate")) + "</button>" +
-        '<button type="button" class="danger" data-act="delete">' + escapeHtml(T("list.delete")) + "</button></div></li>";
+      var pend = pendingOf(p);
+      var attrs = (p.attributes || []).filter(function (a) { return a.options.length; }).map(function (a) {
+        return ((a.name && a.name[current]) || a.source) + ": " + a.options.map(function (o) { return (o.label && o.label[current]) || o.source; }).join(", ");
+      }).join(" · ");
+      return '<button type="button" class="plt-row' + (pend.length ? " has-pend" : "") + '" data-open-product="' + escapeHtml(p.id) + '">' +
+        '<span class="plt-img"><img src="' + escapeHtml(p.image) + '" alt="" loading="lazy" /></span>' +
+        '<span class="plt-sku">' + escapeHtml(p.sku || "") + "</span>" +
+        '<span class="plt-name"><b>' + escapeHtml(p.name[current] || p.source.name) + "</b><small>" + escapeHtml(p.category ? T("cat." + p.category) : "") +
+          (p.createdAt ? " · " + escapeHtml(new Date(p.createdAt).toLocaleDateString(HTML_LANG[current])) : "") + "</small></span>" +
+        '<span class="plt-attrs">' + escapeHtml(attrs || "—") + "</span>" +
+        '<span class="plt-n">' + escapeHtml(pend.single ? T("spec.single") : String(pend.specs)) + "</span>" +
+        '<span class="plt-n">' + (pend.clients || "—") + "</span>" +
+        '<span class="plt-pend">' + (pend.length ? pend.map(function (x) { return '<em class="' + (x.bad ? "is-bad" : "") + '">' + escapeHtml(x.text) + "</em>"; }).join("") : '<span class="plt-ok">✓</span>') + "</span></button>";
     }).join("");
   }
+
+  // What a product still lacks: specifications without the category's mandatory
+  // fields or without a list price, no supplier, translation pending.
+  function pendingOf(p) {
+    var attrs = (p.attributes || []).filter(function (a) { return a.options.length; });
+    var single = !attrs.length;
+    var keys = single ? [""] : Object.keys(p.variantSkus || {}).filter(function (k) { return !((p.specs || {})[k] || {}).archived; });
+    var cl = (companySettings && companySettings.checklist) || null;
+    var need = cl && Array.isArray(cl[p.category]) ? cl[p.category] : ["details"];
+    var out = [];
+    if (!single) {
+      if (!keys.length) out.push({ text: T("plt.noSpecs"), bad: true });
+      var inc = keys.filter(function (k) {
+        var info = (p.specs || {})[k] || {};
+        return need.some(function (f) { return f === "photo" ? photoFor(p, k) === p.image : !String(info[f] || "").trim(); });
+      }).length;
+      if (inc) out.push({ text: T("plt.incomplete", { n: inc }) });
+    }
+    if (!(p.supplierLinks || []).length) out.push({ text: T("plt.noSupplier"), bad: true });
+    var noPrice = keys.filter(function (k) { return !p.listPrices || p.listPrices[k] == null; }).length;
+    if (keys.length && noPrice) out.push({ text: T("plt.noPrice", { n: noPrice }) });
+    if (p.translationOk === false) out.push({ text: T("list.pending") });
+    out.single = single;
+    out.specs = keys.length;
+    out.clients = Object.keys(p.clientRefs || {}).concat(Object.keys(p.clientSpecs || {})).filter(function (c, i, all) { return all.indexOf(c) === i; }).length;
+    return out;
+  }
+  var onlyPending = false;
+  function renderListChips(total, pendCount) {
+    $("#plt-chips").innerHTML = '<button type="button" class="st-filter' + (onlyPending ? "" : " is-active") + '" data-pend="0">' + escapeHtml(T("plt.all")) + " <b>" + total + "</b></button>" +
+      '<button type="button" class="st-filter st-filter--warn' + (onlyPending ? " is-active" : "") + '" data-pend="1">' + escapeHtml(T("plt.withPend")) + " <b>" + pendCount + "</b></button>";
+  }
+  $("#plt-chips").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-pend]");
+    if (!b) return;
+    onlyPending = b.getAttribute("data-pend") === "1";
+    renderList();
+  });
 
   $("#search").addEventListener("input", renderList);
   $("#cat-filter").addEventListener("change", renderList);
@@ -919,8 +982,7 @@
     api("/api/products?log=1&id=" + encodeURIComponent(id)).then(function (d) {
       if (form.elements.id.value !== id) return; // another product opened meanwhile
       var list = d.log || [];
-      $("#plog-own").hidden = !list.length || !document.querySelector('#ptabs [data-ptab="history"].is-active');
-      $("#plog-own-list").innerHTML = list.map(function (e) { return logItemHtml(e, false); }).join("");
+      $("#plog-own-list").innerHTML = list.length ? list.map(function (e) { return logItemHtml(e, false); }).join("") : '<li class="muted">' + escapeHtml(T("pp.noHistory")) + "</li>";
     }).catch(function () {});
   }
   function renderLogDialog() {
@@ -991,25 +1053,40 @@
   });
 
   listEl.addEventListener("click", function (e) {
-    var btn = e.target.closest("button[data-act]");
-    if (!btn) return;
-    var id = btn.closest(".pitem").dataset.id;
-    var p = products.filter(function (x) { return x.id === id; })[0];
-    if (!p) return;
-    if (btn.dataset.act === "edit") return editProduct(p);
-    if (btn.dataset.act === "duplicate") return duplicateProduct(p);
+    var row = e.target.closest("[data-open-product]");
+    if (!row) return;
+    var p = products.filter(function (x) { return x.id === row.getAttribute("data-open-product"); })[0];
+    if (p) editProduct(p);
+  });
+  function deleteProduct(p, btn) {
     if (!confirm(T("list.confirmDelete", { name: p.name[current] || p.source.name }))) return;
-    btn.disabled = true;
-    api("/api/products?id=" + encodeURIComponent(id), { method: "DELETE" })
+    if (btn) btn.disabled = true;
+    api("/api/products?id=" + encodeURIComponent(p.id), { method: "DELETE" })
       .then(function () {
-        products = products.filter(function (x) { return x.id !== id; });
-        if (form.elements.id.value === id) resetForm();
+        products = products.filter(function (x) { return x.id !== p.id; });
+        resetForm();
         renderList();
         loadSuppliers();
-        setStatus(T("status.deleted"), "ok");
+        $("#list-flash").textContent = T("status.deleted");
+        $("#list-flash").hidden = false;
       })
-      .catch(function (e2) { btn.disabled = false; setStatus(e2.message, "error"); });
+      .catch(function (e2) { if (btn) btn.disabled = false; alert(e2.message); });
+  }
+  // Product page header: history, duplicate, more (delete)
+  function openProduct() { var id = form.elements.id.value; return id && products.filter(function (x) { return x.id === id; })[0]; }
+  $("#pp-history").addEventListener("click", function () {
+    var own = $("#plog-own"), show = own.hidden;
+    own.hidden = !show; own.open = true;
+    this.setAttribute("aria-expanded", show ? "true" : "false");
   });
+  $("#pp-dup").addEventListener("click", function () { var p = openProduct(); if (p) duplicateProduct(p); });
+  $("#pp-more").addEventListener("click", function (e) {
+    e.stopPropagation();
+    var m = $("#pp-menu"); m.hidden = !m.hidden;
+    this.setAttribute("aria-expanded", m.hidden ? "false" : "true");
+  });
+  document.addEventListener("click", function (e) { if (!e.target.closest(".pp-more")) $("#pp-menu").hidden = true; });
+  $("#pp-delete").addEventListener("click", function () { var p = openProduct(); $("#pp-menu").hidden = true; if (p) deleteProduct(p, this); });
 
   /* ---------- SKU codes ---------- */
   // Variant codes of a product ("1001-1"), each with its option labels, in suffix order.
@@ -1167,6 +1244,7 @@
 
   // Re-renders the editor; `focus` = { attr: index, field: "name" | "option" } to keep typing there.
   function renderAttrs(focus) {
+    setTimeout(renderPreview, 0);
     renderVariantPhotos();
     renderClientRefs();
     if (typeof suppliers !== "undefined") renderPicker();

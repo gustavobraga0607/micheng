@@ -69,43 +69,88 @@
     </nav>
 
     <main class="dash" id="products-view">
-      <section class="panel" id="form-panel">
-        <button type="button" class="linkbtn ptabs__back" id="pback" hidden>← <span data-t="ptab.back">Voltar à lista de produtos</span></button>
+      <section class="panel pp" id="form-panel">
+        <button type="button" class="linkbtn ptabs__back" id="pback" hidden>← <span data-t="pp.back">Produtos</span></button>
         <h2 id="form-title" data-t="form.new">Novo produto</h2>
-        <div class="phead" id="phead" hidden><img id="phead-img" alt="" /><div><b id="phead-name"></b><small id="phead-attrs"></small></div></div>
-        <nav class="otabs ptabs" id="ptabs" role="tablist" hidden>
-          <button type="button" class="otab is-active" role="tab" data-ptab="general"><span data-t="ptab.general">Geral (site)</span></button>
-          <button type="button" class="otab" role="tab" data-ptab="specs"><span data-t="ptab.specs">Especificações</span> <span class="count" id="ptab-specs-count">0</span></button>
-          <button type="button" class="otab" role="tab" data-ptab="history"><span data-t="ptab.history">Histórico</span></button>
-        </nav>
-        <div class="ppane" id="specs-pane" hidden>
-          <div class="spec-modes" id="spec-modes" role="group">
-            <button type="button" class="spec-mode is-active" data-smode="specs" aria-pressed="true"><span data-t="smode.specs">Por especificação</span></button>
-            <button type="button" class="spec-mode" data-smode="clients" aria-pressed="false"><span data-t="smode.clients">Por cliente</span> <span class="count" id="smode-clients-count"></span></button>
+        <ol class="wiz-steps" id="wiz" hidden>
+          <li class="is-on" data-t="wiz.s1">1 · Vitrine</li>
+          <li class="is-on" data-t="wiz.s2">2 · Características</li>
+          <li data-t="wiz.s3">3 · Especificações</li>
+        </ol>
+        <div class="phead" id="phead" hidden>
+          <img id="phead-img" alt="" />
+          <div class="phead__txt">
+            <div class="phead__title"><span class="sku" id="phead-sku"></span><b id="phead-name"></b></div>
+            <div class="phead__chips" id="phead-chips"></div>
           </div>
-          <div id="specs-body"></div>
-          <div id="pclients-pane" hidden></div>
-          <section class="spec-section" id="spec-tech-slot"></section>
+          <div class="phead__actions">
+            <button type="button" class="btn btn--outline btn--sm" id="pp-history" aria-expanded="false" data-t="pp.history">Histórico</button>
+            <button type="button" class="btn btn--outline btn--sm" id="pp-dup" data-t="list.duplicate">Duplicar</button>
+            <div class="pp-more">
+              <button type="button" class="btn btn--outline btn--sm" id="pp-more" aria-haspopup="true" aria-expanded="false" data-t-title="pp.more" title="Mais ações">⋯</button>
+              <div class="pp-menu" id="pp-menu" hidden><button type="button" class="danger" id="pp-delete" data-t="pp.delete">Excluir produto</button></div>
+            </div>
+          </div>
         </div>
+        <details class="plog-own" id="plog-own" hidden>
+          <summary data-t="plog.thisProduct">Histórico de alterações deste produto</summary>
+          <ul class="plog-list" id="plog-own-list"></ul>
+        </details>
+        <nav class="otabs ptabs" id="ptabs" role="tablist" hidden>
+          <button type="button" class="otab is-active" role="tab" data-ptab="general"><span data-t="ptab.vitrine">Vitrine</span> <small data-t="ptab.site">(site)</small></button>
+          <button type="button" class="otab" role="tab" data-ptab="specs"><span data-t="ptab.specs">Especificações</span> <span class="count" id="ptab-specs-count">0</span></button>
+        </nav>
+        <div class="ppane" id="specs-pane" hidden><div id="specs-body"></div></div>
         <form id="product-form" novalidate>
           <input type="hidden" name="id" />
-          <label><span data-t="form.name">Nome do produto *</span>
-            <input type="text" name="name" maxlength="120" required data-t-placeholder="form.namePh" />
-          </label>
-          <label><span data-t="form.category">Categoria *</span>
-            <select name="category" required>
-              <option value="" data-t="form.categoryPh">Selecione a categoria</option>
-              <option value="building" data-t="cat.building">Materiais de Construção</option>
-              <option value="sanitary" data-t="cat.sanitary">Louças e Metais</option>
-              <option value="fitness" data-t="cat.fitness">Fitness e Recovery</option>
-              <option value="general" data-t="cat.general">Produtos Gerais</option>
-            </select>
-          </label>
-          <label><span data-t="form.description">Descrição</span>
-            <textarea name="description" rows="5" maxlength="2000" data-t-placeholder="form.descriptionPh"></textarea>
-          </label>
-          <p class="hint" data-t="form.autoLang">O idioma é identificado automaticamente e o produto é traduzido para português, inglês, espanhol e chinês.</p>
-
+          <div class="pv">
+            <div class="pv__col">
+              <section class="pv-card">
+                <h3 data-t="pv.product">O produto</h3>
+                <label><span data-t="form.name">Nome do produto *</span>
+                  <input type="text" name="name" maxlength="120" required data-t-placeholder="form.namePh" />
+                </label>
+                <label><span data-t="form.category">Categoria *</span>
+                  <select name="category" required>
+                    <option value="" data-t="form.categoryPh">Selecione a categoria</option>
+                    <option value="building" data-t="cat.building">Materiais de Construção</option>
+                    <option value="sanitary" data-t="cat.sanitary">Louças e Metais</option>
+                    <option value="fitness" data-t="cat.fitness">Fitness e Recovery</option>
+                    <option value="general" data-t="cat.general">Produtos Gerais</option>
+                  </select>
+                </label>
+                <label><span data-t="form.description">Descrição</span>
+                  <textarea name="description" rows="4" maxlength="2000" data-t-placeholder="form.descriptionPh"></textarea>
+                </label>
+                <p class="hint" data-t="form.autoLang">O idioma é identificado automaticamente e o produto é traduzido para português, inglês, espanhol e chinês.</p>
+          <details class="translations" id="translations" hidden>
+            <summary><span data-t="form.translations">Traduções (pode corrigir manualmente)</span> <span class="detected" id="detected-lang"></span></summary>
+            <div class="translations__grid">
+              <fieldset><legend>Português</legend><input data-tr="name" data-lang="pt" maxlength="120" /><textarea data-tr="description" data-lang="pt" rows="3"></textarea></fieldset>
+              <fieldset><legend>English</legend><input data-tr="name" data-lang="en" maxlength="120" /><textarea data-tr="description" data-lang="en" rows="3"></textarea></fieldset>
+              <fieldset><legend>Español</legend><input data-tr="name" data-lang="es" maxlength="120" /><textarea data-tr="description" data-lang="es" rows="3"></textarea></fieldset>
+              <fieldset><legend>中文</legend><input data-tr="name" data-lang="zh" maxlength="120" /><textarea data-tr="description" data-lang="zh" rows="3"></textarea></fieldset>
+            </div>
+            <label class="check"><input type="checkbox" name="retranslate" /> <span data-t="form.retranslate">Traduzir tudo de novo automaticamente ao salvar</span></label>
+          </details>
+              </section>
+          <section class="pv-card attrs">
+            <div class="pv-card__head"><h3 data-t="attr.title">Características</h3><small data-t="pv.attrsSite">aparecem no site como opções</small></div>
+            <p class="hint" data-t="attr.hint">Ex.: Revestimento → PVC, Silicone. Ao gerar uma proforma, você escolherá uma opção de cada característica.</p>
+            <div id="attr-list"></div>
+            <button type="button" class="btn btn--outline attrs__add" id="attr-add">+ <span data-t="attr.add">Adicionar característica</span></button>
+          </section>
+          <details class="pv-card pv-card--internal techimgs" id="techimgs">
+            <summary><b data-t="tech.title">Desenhos técnicos</b> <span class="lock" data-t="tech.internal">Não vai para o site</span> <small id="tech-count"></small></summary>
+            <p class="hint" data-t="tech.hint">Separados das fotos do produto. Na página da proforma, o cliente vê os desenhos ao ampliar a foto (setas). Não aparecem no site nem no PDF. Pode enviar vários (JPG, PNG ou WEBP); valem para todas as variações.</p>
+            <div class="techimgs__grid" id="techimgs-grid"></div>
+            <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="techimgs-file" accept="image/jpeg,image/png,image/webp" multiple hidden /><span data-t="tech.add">+ Adicionar desenho técnico</span></label>
+            <p class="status" id="techimgs-status" role="status" aria-live="polite"></p>
+          </details>
+            </div>
+            <div class="pv__col">
+              <section class="pv-card pv-photos">
+                <div class="pv-card__head"><h3 data-t="pv.photos">Fotos</h3></div>
           <div class="photo">
             <span class="photo__label" data-t="form.photo">Foto *</span>
             <label class="photo__drop" id="photo-drop">
@@ -114,7 +159,6 @@
               <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
             </label>
           </div>
-
           <div class="gallery" id="gallery">
             <span class="photo__label" data-t="gal.title">Mais fotos</span>
             <p class="hint" data-t="gal.hint">Ligue a foto a uma opção (ex.: Cor: Preto) e as especificações com essa opção passam a usá-la. No site, as fotos aparecem só para passar para o lado.</p>
@@ -123,20 +167,16 @@
             <label class="btn btn--outline btn--sm fin-file-btn" id="gallery-add"><input type="file" id="gallery-file" accept="image/jpeg,image/png,image/webp" multiple hidden /><span data-t="gal.add">+ Adicionar fotos</span></label>
             <p class="status" id="gallery-status" role="status" aria-live="polite"></p>
           </div>
-
+              </section>
+              <section class="pv-card pv-preview" id="pv-preview" aria-live="polite"></section>
+            </div>
+          </div>
+          <div hidden>
           <div class="vphotos" id="vphotos" hidden>
             <span class="photo__label" data-t="form.variantPhotos">Fotos por variação</span>
             <p class="hint" id="vphotos-hint"></p>
             <div class="vphotos__grid" id="vphotos-grid"></div>
           </div>
-
-          <div class="attrs">
-            <span class="photo__label" data-t="attr.title">Características</span>
-            <p class="hint" data-t="attr.hint">Ex.: Revestimento → PVC, Silicone. Ao gerar uma proforma, você escolherá uma opção de cada característica.</p>
-            <div id="attr-list"></div>
-            <button type="button" class="btn btn--outline attrs__add" id="attr-add">+ <span data-t="attr.add">Adicionar característica</span></button>
-          </div>
-
           <div class="suppliers-field">
             <div class="suppliers-field__head">
               <span class="photo__label" data-t="form.suppliers">Fornecedores</span>
@@ -151,7 +191,6 @@
               <button type="button" class="linkbtn" data-goto="suppliers" data-t="form.addSupplier">Cadastrar fornecedor</button>
             </p>
           </div>
-
           <div class="crefs" id="crefs">
             <div class="suppliers-field__head">
               <span class="photo__label" data-t="cref.title">Referência do cliente</span>
@@ -161,44 +200,18 @@
             <div id="crefs-list"></div>
             <select id="crefs-add" aria-label="Client"></select>
           </div>
-
-          <div class="techimgs" id="techimgs">
-            <div class="suppliers-field__head">
-              <span class="photo__label" data-t="tech.title">Desenhos técnicos</span>
-              <span class="lock" data-t="tech.internal">Não vai para o site</span>
-            </div>
-            <p class="hint" data-t="tech.hint">Separados das fotos do produto. Na página da proforma, o cliente vê os desenhos ao ampliar a foto (setas). Não aparecem no site nem no PDF. Pode enviar vários (JPG, PNG ou WEBP); valem para todas as variações.</p>
-            <div class="techimgs__grid" id="techimgs-grid"></div>
-            <label class="btn btn--outline btn--sm fin-file-btn"><input type="file" id="techimgs-file" accept="image/jpeg,image/png,image/webp" multiple hidden /><span data-t="tech.add">+ Adicionar desenho técnico</span></label>
-            <p class="status" id="techimgs-status" role="status" aria-live="polite"></p>
           </div>
-
-          <details class="translations" id="translations" hidden>
-            <summary><span data-t="form.translations">Traduções (pode corrigir manualmente)</span> <span class="detected" id="detected-lang"></span></summary>
-            <div class="translations__grid">
-              <fieldset><legend>Português</legend><input data-tr="name" data-lang="pt" maxlength="120" /><textarea data-tr="description" data-lang="pt" rows="3"></textarea></fieldset>
-              <fieldset><legend>English</legend><input data-tr="name" data-lang="en" maxlength="120" /><textarea data-tr="description" data-lang="en" rows="3"></textarea></fieldset>
-              <fieldset><legend>Español</legend><input data-tr="name" data-lang="es" maxlength="120" /><textarea data-tr="description" data-lang="es" rows="3"></textarea></fieldset>
-              <fieldset><legend>中文</legend><input data-tr="name" data-lang="zh" maxlength="120" /><textarea data-tr="description" data-lang="zh" rows="3"></textarea></fieldset>
-            </div>
-            <label class="check"><input type="checkbox" name="retranslate" /> <span data-t="form.retranslate">Traduzir tudo de novo automaticamente ao salvar</span></label>
-          </details>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn--primary btn--lg" id="save-btn" data-t="form.save">Salvar produto</button>
+          <div class="pv-foot">
+            <p class="status" id="form-status" role="status" aria-live="polite"></p>
             <button type="button" class="btn btn--outline" id="cancel-edit" data-t="form.cancel" hidden>Cancelar edição</button>
+            <button type="submit" class="btn btn--primary btn--lg" id="save-btn" data-t="form.save">Salvar produto</button>
           </div>
-          <p class="status" id="form-status" role="status" aria-live="polite"></p>
         </form>
-        <details class="plog-own" id="plog-own" hidden>
-          <summary data-t="plog.thisProduct">Histórico de alterações deste produto</summary>
-          <ul class="plog-list" id="plog-own-list"></ul>
-        </details>
       </section>
 
       <section class="panel">
         <div class="list-head">
-          <h2><span data-t="list.title">Produtos cadastrados</span> <span class="count" id="count">0</span></h2>
+          <h2><span data-t="list.titleShort">Produtos</span> <span class="count" id="count">0</span></h2>
           <button type="button" class="btn btn--primary btn--sm mob-new" data-new="products" data-t="mob.newProduct">+ Novo produto</button>
           <div class="list-tools">
             <select id="cat-filter" aria-label="Category">
@@ -228,7 +241,12 @@
           <button type="button" class="linkbtn" id="filters-clear" hidden data-t="list.clearFilters">Limpar filtros</button>
           <button type="button" class="btn btn--outline btn--sm plog-open" id="plog-open" data-t="plog.open">Histórico de alterações</button>
         </div>
-        <ul class="plist" id="product-list"></ul>
+        <p class="status is-ok" id="list-flash" hidden></p>
+        <div class="plt-chips" id="plt-chips"></div>
+        <div class="plt" id="plt">
+          <div class="plt-row plt-head" aria-hidden="true"><span></span><span data-t="plt.sku">SKU</span><span data-t="plt.product">Produto</span><span data-t="spec.attrs">Características</span><span data-t="ptab.specs">Especificações</span><span data-t="ptab.clients">Clientes</span><span data-t="plt.pend">Pendências</span></div>
+          <div id="product-list"></div>
+        </div>
         <p class="empty" id="no-match" data-t="list.noMatch" hidden>Nenhum produto encontrado com esses filtros.</p>
         <p class="empty" id="empty" data-t="list.empty" hidden>Nenhum produto cadastrado ainda.</p>
       </section>

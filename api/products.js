@@ -568,7 +568,8 @@ async function handler(req, res) {
         }
         if (Object.hasOwn(body, "archived")) { info.archived = Boolean(body.archived); delete info.archivedBy; }
         // Mandatory fields of the category (not for an archived specification)
-        if (!info.archived) {
+        // A new specification created in bulk (several at once) may start incomplete.
+        if (!info.archived && !(oldKey == null && body.skipChecklist === true)) {
           const need = checklistFor(priv, product.category).filter((f) =>
             f === "photo" ? oldKey != null && photoFor(product, oldKey) === product.image : !String(info[f] || "").trim());
           if (need.length) return { status: 422, error: "Checklist incomplete", fields: need };
