@@ -1249,13 +1249,15 @@
 
   function supplierOptions(product, row) {
     var links = (product && product.supplierLinks) || [];
+    var cs = product ? clientSpec(row, product) : null;
     var html = '<option value="">' + esc(T("pf.noSupplier")) + "</option>";
     html += links.map(function (l) {
       var s = supplierById(l.supplierId);
       if (!s) return "";
-      var c = linkCost(product, l, row);
+      var own = cs && cs.supplierId === l.supplierId && cs.cost != null;
+      var c = own ? cs.cost : linkCost(product, l, row);
       return '<option value="' + esc(s.id) + '"' + (row.supplierId === s.id ? " selected" : "") + ">" + esc(s.company) +
-        (c != null ? " — " + esc(A.money(c, A.defaultCurrency())) : "") + "</option>";
+        (c != null ? " — " + esc(A.money(c, A.defaultCurrency())) : "") + (own ? " (" + esc(T("pf.clientCost")) + ")" : "") + "</option>";
     }).join("");
     if (row.supplierId && !links.some(function (l) { return l.supplierId === row.supplierId; })) {
       var s = supplierById(row.supplierId);
@@ -1728,10 +1730,12 @@
       row.price = null;
     }
     if (changed === "supplierId") { row.costAuto = true; row.supplierAuto = false; }
-    // Supplier not chosen by hand: the cheapest for this configuration.
+    // Supplier not chosen by hand: the client's own supplier for this specification,
+    // otherwise the cheapest for this configuration.
+    var cs = product ? clientSpec(row, product) : null;
     if (row.supplierAuto !== false && changed !== "supplierId") {
       var main = cheapestLink(product, row);
-      row.supplierId = main ? main.supplierId : "";
+      row.supplierId = cs && cs.supplierId ? cs.supplierId : main ? main.supplierId : "";
     }
     if (changed === "productId") row.refManual = false;
     if (!row.refManual) row.clientRef = catalogRef(row);
@@ -1739,7 +1743,8 @@
     // (unless the cost was typed by hand).
     if (row.costAuto !== false) {
       var link = links.filter(function (l) { return l.supplierId === row.supplierId; })[0];
-      row.cost = linkCost(product, link, row);
+      // The client's negotiated cost with that supplier, otherwise the supplier's cost.
+      row.cost = cs && cs.supplierId === row.supplierId && cs.cost != null ? cs.cost : linkCost(product, link, row);
     }
     if (row.priceAuto) {
       var memo = rememberedPrice(row);
@@ -1904,6 +1909,12 @@
       rows.forEach(function (row) {
         if (row.priceAuto) { var m = rememberedPrice(row); row.price = m ? m.price : row.price; }
         if (!row.refManual) row.clientRef = catalogRef(row);
+        // The new client's own supplier and cost (rows where they were not typed by hand)
+        var product = productById(row.productId), cs = product ? clientSpec(row, product) : null;
+        if (product && cs && cs.supplierId && row.supplierAuto !== false) {
+          row.supplierId = cs.supplierId;
+          if (row.costAuto !== false) row.cost = cs.cost != null ? cs.cost : linkCost(product, (product.supplierLinks || []).filter(function (l) { return l.supplierId === cs.supplierId; })[0], row);
+        }
       });
       renderItems();
     });

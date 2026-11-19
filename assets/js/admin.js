@@ -831,7 +831,7 @@
       case "specArchived": return T("plog.c.specArchived", { code: c.code });
       case "specRestored": return T("plog.c.specRestored", { code: c.code });
       case "specField": return T("plog.c.specField", { code: c.code, field: T("spec.f." + c.field), from: quoted(c.from), to: quoted(c.to) });
-      case "clientSpec": return T("plog.c.clientSpec", { client: c.client, code: c.code, field: T("cs." + (c.field === "sampleDate" ? "sampleDate" : c.field === "sample" ? "sample" : c.field === "name" ? "name" : "requirements")), from: quoted(c.from), to: quoted(c.to) });
+      case "clientSpec": return T("plog.c.clientSpec", { client: c.client, code: c.code, field: T("cs." + (["sampleDate", "sample", "name", "supplier", "cost"].indexOf(c.field) > -1 ? c.field : "requirements")), from: quoted(c.from), to: quoted(c.to) });
       case "price": return T("plog.c.price", { code: c.code, from: logMoney(c.from), to: logMoney(c.to) });
       case "clientRef": return T("plog.c.clientRef", { client: c.client + (c.code ? " · " + c.code : ""), from: quoted(c.from), to: quoted(c.to) });
       default: return c.t;

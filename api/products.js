@@ -393,6 +393,8 @@ function diffProduct(before, after, priv) {
     const mb = cb[cid] || {}, ma = ca[cid] || {};
     for (const k of new Set([...Object.keys(mb), ...Object.keys(ma)])) {
       const x = mb[k] || {}, y = ma[k] || {};
+      if ((x.supplierId || "") !== (y.supplierId || "")) out.push({ t: "clientSpec", client: cliName(cid), code: k ? variantCode(after, k) : String(after.sku || ""), field: "supplier", from: x.supplierId ? supName(x.supplierId) : null, to: y.supplierId ? supName(y.supplierId) : null });
+      if ((x.cost == null ? null : x.cost) !== (y.cost == null ? null : y.cost)) out.push({ t: "clientSpec", client: cliName(cid), code: k ? variantCode(after, k) : String(after.sku || ""), field: "cost", from: x.cost == null ? null : x.cost, to: y.cost == null ? null : y.cost });
       for (const f of ["name", "requirements", "sample", "sampleDate"]) {
         if ((x[f] || "") !== (y[f] || "")) out.push({ t: "clientSpec", client: cliName(cid), code: k ? variantCode(after, k) : String(after.sku || ""), field: f, from: short(x[f]), to: short(y[f]) });
       }
@@ -597,7 +599,21 @@ async function handler(req, res) {
           if (ref) refs[clientId][key] = ref; else delete refs[clientId][key];
           const sample = ["approved", "pending", "rejected"].includes(body.sample) ? body.sample : "";
           const date = /^\d{4}-\d{2}-\d{2}$/.test(String(body.sampleDate || "")) ? body.sampleDate : "";
-          infos[clientId][key] = { name: txt(body.name, 160), requirements: txt(body.requirements, 1000), sample, sampleDate: sample ? date : "" };
+          // The client's own supplier and purchase cost for this specification (blank = the default)
+          const supplierId = String(body.supplierId || "");
+          const cost = supplierId ? money(body.cost) : null;
+          if (supplierId) {
+            const sup = priv.suppliers.find((s) => s.id === supplierId);
+            if (!sup || sup.productSupplier === false) return { status: 400, error: "Unknown supplier" };
+            // A supplier the product does not have yet is linked to it (no default cost).
+            const links = productLinks(priv, product.id);
+            if (!links.some((l) => l.supplierId === supplierId)) {
+              links.push({ supplierId, cost: null, variantCosts: {} });
+              priv.productSuppliers[product.id] = links;
+            }
+          }
+          infos[clientId][key] = { name: txt(body.name, 160), requirements: txt(body.requirements, 1000), sample, sampleDate: sample ? date : "",
+            ...(supplierId ? { supplierId, cost } : {}) };
         }
         for (const map of [refs, infos]) {
           if (!Object.keys(map[clientId]).length) delete map[clientId];

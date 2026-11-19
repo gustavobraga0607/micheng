@@ -386,6 +386,7 @@
             '<span>' + (ref ? '<span class="crm-ref">' + esc(ref) + "</span>" : '<span class="muted">—</span>') + "</span>" +
             '<span class="cs-txt">' + esc(i.name || "—") + "</span>" +
             '<span class="cs-txt">' + esc(i.requirements || "—") + "</span>" +
+            '<span class="cs-cost">' + (i.supplierId ? "<b>" + esc(i.cost == null ? "—" : A.money(i.cost, A.defaultCurrency())) + "</b><small>" + esc(supName(i.supplierId)) + "</small>" : '<small class="muted">' + esc(T("cs.costDefault")) + "</small>") + "</span>" +
             "<span>" + sampleTxt(i) + "</span>" +
             '<span class="cs-actions"><button type="button" class="linkbtn" data-cs-edit="' + esc(g.client.id) + '" data-key="' + esc(k) + '">' + esc(T("list.edit")) + "</button>" +
             '<button type="button" class="linkbtn danger" data-cs-del="' + esc(g.client.id) + '" data-key="' + esc(k) + '">' + esc(T("cs.unlink")) + "</button></span></div>";
@@ -411,6 +412,9 @@
         '<label class="spec-f"><span>' + esc(T("cs.ref")) + '</span><input type="text" name="ref" maxlength="60" value="' + esc(ref) + '" /></label>' +
         '<label class="spec-f spec-f--wide2"><span>' + esc(T("cs.name")) + '</span><input type="text" name="name" maxlength="160" value="' + esc(i.name || "") + '" /></label>' +
         '<label class="spec-f spec-f--wide2"><span>' + esc(T("cs.requirements")) + '</span><input type="text" name="requirements" maxlength="1000" value="' + esc(i.requirements || "") + '" placeholder="' + esc(T("cs.requirementsPh")) + '" /></label>' +
+        '<label class="spec-f spec-f--wide2"><span>' + esc(T("cs.supplier")) + '</span><select name="supplierId"><option value="">' + esc(T("cs.supplierDefault")) + "</option>" +
+          A.suppliers().filter(function (x) { return x.productSupplier !== false; }).map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === i.supplierId ? " selected" : "") + ">" + esc(x.company) + "</option>"; }).join("") + "</select></label>" +
+        '<label class="spec-f"><span>' + esc(T("cs.cost")) + " (" + esc(A.defaultCurrency()) + ')</span><input type="text" inputmode="decimal" name="cost" value="' + esc(i.cost == null ? "" : numText(i.cost)) + '" /></label>' +
         '<label class="spec-f"><span>' + esc(T("cs.sample")) + '</span><select name="sample"><option value="">—</option>' +
           ["approved", "pending", "rejected"].map(function (s) { return '<option value="' + s + '"' + (i.sample === s ? " selected" : "") + ">" + esc(T("cs.sample." + s)) + "</option>"; }).join("") + "</select></label>" +
         '<label class="spec-f"><span>' + esc(T("cs.sampleDate")) + '</span><input type="date" name="sampleDate" value="' + esc(i.sampleDate || "") + '" /></label>' +
@@ -441,8 +445,11 @@
     var p = product();
     if (!clientId) return setCsStatus(T("cs.needClient"), "error");
     if (!key && specKeys(p, true).length) return setCsStatus(T("cs.needSpec"), "error");
+    var sid = f.elements.supplierId.value, costTxt = String(f.elements.cost.value || "").trim();
+    if (costTxt && !sid) return setCsStatus(T("cs.needSupplier"), "error");
+    if (costTxt && A.parseDecimal(costTxt) == null) return setCsStatus(T("status.badPrice", { value: costTxt }), "error");
     sendLink({ clientId: clientId, key: key, ref: f.elements.ref.value, name: f.elements.name.value, requirements: f.elements.requirements.value,
-      sample: f.elements.sample.value, sampleDate: f.elements.sampleDate.value });
+      sample: f.elements.sample.value, sampleDate: f.elements.sampleDate.value, supplierId: sid, cost: costTxt ? A.parseDecimal(costTxt) : null });
   });
 
   /* ---------- Wiring ---------- */

@@ -111,6 +111,18 @@
   /* ---------- Drawing ---------- */
   function marginClass(m) { return m == null ? "" : m < 0 ? "is-neg" : m < target ? "is-low" : "is-ok"; }
 
+  // Costs negotiated per client for this specification (Clients tab of the product).
+  function clientCostsHtml(r) {
+    var cs = r.product.clientSpecs || {}, cur = A.defaultCurrency(), list = [];
+    Object.keys(cs).forEach(function (cid) {
+      var i = cs[cid][r.key || ""];
+      if (!i || !i.supplierId) return;
+      var c = A.clients().filter(function (x) { return x.id === cid; })[0];
+      var s = supplierById(i.supplierId);
+      list.push((c ? c.name : "?") + ": " + (i.cost == null ? "—" : A.money(i.cost, cur)) + " · " + (s ? s.company : "?"));
+    });
+    return list.length ? '<small class="pr-ccost" title="' + esc(list.join("\n")) + '">' + esc(T("pr.clientCosts", { n: list.length })) + "</small>" : "";
+  }
   function rowHtml(r) {
     var cur = A.defaultCurrency();
     var main = r.main ? supplierById(r.main.supplierId) : null;
@@ -121,7 +133,7 @@
       '<span class="pr-c pr-c--check"><input type="checkbox" data-sel aria-label="' + esc(T("pr.select", { code: r.code })) + '"' + (selected[r.id] ? " checked" : "") + " /></span>" +
       '<span class="pr-c pr-c--img">' + (r.image ? '<img src="' + esc(r.image) + '" alt="" loading="lazy" />' : "") + "</span>" +
       '<span class="pr-c pr-c--code">' + esc(r.code) + "</span>" +
-      '<span class="pr-c pr-c--name"><b>' + esc(A.productName(r.product)) + "</b>" + (r.label ? "<small>" + esc(r.label) + "</small>" : "") + "</span>" +
+      '<span class="pr-c pr-c--name"><b>' + esc(A.productName(r.product)) + "</b>" + (r.label ? "<small>" + esc(r.label) + "</small>" : "") + clientCostsHtml(r) + "</span>" +
       '<span class="pr-c pr-c--sup">' + (main ? '<span class="pr-sup">' + esc(supplierName(main)) + "</span>" : '<span class="muted">' + esc(T("pr.noSupplier")) + "</span>") +
         '<button type="button" class="pr-more" data-toggle aria-expanded="' + (open[r.id] ? "true" : "false") + '">' +
         esc(others > 0 ? T("pr.moreSuppliers", { n: others }) : T(main ? "pr.suppliers" : "pr.addSupplier")) + (open[r.id] ? " ▴" : " ▾") + "</button></span>" +

@@ -190,6 +190,7 @@
         '<span class="crm-c crm-c--prod"><b><span class="sku">' + esc(r.code) + "</span> " + esc(r.name) + "</b>" + (r.label ? "<small>" + esc(r.label) + "</small>" : "") +
           (r.spec && r.spec.name ? '<small class="crm-cname">' + esc(r.spec.name) + "</small>" : "") +
           (r.spec && r.spec.requirements ? '<small class="crm-req">' + esc(T("cs.req", { text: r.spec.requirements })) + "</small>" : "") +
+          (r.spec && r.spec.supplierId ? '<small class="crm-cost">' + esc(T("cs.costLine", { cost: r.spec.cost == null ? "—" : A.money(r.spec.cost, A.defaultCurrency()), supplier: (A.suppliers().filter(function (s) { return s.id === r.spec.supplierId; })[0] || {}).company || "?" })) + "</small>" : "") +
           (r.spec && r.spec.sample ? ' <em class="spec-tag ' + (r.spec.sample === "approved" ? "spec-tag--ok" : r.spec.sample === "rejected" ? "spec-tag--arch" : "spec-tag--miss") + '">' + esc(T("cs.sample") + " " + T("cs.sample." + r.spec.sample)) + "</em>" : "") + "</span>" +
         '<span class="crm-c">' + (r.ref ? '<span class="crm-ref">' + esc(r.ref) + "</span>" : "—") + "</span>" +
         '<span class="crm-c crm-c--num">' + (r.bought ? "<b>" + esc(qtyText(r.bought)) + "</b><small>" + esc(T("crm.inOrders", { n: r.orders })) + "</small>" : "—") + "</span>" +

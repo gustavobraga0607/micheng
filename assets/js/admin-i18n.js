@@ -1,6 +1,14 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "cs.supplier": "Fornecedor para este cliente",
+    "cs.supplierDefault": "Padrão (principal da especificação)",
+    "cs.cost": "Custo para este cliente",
+    "cs.costDefault": "custo padrão",
+    "cs.needSupplier": "Escolha o fornecedor deste custo.",
+    "cs.costLine": "Custo para o cliente: {cost} · {supplier}",
+    "pf.clientCost": "custo do cliente",
+    "pr.clientCosts": "+{n} custo(s) por cliente",
     "spec.delete": "Excluir",
     "spec.deleteConfirm": "Excluir {code} definitivamente? Somem também o custo, o preço de tabela, a foto e os códigos de clientes desta especificação. O código {code} não será reutilizado.",
     "spec.deleted": "{code} excluída.",
@@ -918,6 +926,14 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "cs.supplier": "Supplier for this client",
+    "cs.supplierDefault": "Default (the specification's main one)",
+    "cs.cost": "Cost for this client",
+    "cs.costDefault": "default cost",
+    "cs.needSupplier": "Choose the supplier of this cost.",
+    "cs.costLine": "Cost for the client: {cost} · {supplier}",
+    "pf.clientCost": "client's cost",
+    "pr.clientCosts": "+{n} cost(s) per client",
     "spec.delete": "Delete",
     "spec.deleteConfirm": "Delete {code} for good? Its cost, list price, photo and client codes go too. The code {code} will not be reused.",
     "spec.deleted": "{code} deleted.",
@@ -1835,6 +1851,14 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "cs.supplier": "Proveedor para este cliente",
+    "cs.supplierDefault": "Estándar (principal de la especificación)",
+    "cs.cost": "Costo para este cliente",
+    "cs.costDefault": "costo estándar",
+    "cs.needSupplier": "Elija el proveedor de este costo.",
+    "cs.costLine": "Costo para el cliente: {cost} · {supplier}",
+    "pf.clientCost": "costo del cliente",
+    "pr.clientCosts": "+{n} costo(s) por cliente",
     "spec.delete": "Eliminar",
     "spec.deleteConfirm": "¿Eliminar {code} definitivamente? También se borran su costo, precio de lista, foto y códigos de clientes. El código {code} no se reutilizará.",
     "spec.deleted": "{code} eliminada.",
@@ -2752,6 +2776,14 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "cs.supplier": "该客户的供应商",
+    "cs.supplierDefault": "默认（规格的主要供应商）",
+    "cs.cost": "该客户的成本",
+    "cs.costDefault": "默认成本",
+    "cs.needSupplier": "请选择此成本的供应商。",
+    "cs.costLine": "客户成本：{cost} · {supplier}",
+    "pf.clientCost": "客户成本",
+    "pr.clientCosts": "+{n} 个客户成本",
     "spec.delete": "删除",
     "spec.deleteConfirm": "永久删除 {code}？其成本、目录价、图片和客户编号也将删除。编号 {code} 不会再使用。",
     "spec.deleted": "{code} 已删除。",
