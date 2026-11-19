@@ -850,8 +850,11 @@
     var cat = $("#cat-filter").value;
     var editing = form.elements.id.value;
     var period = datePeriod();
+    var cli = $("#client-filter").value;
+    var bought = cli ? clientProductIds(cli) : null;
     var shown = products.filter(function (p) {
       if (cat && p.category !== cat) return false;
+      if (cli && !(hasClient(p, cli) || bought[p.id])) return false;
       if (period) {
         var day = localDay(p.createdAt);
         if (!day || (period.from && day < period.from) || (period.to && day > period.to)) return false;
@@ -865,7 +868,7 @@
     renderListChips(products.length, products.filter(function (p) { return pendingOf(p).length; }).length);
     $("#tab-count-products").textContent = products.length;
     $("#empty").hidden = products.length > 0;
-    var filtered = Boolean(q || cat || period);
+    var filtered = Boolean(q || cat || period || cli);
     $("#shown-count").textContent = filtered ? T("list.shownOf", { n: shown.length, total: products.length }) : "";
     $("#filters-clear").hidden = !filtered;
     $("#no-match").hidden = !(products.length && filtered && !shown.length);
@@ -1043,7 +1046,28 @@
   });
   $("#date-from").addEventListener("change", renderList);
   $("#date-to").addEventListener("change", renderList);
+  // Products of a client: linked to it (its code or data on a specification) or on its proformas.
+  function hasClient(p, cid) {
+    return Boolean((p.clientRefs && p.clientRefs[cid] && Object.keys(p.clientRefs[cid]).length) || (p.clientSpecs && p.clientSpecs[cid] && Object.keys(p.clientSpecs[cid]).length));
+  }
+  function clientProductIds(cid) {
+    var out = {};
+    var pfs = window.Proformas && window.Proformas.list ? window.Proformas.list() : [];
+    pfs.forEach(function (pf) { if (pf.clientId === cid) (pf.items || []).forEach(function (i) { out[i.productId] = true; }); });
+    return out;
+  }
+  function fillClientFilter() {
+    var sel = $("#client-filter"), keep = sel.value;
+    sel.innerHTML = '<option value="">' + escapeHtml(T("list.allClients")) + "</option>" +
+      clients.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); })
+        .map(function (c) { return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + "</option>"; }).join("");
+    sel.value = keep;
+  }
+  $("#client-filter").addEventListener("change", renderList);
+  document.addEventListener("admin:data", fillClientFilter);
+  document.addEventListener("admin:lang", fillClientFilter);
   $("#filters-clear").addEventListener("click", function () {
+    $("#client-filter").value = "";
     $("#search").value = "";
     $("#cat-filter").value = "";
     $("#date-filter").value = "";

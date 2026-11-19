@@ -1,6 +1,8 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "list.allClients": "Todos os clientes",
+    "list.clientFilter": "Produtos de um cliente",
     "pr.openPanel": "Abrir fornecedores, preço e clientes",
     "pr.clientCostTag": "custo do cliente {cost}",
     "pr.costPh": "custo",
@@ -1049,6 +1051,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "list.allClients": "All clients",
+    "list.clientFilter": "Products of a client",
     "pr.openPanel": "Open suppliers, price and clients",
     "pr.clientCostTag": "client's cost {cost}",
     "pr.costPh": "cost",
@@ -2097,6 +2101,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "list.allClients": "Todos los clientes",
+    "list.clientFilter": "Productos de un cliente",
     "pr.openPanel": "Abrir proveedores, precio y clientes",
     "pr.clientCostTag": "costo del cliente {cost}",
     "pr.costPh": "costo",
@@ -3145,6 +3151,8 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "list.allClients": "全部客户",
+    "list.clientFilter": "某客户的产品",
     "pr.openPanel": "打开供应商、价格和客户",
     "pr.clientCostTag": "客户成本 {cost}",
     "pr.costPh": "成本",
