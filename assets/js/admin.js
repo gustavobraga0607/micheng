@@ -2004,7 +2004,7 @@
     if (!box) return;
     box.innerHTML = '<table><thead><tr><th></th>' + CHECK_FIELDS.map(function (f) { return "<th>" + escapeHtml(T("spec.f." + f)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
       CHECK_CATS.map(function (cat) {
-        var on = c && Array.isArray(c[cat]) ? c[cat] : ["details", "packaging"];
+        var on = c && Array.isArray(c[cat]) ? c[cat] : ["details"];
         return "<tr><th>" + escapeHtml(T("cat." + cat)) + "</th>" + CHECK_FIELDS.map(function (f) {
           return '<td><input type="checkbox" data-cat="' + cat + '" data-field="' + f + '"' + (on.indexOf(f) > -1 ? " checked" : "") +
             ' aria-label="' + escapeHtml(T("cat." + cat) + " · " + T("spec.f." + f)) + '" /></td>';

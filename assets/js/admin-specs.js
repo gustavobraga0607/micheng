@@ -11,7 +11,7 @@
   var esc = function (s) { return A.escapeHtml(s); };
 
   var FIELDS = ["details", "weight", "measures", "packaging"];
-  var DEFAULT_CHECKLIST = ["details", "packaging"];
+  var DEFAULT_CHECKLIST = ["details"];
   var current = null;     // key of the specification open ("" = new)
   var draft = null;       // { options: {attrId: optId}, info: {...}, from: key|null }
   var showArchived = false;

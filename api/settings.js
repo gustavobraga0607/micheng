@@ -136,7 +136,7 @@ async function handler(req, res) {
       const old = (priv.settings && priv.settings.checklist) || null;
       if (body.checklist && typeof body.checklist === "object") {
         settings.checklist = {};
-        for (const c of CATS) settings.checklist[c] = Array.isArray(body.checklist[c]) ? CHECK.filter((f) => body.checklist[c].includes(f)) : ["details", "packaging"];
+        for (const c of CATS) settings.checklist[c] = Array.isArray(body.checklist[c]) ? CHECK.filter((f) => body.checklist[c].includes(f)) : ["details"];
       } else if (old) settings.checklist = old;
       priv.settings = settings;
       await savePrivate(priv);

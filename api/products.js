@@ -430,7 +430,7 @@ async function writeLog(entries) {
    specification is the sorted ids of its options (comboKey), as before. */
 const SPEC_FIELDS = { details: 2000, weight: 60, measures: 120, packaging: 300 };
 const CHECKLIST_FIELDS = ["details", "weight", "measures", "packaging", "photo"];
-const DEFAULT_CHECKLIST = ["details", "packaging"];
+const DEFAULT_CHECKLIST = ["details"];
 
 // Keys of the specifications that are used somewhere (clients, costs, prices, photos, proformas).
 function usedSpecKeys(p, priv) {
