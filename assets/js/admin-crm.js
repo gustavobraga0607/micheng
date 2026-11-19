@@ -192,11 +192,11 @@
           (r.spec && r.spec.requirements ? '<small class="crm-req">' + esc(T("cs.req", { text: r.spec.requirements })) + "</small>" : "") +
           (r.spec && r.spec.supplierId ? '<small class="crm-cost">' + esc(T("cs.costLine", { cost: r.spec.cost == null ? "—" : A.money(r.spec.cost, A.defaultCurrency()), supplier: (A.suppliers().filter(function (s) { return s.id === r.spec.supplierId; })[0] || {}).company || "?" })) + "</small>" : "") +
           (r.spec && r.spec.sample ? ' <em class="spec-tag ' + (r.spec.sample === "approved" ? "spec-tag--ok" : r.spec.sample === "rejected" ? "spec-tag--arch" : "spec-tag--miss") + '">' + esc(T("cs.sample") + " " + T("cs.sample." + r.spec.sample)) + "</em>" : "") + "</span>" +
-        '<span class="crm-c">' + (r.ref ? '<span class="crm-ref">' + esc(r.ref) + "</span>" : "—") + "</span>" +
-        '<span class="crm-c crm-c--num">' + (r.bought ? "<b>" + esc(qtyText(r.bought)) + "</b><small>" + esc(T("crm.inOrders", { n: r.orders })) + "</small>" : "—") + "</span>" +
-        '<span class="crm-c crm-c--num">' + (r.last ? "<b>" + esc(A.money(r.last.price, r.last.currency)) + "</b><small>" + esc(fmtDate(r.last.date) + " · " + r.last.number) + "</small>" : "—") + "</span>" +
-        '<span class="crm-c crm-c--num">' + (trend ? esc(trend) : "—") + "</span>" +
-        '<span class="crm-c crm-c--num">' + (r.quoted ? "<b>" + esc(qtyText(r.quoted)) + "</b>" + (r.lastQuote ? "<small>" + esc(A.money(r.lastQuote.price, r.lastQuote.currency) + " · " + r.lastQuote.number) + "</small>" : "") : "—") + "</span>" +
+        '<span class="crm-c" data-label="' + esc(T("crm.ref")) + '">' + (r.ref ? '<span class="crm-ref">' + esc(r.ref) + "</span>" : "—") + "</span>" +
+        '<span class="crm-c crm-c--num" data-label="' + esc(T("crm.qtyBought")) + '">' + (r.bought ? "<b>" + esc(qtyText(r.bought)) + "</b><small>" + esc(T("crm.inOrders", { n: r.orders })) + "</small>" : "—") + "</span>" +
+        '<span class="crm-c crm-c--num" data-label="' + esc(T("crm.lastPrice")) + '">' + (r.last ? "<b>" + esc(A.money(r.last.price, r.last.currency)) + "</b><small>" + esc(fmtDate(r.last.date) + " · " + r.last.number) + "</small>" : "—") + "</span>" +
+        '<span class="crm-c crm-c--num" data-label="' + esc(T("crm.range")) + '">' + (trend ? esc(trend) : "—") + "</span>" +
+        '<span class="crm-c crm-c--num" data-label="' + esc(T("crm.quoted")) + '">' + (r.quoted ? "<b>" + esc(qtyText(r.quoted)) + "</b>" + (r.lastQuote ? "<small>" + esc(A.money(r.lastQuote.price, r.lastQuote.currency) + " · " + r.lastQuote.number) + "</small>" : "") : "—") + "</span>" +
         '<span class="crm-c crm-c--btn">' + (r.history.length ? '<button type="button" class="linkbtn" data-hist aria-expanded="' + (open[r.k] ? "true" : "false") + '">' + esc(T("crm.history", { n: r.history.length })) + (open[r.k] ? " ▴" : " ▾") + "</button>" : '<small class="muted">' + esc(T("crm.onlyRegistered")) + "</small>") + "</span>" +
         "</div>";
       if (open[r.k]) {
@@ -220,12 +220,12 @@
       var rest = closed ? Math.max(0, Math.round((p.totals.sale - paid) * 100) / 100) : null;
       return '<div class="crm-orow">' +
         '<span><button type="button" class="linkbtn" data-openpf="' + esc(p.id) + '"><b>' + esc(p.number) + "</b></button></span>" +
-        "<span>" + esc(fmtDate(p.date)) + "</span>" +
+        '<span data-label="' + esc(T("crm.date")) + '">' + esc(fmtDate(p.date)) + "</span>" +
         '<span><span class="badge badge--' + (closed ? "closed" : "draft") + '">' + esc(T(closed ? "pf.closed" : "pf.draft")) + "</span></span>" +
-        '<span class="crm-c--num">' + esc(T("crm.items", { n: p.items.length })) + "</span>" +
-        '<span class="crm-c--num"><b>' + esc(A.money(p.totals.sale, p.currency)) + "</b></span>" +
-        '<span class="crm-c--num">' + (closed ? esc(sums(got)) : "—") + "</span>" +
-        '<span class="crm-c--num ' + (rest ? "crm-due" : "crm-ok") + '">' + (closed ? (rest ? esc(A.money(rest, p.currency)) : esc(T("crm.paidUp"))) : "—") + "</span>" +
+        '<span class="crm-c--num" data-label="' + esc(T("crm.itemsCol")) + '">' + esc(T("crm.items", { n: p.items.length })) + "</span>" +
+        '<span class="crm-c--num" data-label="' + esc(T("crm.value")) + '"><b>' + esc(A.money(p.totals.sale, p.currency)) + "</b></span>" +
+        '<span class="crm-c--num" data-label="' + esc(T("crm.received")) + '">' + (closed ? esc(sums(got)) : "—") + "</span>" +
+        '<span data-label="' + esc(T("crm.toReceive")) + '" class="crm-c--num ' + (rest ? "crm-due" : "crm-ok") + '">' + (closed ? (rest ? esc(A.money(rest, p.currency)) : esc(T("crm.paidUp"))) : "—") + "</span>" +
         "</div>";
     }).join("") : '<p class="pr-empty">' + esc(T("crm.noOrders")) + "</p>";
   }

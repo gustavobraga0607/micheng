@@ -231,6 +231,9 @@
     // Settings opens from the gear next to "Sign out".
     var gear = $(".tab-gear");
     gear.classList.toggle("is-active", name === "settings");
+    // On a phone the tab bar scrolls sideways: keep the open tab in view.
+    var activeTab = document.querySelector('.tab[data-tab="' + name + '"]');
+    if (activeTab && activeTab.scrollIntoView && window.innerWidth < 760) activeTab.scrollIntoView({ block: "nearest", inline: "center" });
     gear.setAttribute("aria-pressed", name === "settings" ? "true" : "false");
     ["products", "suppliers", "pricing", "clients", "proformas", "finance", "settings"].forEach(function (view) {
       $("#" + view + "-view").hidden = view !== name;
