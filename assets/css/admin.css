@@ -1426,3 +1426,11 @@ body.has-drawer { overflow: hidden; }
   .pr-c--sup { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 }
 @media (max-width: 760px) { .pr-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } .pr-row .pr-c--img img { width: 44px; height: 44px; } }
+/* Specifications toolbar: "Group by" on one line, same height as the buttons */
+.admin .st-tools .st-group { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.admin .st-tools .st-group span { margin: 0; }
+.admin .st-tools .st-group select { height: 38px; width: auto; min-width: 120px; margin: 0; padding: 0 10px; }
+.st-tools__end { align-items: center; }
+.st-tools__end .btn { height: 38px; display: inline-flex; align-items: center; }
+.admin .st-tools input[type=search] { height: 38px; }
+@media (max-width: 760px) { .admin .st-tools .st-group { width: 100%; } .admin .st-tools .st-group select { flex: 1; } }
