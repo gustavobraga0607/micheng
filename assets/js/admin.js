@@ -880,8 +880,8 @@
         '<span class="plt-name"><b>' + escapeHtml(p.name[current] || p.source.name) + "</b><small>" + escapeHtml(p.category ? T("cat." + p.category) : "") +
           (p.createdAt ? " · " + escapeHtml(new Date(p.createdAt).toLocaleDateString(HTML_LANG[current])) : "") + "</small></span>" +
         '<span class="plt-attrs">' + escapeHtml(attrs || "—") + "</span>" +
-        '<span class="plt-n">' + escapeHtml(pend.single ? T("spec.single") : String(pend.specs)) + "</span>" +
-        '<span class="plt-n">' + (pend.clients || "—") + "</span>" +
+        '<span class="plt-n" data-label="' + escapeHtml(T("ptab.specs")) + '">' + escapeHtml(pend.single ? T("spec.single") : String(pend.specs)) + "</span>" +
+        '<span class="plt-n" data-label="' + escapeHtml(T("ptab.clients")) + '">' + (pend.clients || "—") + "</span>" +
         '<span class="plt-pend">' + (pend.length ? pend.map(function (x) { return '<em class="' + (x.bad ? "is-bad" : "") + '">' + escapeHtml(x.text) + "</em>"; }).join("") : '<span class="plt-ok">✓</span>') + "</span></button>";
     }).join("");
   }

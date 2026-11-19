@@ -176,9 +176,9 @@
       '<span class="st-chips">' + chipsHtml(p, r.key) + "</span>" +
       '<span class="st-stc">' + status + "</span>" +
       '<span class="st-sup">' + (r.main ? "<b>" + esc(money(r.main.cost)) + "</b><small>" + esc(supName(r.main.supplierId)) + "</small>" : '<span class="st-warn">' + esc(T("st.noSupplier")) + "</span>") + "</span>" +
-      '<span class="st-num">' + esc(money(r.price)) + "</span>" +
-      '<span class="st-num st-margin">' + (r.margin == null ? "—" : esc(Math.round(r.margin * 1000) / 10 + "%")) + "</span>" +
-      '<span class="st-cl">' + clientsTxt + "</span></button>";
+      '<span class="st-num" data-label="' + esc(T("spec.listPrice")) + '">' + esc(money(r.price)) + "</span>" +
+      '<span class="st-num st-margin" data-label="' + esc(T("st.h.margin")) + '">' + (r.margin == null ? "—" : esc(Math.round(r.margin * 1000) / 10 + "%")) + "</span>" +
+      '<span class="st-cl" data-label="' + esc(T(clientCtx ? "st.h.clientData" : "ptab.clients")) + '">' + clientsTxt + "</span></button>";
   }
   function tableHtml(p) {
     var rows = rowsOf(p);
