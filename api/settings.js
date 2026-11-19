@@ -132,7 +132,7 @@ async function handler(req, res) {
       settings.wechatQrAt = (priv.settings && priv.settings.wechatQrAt) || null;
       // Fields every specification of a category must have (product registration).
       const CATS = ["building", "sanitary", "fitness", "general"];
-      const CHECK = ["details", "weight", "measures", "packaging", "perBox", "photo"];
+      const CHECK = ["details", "weight", "measures", "packaging", "photo"];
       const old = (priv.settings && priv.settings.checklist) || null;
       if (body.checklist && typeof body.checklist === "object") {
         settings.checklist = {};

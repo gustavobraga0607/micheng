@@ -428,8 +428,8 @@ async function writeLog(entries) {
    own code, details (product.specs[key]) and, per client, the client's code
    (priv.clientRefs) and data (priv.clientSpecInfo). The key of a
    specification is the sorted ids of its options (comboKey), as before. */
-const SPEC_FIELDS = { details: 2000, weight: 60, measures: 120, packaging: 300, perBox: 30 };
-const CHECKLIST_FIELDS = ["details", "weight", "measures", "packaging", "perBox", "photo"];
+const SPEC_FIELDS = { details: 2000, weight: 60, measures: 120, packaging: 300 };
+const CHECKLIST_FIELDS = ["details", "weight", "measures", "packaging", "photo"];
 const DEFAULT_CHECKLIST = ["details", "packaging"];
 
 // Keys of the specifications that are used somewhere (clients, costs, prices, photos, proformas).

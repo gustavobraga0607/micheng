@@ -1998,7 +1998,7 @@
   });
 
   var CHECK_CATS = ["sanitary", "building", "fitness", "general"];
-  var CHECK_FIELDS = ["details", "weight", "measures", "packaging", "perBox", "photo"];
+  var CHECK_FIELDS = ["details", "weight", "measures", "packaging", "photo"];
   function renderChecklist(c) {
     var box = $("#set-checklist");
     if (!box) return;

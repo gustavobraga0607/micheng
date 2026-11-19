@@ -10,7 +10,7 @@
   var T = function (k, v) { return A.T(k, v); };
   var esc = function (s) { return A.escapeHtml(s); };
 
-  var FIELDS = ["details", "weight", "measures", "packaging", "perBox"];
+  var FIELDS = ["details", "weight", "measures", "packaging"];
   var DEFAULT_CHECKLIST = ["details", "packaging"];
   var current = null;     // key of the specification open ("" = new)
   var draft = null;       // { options: {attrId: optId}, info: {...}, from: key|null }
@@ -146,7 +146,7 @@
             a.options.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === v ? " selected" : "") + ">" + esc(optLabel(o)) + "</option>"; }).join("") + "</select></label>";
         }).join("") + '</div><p class="hint">' + esc(T("spec.attrsHint")) + "</p></div>" +
       '<div class="spec-block">' + f("details", T("spec.f.details"), true, 3) +
-        '<div class="spec-grid spec-grid--4">' + f("weight", T("spec.f.weight")) + f("measures", T("spec.f.measures")) + f("packaging", T("spec.f.packaging")) + f("perBox", T("spec.f.perBox")) + "</div></div>" +
+        '<div class="spec-grid">' + f("weight", T("spec.f.weight")) + f("measures", T("spec.f.measures")) + f("packaging", T("spec.f.packaging")) + "</div></div>" +
       '<div class="spec-block"><b>' + esc(T("spec.f.photo")) + (need.indexOf("photo") > -1 ? " *" : "") + "</b>" +
         (isNew ? '<p class="hint">' + esc(T("spec.photoAfterSave")) + "</p>" :
           '<div class="spec-photo">' + (photo ? '<img src="' + esc(photo) + '" alt="" />' : '<span class="spec-photo__none">' + esc(T("spec.noPhoto")) + "</span>") +
