@@ -64,7 +64,7 @@
     (product.attributes || []).forEach(function (a) { a.options.forEach(function (o) { current[o.id] = true; }); });
     var key = Object.keys(row.options).map(function (k) { return row.options[k]; })
       .filter(function (id) { return id && current[id]; }).sort().join(",");
-    return (product.variantImages && product.variantImages[key]) || product.image;
+    return A.photoFor(product, key);
   }
 
   function setStatus(msg, kind) {

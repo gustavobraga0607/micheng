@@ -76,7 +76,7 @@
       links.some(function (l) { return l.typed && l.cost !== l.saved; });
     return {
       id: id, product: p, key: v.key, code: v.code, label: v.label,
-      image: (v.key && p.variantImages && p.variantImages[v.key]) || p.image,
+      image: A.photoFor(p, v.key),
       links: links, main: main, cost: cost, price: price, savedPrice: savedPrice,
       margin: marginOf(price, cost),
       suggested: cost != null && target < 1 ? round2(cost / (1 - target)) : null,

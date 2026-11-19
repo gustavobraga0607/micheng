@@ -115,6 +115,15 @@
             </label>
           </div>
 
+          <div class="gallery" id="gallery">
+            <span class="photo__label" data-t="gal.title">Mais fotos</span>
+            <p class="hint" data-t="gal.hint">Ligue a foto a uma opção (ex.: Cor: Preto) e as especificações com essa opção passam a usá-la. No site, as fotos aparecem só para passar para o lado.</p>
+            <div class="gallery__grid" id="gallery-grid"></div>
+            <p class="hint" id="gallery-new" data-t="gal.saveFirst" hidden>Salve o produto para adicionar mais fotos.</p>
+            <label class="btn btn--outline btn--sm fin-file-btn" id="gallery-add"><input type="file" id="gallery-file" accept="image/jpeg,image/png,image/webp" multiple hidden /><span data-t="gal.add">+ Adicionar fotos</span></label>
+            <p class="status" id="gallery-status" role="status" aria-live="polite"></p>
+          </div>
+
           <div class="vphotos" id="vphotos" hidden>
             <span class="photo__label" data-t="form.variantPhotos">Fotos por variação</span>
             <p class="hint" id="vphotos-hint"></p>

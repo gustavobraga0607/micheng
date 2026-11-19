@@ -53,12 +53,19 @@ export function skuFor(product, optionIds) {
   return n ? product.sku + "-" + n : String(product.sku);
 }
 
-// Photo of a configuration: the variant's own photo, or the product's main photo.
+// Photo of a configuration: the specification's own photo, else the gallery photo
+// linked to one of its options (e.g. Colour: Black), else the product's main photo.
+export function photoFor(product, key) {
+  if (!product) return null;
+  if (product.variantImages && product.variantImages[key]) return product.variantImages[key];
+  const ids = String(key || "").split(",").filter(Boolean);
+  const hit = (product.gallery || []).find((g) => g.optionId && ids.includes(g.optionId));
+  return hit ? hit.url : product.image;
+}
 export function variantImage(product, optionIds) {
   if (!product) return null;
   const current = new Set((product.attributes || []).flatMap((a) => a.options.map((o) => o.id)));
-  const key = comboKey((optionIds || []).filter((id) => current.has(id)));
-  return (product.variantImages && product.variantImages[key]) || product.image;
+  return photoFor(product, comboKey((optionIds || []).filter((id) => current.has(id))));
 }
 
 // A new specification of a product: its code suffix (next number, never reused).

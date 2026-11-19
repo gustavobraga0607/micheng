@@ -3,7 +3,7 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError, appendProductLog, readProductLog, savePrivate } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
-import { assignSkus, addSpec, comboKey } from "./_lib/sku.js";
+import { assignSkus, addSpec, comboKey, photoFor } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -211,6 +211,7 @@ async function applyAttributes(product, body, existing) {
 // never in the public product list.
 const money = parseDecimal; // accepts "15,9" as well as "15.9"
 const MAX_TECH_IMAGES = 20;
+const MAX_GALLERY = 20;
 
 // The helpers below change the private data (priv) in memory; each request reads
 // it once and saves it once, since every Blob write counts against a quota.
@@ -301,7 +302,9 @@ function sendPublic(res, products) {
   // The site shows name, photo and description only: specifications and their
   // characteristics, codes and photos stay in the panel.
   // The site shows the characteristics with their options (no specifications, codes or costs).
-  products = products.map(({ techImages, specs, variantSkus, variantSeq, variantImages, ...rest }) => rest);
+  // The gallery photos only browse on the site: no link to the characteristics.
+  products = products.map(({ techImages, specs, variantSkus, variantSeq, variantImages, gallery, ...rest }) =>
+    ({ ...rest, ...(gallery && gallery.length ? { gallery: gallery.map((g) => g.url) } : {}) }));
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=86400");
@@ -376,6 +379,17 @@ function diffProduct(before, after, priv) {
       if (vo[k] !== vn[k]) out.push({ t: "variantCost", supplier: supName(sid), code: variantCode(after, k), from: vo[k] == null ? null : vo[k], to: vn[k] == null ? null : vn[k] });
     }
   }
+  // Gallery photos: added, removed, linked to another option
+  const optLabel = (p, oid) => {
+    for (const a of p.attributes || []) for (const o of a.options) if (o.id === oid) return a.source + ": " + o.source;
+    return null;
+  };
+  const gb = new Map((before.gallery || []).map((g) => [g.url, g])), ga = new Map((after.gallery || []).map((g) => [g.url, g]));
+  for (const [u, g] of ga) {
+    if (!gb.has(u)) out.push({ t: "galleryAdded", to: g.optionId ? optLabel(after, g.optionId) : null });
+    else if ((gb.get(u).optionId || null) !== (g.optionId || null)) out.push({ t: "galleryLink", from: optLabel(after, gb.get(u).optionId), to: optLabel(after, g.optionId) });
+  }
+  for (const [u, g] of gb) if (!ga.has(u)) out.push({ t: "galleryRemoved", from: g.optionId ? optLabel(before, g.optionId) : null });
   // Specifications: created, archived / reactivated, details changed
   const vb0 = before.variantSkus || {}, va0 = after.variantSkus || {};
   for (const k of Object.keys(va0)) if (!Object.hasOwn(vb0, k)) out.push({ t: "specAdded", code: variantCode(after, k) });
@@ -556,7 +570,7 @@ async function handler(req, res) {
         // Mandatory fields of the category (not for an archived specification)
         if (!info.archived) {
           const need = checklistFor(priv, product.category).filter((f) =>
-            f === "photo" ? oldKey != null && !((product.variantImages || {})[oldKey]) : !String(info[f] || "").trim());
+            f === "photo" ? oldKey != null && photoFor(product, oldKey) === product.image : !String(info[f] || "").trim());
           if (need.length) return { status: 422, error: "Checklist incomplete", fields: need };
         }
         if (oldKey == null) addSpec(product, key);
@@ -726,6 +740,51 @@ async function handler(req, res) {
       return send(res, 200, { product: adminView(result.priv, result.product) });
     }
 
+    // Product gallery: more photos, each one optionally linked to an option of a
+    // characteristic (its specifications then use it). body: { image, optionId? } to add,
+    // { url, optionId } to change the link, { remove: url } to delete.
+    if (req.method === "POST" && queryParam(req, "action") === "gallery") {
+      const body = await readJson(req);
+      let url = null;
+      if (body.image) {
+        const current = (await getProducts()).find((p) => p.id === id);
+        if (!current) return fail(res, 404, "Product not found");
+        if ((current.gallery || []).length >= MAX_GALLERY) return fail(res, 400, "Too many photos");
+        const image = decodeImage(body.image);
+        url = await saveImage(current.id + "-g", image.buffer, image.contentType);
+        uploaded.push(url);
+      }
+      const result = await withDataLock(async () => {
+        const { products, priv } = await getAllData();
+        const product = products.find((p) => p.id === id);
+        if (!product) return { status: 404, error: "Product not found" };
+        const before = logView(priv, product);
+        const options = new Set((product.attributes || []).flatMap((a) => a.options.map((o) => o.id)));
+        const optionId = body.optionId && options.has(String(body.optionId)) ? String(body.optionId) : null;
+        const list = (product.gallery || []).slice();
+        let gone = null;
+        if (url) list.push({ url, optionId, at: new Date().toISOString(), by: session.u });
+        else if (body.remove) {
+          gone = list.find((g) => g.url === body.remove);
+          if (!gone) return { status: 404, error: "Photo not found" };
+          list.splice(list.indexOf(gone), 1);
+        } else {
+          const g = list.find((x) => x.url === body.url);
+          if (!g) return { status: 404, error: "Photo not found" };
+          list[list.indexOf(g)] = { ...g, optionId };
+        }
+        product.gallery = list;
+        product.updatedAt = new Date().toISOString();
+        await saveProducts(products);
+        return { product, priv, gone, entry: logEntry(session, "updated", product, diffProduct(before, logView(priv, product), priv)) };
+      });
+      if (result.error) { await cleanup(uploaded); return fail(res, result.status, result.error); }
+      uploaded.length = 0;
+      await writeLog([result.entry]);
+      if (result.gone) await cleanup([result.gone.url]);
+      return send(res, 200, { product: adminView(result.priv, result.product) });
+    }
+
     // Photo of one variant (option combination), sent on its own so requests stay small.
     if (req.method === "POST" && queryParam(req, "action") === "variantImage") {
       const body = await readJson(req);
@@ -818,7 +877,7 @@ async function handler(req, res) {
         // (codes, variant photos, the main photo when no new one was sent).
         const fresh = products[index];
         const before = logView(priv, fresh);
-        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "techImages", "specs", "image", "createdAt"]) {
+        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "techImages", "specs", "gallery", "image", "createdAt"]) {
           if (fresh[k] === undefined) delete product[k];
           else product[k] = fresh[k];
         }
@@ -861,7 +920,7 @@ async function handler(req, res) {
       });
       if (!removed) return fail(res, 404, "Product not found");
       await writeLog([removed.entry]);
-      if (!removed.keepPhotos) await cleanup([removed.gone.image].concat(Object.values(removed.gone.variantImages || {})));
+      if (!removed.keepPhotos) await cleanup([removed.gone.image].concat(Object.values(removed.gone.variantImages || {}), (removed.gone.gallery || []).map((g) => g.url)));
       await cleanup((removed.gone.techImages || []).map((t) => t.url)); // technical drawings are not shown on proformas
       return send(res, 200, { ok: true });
     }

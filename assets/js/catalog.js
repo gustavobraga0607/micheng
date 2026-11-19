@@ -109,19 +109,8 @@
 
   // Photos of the variants that have their own: clicking one shows it large.
   function renderThumbs(p) {
-    var map = p.variantSkus || {};
-    var photos = p.variantImages || {};
-    var labels = {};
-    (p.attributes || []).forEach(function (a) {
-      a.options.forEach(function (o) { labels[o.id] = { order: (p.attributes || []).indexOf(a), text: pick(o.label) || o.source }; });
-    });
-    var list = Object.keys(photos).filter(function (k) { return k in map; })
-      .sort(function (a, b) { return map[a] - map[b]; })
-      .map(function (k) {
-        var parts = k.split(",").map(function (id) { return labels[id]; }).filter(Boolean)
-          .sort(function (a, b) { return a.order - b.order; }).map(function (x) { return x.text; });
-        return { src: photos[k], label: parts.join(" / ") };
-      });
+    // The gallery photos, only to browse (no link to the characteristics on the site).
+    var list = (p.gallery || []).map(function (src) { return { src: src, label: pick(p.name) }; });
     var box = document.getElementById("pmodal-thumbs");
     box.hidden = list.length === 0;
     if (!list.length) { box.innerHTML = ""; return; }

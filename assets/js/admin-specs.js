@@ -48,7 +48,7 @@
     var opts = optionsOfKey(p, key);
     var miss = attrsOf(p).filter(function (a) { return !opts[a.id]; }).map(attrName);
     checklist(p).forEach(function (f) {
-      if (f === "photo" ? !((p.variantImages || {})[key]) : !String(info[f] || "").trim()) miss.push(T("spec.f." + f));
+      if (f === "photo" ? A.photoFor(p, key) === p.image : !String(info[f] || "").trim()) miss.push(T("spec.f." + f));
     });
     return miss;
   }
@@ -151,7 +151,9 @@
         '<div class="spec-grid">' + f("weight", T("spec.f.weight")) + f("measures", T("spec.f.measures")) + f("packaging", T("spec.f.packaging")) + "</div></div>" +
       '<div class="spec-block"><b>' + esc(T("spec.f.photo")) + (need.indexOf("photo") > -1 ? " *" : "") + "</b>" +
         (isNew ? '<p class="hint">' + esc(T("spec.photoAfterSave")) + "</p>" :
-          '<div class="spec-photo">' + (photo ? '<img src="' + esc(photo) + '" alt="" />' : '<span class="spec-photo__none">' + esc(T("spec.noPhoto")) + "</span>") +
+          '<div class="spec-photo">' + (photo ? '<img src="' + esc(photo) + '" alt="" />' :
+            (galleryHit(p, key) ? '<img src="' + esc(galleryHit(p, key).url) + '" alt="" /><span class="spec-photo__none">' + esc(T("spec.fromGallery", { opt: galleryHit(p, key).label })) + "</span>"
+              : '<span class="spec-photo__none">' + esc(T("spec.noPhoto")) + "</span>")) +
           '<label class="btn btn--outline btn--sm fin-file-btn"><input type="file" accept="image/jpeg,image/png,image/webp" data-spec-photo hidden /><span>' + esc(T(photo ? "spec.changePhoto" : "spec.addPhoto")) + "</span></label>" +
           (photo ? '<button type="button" class="linkbtn danger" data-spec-photo-del>' + esc(T("spec.removePhoto")) + "</button>" : "") + "</div>") + "</div>" +
       commercialHtml(p, key, d) +
@@ -252,6 +254,16 @@
     var b = e.target.closest("[data-smode]");
     if (b) { editingLink = null; setMode(b.getAttribute("data-smode")); }
   });
+
+  // The gallery photo a specification uses (linked to one of its options), with that option's name.
+  function galleryHit(p, key) {
+    var ids = String(key || "").split(",").filter(Boolean);
+    var g = (p.gallery || []).filter(function (x) { return x.optionId && ids.indexOf(x.optionId) > -1; })[0];
+    if (!g) return null;
+    var label = "";
+    attrsOf(p).forEach(function (a) { a.options.forEach(function (o) { if (o.id === g.optionId) label = attrName(a) + ": " + optLabel(o); }); });
+    return { url: g.url, label: label };
+  }
 
   function setSpecStatus(msg, kind) { var el = $("#spec-status"); if (!el) return; el.textContent = msg || ""; el.className = "status" + (kind ? " is-" + kind : ""); }
 

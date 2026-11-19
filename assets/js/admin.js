@@ -451,6 +451,7 @@
     attrState = [];
     refState = {};
     renderAttrs();
+    renderGallery();
     renderList();
   }
 
@@ -662,7 +663,72 @@
     el.textContent = msg || "";
     el.className = "status" + (kind ? " is-" + kind : "");
   }
+  /* ---------- Gallery: more photos, each one optionally linked to an option ---------- */
+  function setGalleryStatus(msg, kind) { var el = $("#gallery-status"); el.textContent = msg || ""; el.className = "status" + (kind ? " is-" + kind : ""); }
+  function renderGallery() {
+    var id = form.elements.id.value;
+    var p = id && products.filter(function (x) { return x.id === id; })[0];
+    $("#gallery-new").hidden = Boolean(p);
+    $("#gallery-add").hidden = !p;
+    if (!p) { $("#gallery-grid").innerHTML = ""; return; }
+    var attrs = (p.attributes || []).filter(function (a) { return a.options.length; });
+    var name = function (o) { return (o && o[current]) || ""; };
+    $("#gallery-grid").innerHTML = (p.gallery || []).map(function (g) {
+      return '<div class="gallery__item"><img src="' + escapeHtml(g.url) + '" alt="" loading="lazy" />' +
+        '<select data-gal-link="' + escapeHtml(g.url) + '" aria-label="' + escapeHtml(T("gal.link")) + '"><option value="">' + escapeHtml(T("gal.noLink")) + "</option>" +
+        attrs.map(function (a) {
+          return '<optgroup label="' + escapeHtml(name(a.name) || a.source) + '">' + a.options.map(function (o) {
+            return '<option value="' + escapeHtml(o.id) + '"' + (o.id === g.optionId ? " selected" : "") + ">" + escapeHtml((name(a.name) || a.source) + ": " + (name(o.label) || o.source)) + "</option>";
+          }).join("") + "</optgroup>";
+        }).join("") + "</select>" +
+        '<button type="button" class="gallery__del" data-gal-del="' + escapeHtml(g.url) + '" aria-label="' + escapeHtml(T("gal.remove")) + '" title="' + escapeHtml(T("gal.remove")) + '">×</button></div>';
+    }).join("");
+  }
+  function galleryCall(body) {
+    var id = form.elements.id.value;
+    return api("/api/products?id=" + encodeURIComponent(id) + "&action=gallery", { method: "POST", body: body }).then(function (d) {
+      products = products.map(function (x) { return x.id === d.product.id ? d.product : x; });
+      renderGallery();
+      document.dispatchEvent(new CustomEvent("admin:data"));
+    });
+  }
+  $("#gallery-file").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    var done = 0;
+    setGalleryStatus(T("gal.sending", { n: 1, total: files.length }));
+    files.reduce(function (chain, file) {
+      return chain.then(function () {
+        setGalleryStatus(T("gal.sending", { n: done + 1, total: files.length }));
+        return resizeImage(file).then(function (data) { return galleryCall({ image: data }); }).then(function () { done++; });
+      });
+    }, Promise.resolve()).then(function () { setGalleryStatus(T("gal.sent", { n: done }), "ok"); },
+      function (err) { setGalleryStatus(err.message, "error"); });
+  });
+  $("#gallery-grid").addEventListener("change", function (e) {
+    var url = e.target.getAttribute("data-gal-link");
+    if (!url) return;
+    setGalleryStatus("…");
+    galleryCall({ url: url, optionId: e.target.value || null }).then(function () { setGalleryStatus(T("gal.linked"), "ok"); }, function (err) { setGalleryStatus(err.message, "error"); });
+  });
+  $("#gallery-grid").addEventListener("click", function (e) {
+    var url = e.target.getAttribute("data-gal-del");
+    if (!url || !confirm(T("gal.removeConfirm"))) return;
+    galleryCall({ remove: url }).then(function () { setGalleryStatus(T("gal.removed"), "ok"); }, function (err) { setGalleryStatus(err.message, "error"); });
+  });
+
+  // Photo of a specification: its own, else the gallery photo of one of its options, else the main photo.
+  function photoFor(p, key) {
+    if (!p) return null;
+    if (p.variantImages && p.variantImages[key]) return p.variantImages[key];
+    var ids = String(key || "").split(",").filter(Boolean);
+    var hit = (p.gallery || []).filter(function (g) { return g.optionId && ids.indexOf(g.optionId) > -1; })[0];
+    return hit ? hit.url : p.image;
+  }
+
   function renderTech() {
+    renderGallery();
     var id = form.elements.id.value;
     var p = id && products.filter(function (x) { return x.id === id; })[0];
     var saved = (p && p.techImages) || [];
@@ -824,6 +890,9 @@
       case "cost": return T("plog.c.cost", { supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
       case "variantCost": return T("plog.c.variantCost", { code: c.code, supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
       case "techAdded": return T("plog.c.techAdded", { n: c.n });
+      case "galleryAdded": return c.to ? T("plog.c.galleryAddedLinked", { to: c.to }) : T("plog.c.galleryAdded");
+      case "galleryRemoved": return T("plog.c.galleryRemoved");
+      case "galleryLink": return T("plog.c.galleryLink", { from: c.from || T("gal.noLink"), to: c.to || T("gal.noLink") });
       case "techRemoved": return T("plog.c.techRemoved", { n: c.n });
       case "specAdded": return T("plog.c.specAdded", { code: c.code });
       case "specRemoved": return T("plog.c.specRemoved", { code: c.code });
@@ -2057,6 +2126,7 @@
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
     squareImage: resizeImage,
+    photoFor: photoFor,
     editProduct: function (id, tab) { var p = products.filter(function (x) { return x.id === id; })[0]; if (p) { showTab("products"); editProduct(p, tab); } },
     openProductId: function () { return form.elements.id.value; },
     showTab: showTab,
