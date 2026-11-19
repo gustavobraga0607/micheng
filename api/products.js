@@ -691,6 +691,24 @@ async function handler(req, res) {
           const m = Number(body.targetMargin);
           if (m >= 0 && m < 1) priv.pricing = { ...(priv.pricing || {}), targetMargin: Math.round(m * 1000) / 1000 };
         }
+        // Target margin per category (blank = the general one)
+        if (body.targets && typeof body.targets === "object") {
+          const targets = {};
+          for (const c of ["building", "sanitary", "fitness", "general"]) {
+            const m = Number(body.targets[c]);
+            if (body.targets[c] != null && body.targets[c] !== "" && m >= 0 && m < 1) targets[c] = Math.round(m * 1000) / 1000;
+          }
+          priv.pricing = { ...(priv.pricing || {}), targets };
+        }
+        // Exchange rates used to show prices in the client's currency (RMB per unit)
+        if (body.rates && typeof body.rates === "object") {
+          const rates = { ...((priv.pricing || {}).rates || {}) };
+          for (const cur of ["USD", "EUR", "BRL"]) {
+            const r = Number(body.rates[cur]);
+            if (body.rates[cur] != null && r > 0 && r < 1000) rates[cur] = Math.round(r * 10000) / 10000;
+          }
+          priv.pricing = { ...(priv.pricing || {}), rates };
+        }
         await savePrivate(priv);
         const entries = [];
         for (const [id, b] of before) {

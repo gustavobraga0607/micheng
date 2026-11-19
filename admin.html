@@ -327,10 +327,18 @@
           </div>
           <div class="pr-head__tools">
             <button type="button" class="btn btn--primary pr-link-open" id="prlink-open" data-t="prl.open">+ Incluir produtos a fornecedor</button>
-            <label><span data-t="pr.client">Último preço do cliente</span><select id="pr-client"></select></label>
-            <label><span data-t="pr.target">Margem-alvo (%)</span><input type="text" inputmode="decimal" id="pr-target" value="30" autocomplete="off" /></label>
+            <label><span data-t="pr.viewAs">Ver como cliente</span><select id="pr-client"></select></label>
+            <details class="pr-targets" id="pr-targets">
+              <summary><span data-t="pr.targets">Margens-alvo</span> <small id="pr-targets-sum"></small></summary>
+              <div class="pr-targets__box">
+                <label><span data-t="pr.targetAll">Geral (%)</span><input type="text" inputmode="decimal" id="pr-target" value="30" autocomplete="off" /></label>
+                <p class="hint" data-t="pr.targetsHint">Por categoria (em branco = a geral):</p>
+                <div class="pr-targets__cats" id="pr-targets-cats"></div>
+              </div>
+            </details>
           </div>
         </div>
+        <div class="pr-cinfo" id="pr-cinfo" hidden></div>
         <div class="pr-filters">
           <div class="pr-quick" id="pr-quick" role="group">
             <button type="button" class="pr-chip is-active" data-quick=""><b data-t="pr.qAll">Todos</b> <span>0</span></button>
@@ -365,7 +373,7 @@
             <span class="pr-c pr-c--check"><input type="checkbox" id="pr-allsel" data-t-title="pr.selectAll" aria-label="Selecionar todos" /></span>
             <span class="pr-c pr-c--img" data-t="pr.photo">Foto</span>
             <span class="pr-c pr-c--code" data-t="pr.code">Código</span>
-            <span class="pr-c pr-c--name" data-t="pr.product">Produto</span>
+            <span class="pr-c pr-c--name" data-t="pr.variation">Variação</span>
             <span class="pr-c pr-c--sup" data-t="pr.mainSupplier">Fornecedor principal</span>
             <span class="pr-c pr-c--num" data-t="pr.cost">Custo</span>
             <span class="pr-c pr-c--num" data-t="pr.price">Preço de venda</span>
