@@ -379,8 +379,10 @@ function diffProduct(before, after, priv) {
   // Specifications: created, archived / reactivated, details changed
   const vb0 = before.variantSkus || {}, va0 = after.variantSkus || {};
   for (const k of Object.keys(va0)) if (!Object.hasOwn(vb0, k)) out.push({ t: "specAdded", code: variantCode(after, k) });
+  for (const k of Object.keys(vb0)) if (!Object.hasOwn(va0, k)) out.push({ t: "specRemoved", code: variantCode(before, k) });
   const sb = before.specs || {}, sa = after.specs || {};
   for (const k of new Set([...Object.keys(sb), ...Object.keys(sa)])) {
+    if (!Object.hasOwn(va0, k)) continue; // deleted (logged above)
     const x = sb[k] || {}, y = sa[k] || {};
     if (Boolean(x.archived) !== Boolean(y.archived)) out.push({ t: y.archived ? "specArchived" : "specRestored", code: variantCode(after, k) });
     for (const f of Object.keys(SPEC_FIELDS)) if ((x[f] || "") !== (y[f] || "")) out.push({ t: "specField", code: variantCode(after, k), field: f, from: short(x[f]), to: short(y[f]) });
@@ -509,6 +511,24 @@ async function handler(req, res) {
         const product = products.find((p) => p.id === id);
         if (!product) return { status: 404, error: "Product not found" };
         const before = logView(priv, product);
+        // Deleting for good: only an archived specification no proforma uses.
+        if (body.remove === true) {
+          const key = String(body.key == null ? "" : body.key);
+          if (!Object.hasOwn(product.variantSkus || {}, key)) return { status: 404, error: "Specification not found" };
+          if (!((product.specs || {})[key] || {}).archived) return { status: 409, error: "Archive first" };
+          const usedIn = priv.proformas.find((pf) => pf.items.some((i) => i.productId === product.id && comboKey(i.options.map((o) => o.optionId)) === key));
+          if (usedIn) return { status: 409, error: "Specification in use", number: usedIn.number };
+          const image = (product.variantImages || {})[key];
+          for (const obj of [product.variantSkus, product.variantImages, product.specs]) if (obj) delete obj[key];
+          for (const l of productLinks(priv, product.id)) if (l.variantCosts) delete l.variantCosts[key];
+          if (priv.productPrices[product.id]) delete priv.productPrices[product.id][key];
+          for (const m of Object.values(priv.clientRefs[product.id] || {})) delete m[key];
+          for (const m of Object.values((priv.clientSpecInfo || {})[product.id] || {})) delete m[key];
+          for (const prices of Object.values(priv.clientPrices || {}).concat(Object.values(priv.clientDeclared || {}))) delete prices[product.id + "|" + key];
+          product.updatedAt = new Date().toISOString();
+          await saveProductsAndPrivate(products, priv); // variantSeq is kept: a deleted code is never reused
+          return { key: null, image, product, priv, entry: logEntry(session, "updated", product, diffProduct(before, logView(priv, product), priv)) };
+        }
         const attrs = (product.attributes || []).filter((a) => a.options.length);
         if (!attrs.length) return { status: 400, error: "Product without characteristics" };
         const oldKey = body.key != null ? String(body.key) : null;
@@ -544,8 +564,9 @@ async function handler(req, res) {
         await saveProductsAndPrivate(products, priv);
         return { key, product, priv, entry: logEntry(session, "updated", product, diffProduct(before, logView(priv, product), priv)) };
       });
-      if (result.error) return send(res, result.status, { error: result.error, missing: result.missing, fields: result.fields, code: result.code });
+      if (result.error) return send(res, result.status, { error: result.error, missing: result.missing, fields: result.fields, code: result.code, number: result.number });
       await writeLog([result.entry]);
+      if (result.image) await deleteImage(result.image).catch(() => {});
       return send(res, 200, { key: result.key, product: adminView(result.priv, result.product) });
     }
 

@@ -135,7 +135,8 @@
         (isNew ? "" : "<small>" + esc(summary(p, key)) + "</small>") + "</div>" +
         '<div class="spec-edit__actions">' + (isNew ? "" :
           '<button type="button" class="btn btn--outline btn--sm" data-spec-copy>' + esc(T("spec.duplicate")) + "</button>" +
-          '<button type="button" class="btn btn--outline btn--sm" data-spec-archive>' + esc(T(arch ? "spec.restore" : "spec.archive")) + "</button>") + "</div></div>" +
+          '<button type="button" class="btn btn--outline btn--sm" data-spec-archive>' + esc(T(arch ? "spec.restore" : "spec.archive")) + "</button>" +
+          (arch ? '<button type="button" class="btn btn--outline btn--sm btn--danger-outline" data-spec-delete>' + esc(T("spec.delete")) + "</button>" : "")) + "</div></div>" +
       (arch ? '<p class="spec-banner spec-banner--arch">' + esc(T("spec.archivedNote")) + "</p>" : "") +
       (!isNew && miss.length && !arch ? '<p class="spec-banner">' + esc(T("spec.missing", { fields: miss.join(", ") })) + "</p>" : "") +
       '<div class="spec-block"><b>' + esc(T("spec.attrs")) + '</b><div class="spec-grid">' +
@@ -303,6 +304,14 @@
       var arch = (p.specs || {})[current] && p.specs[current].archived;
       if (!arch && !confirm(T("spec.archiveConfirm"))) return;
       return saveSpec({ archived: !arch });
+    }
+    if (e.target.closest("[data-spec-delete]")) {
+      var code = codeOf(p, current);
+      if (!confirm(T("spec.deleteConfirm", { code: code }))) return;
+      setSpecStatus("…");
+      return A.api("/api/products?id=" + encodeURIComponent(p.id) + "&action=spec", { method: "POST", body: { key: current, remove: true } })
+        .then(function (d) { A.replaceProducts([d.product]); current = null; draft = null; render(); var box = $("#spec-edit"); if (box) box.insertAdjacentHTML("afterbegin", '<p class="status is-ok">' + esc(T("spec.deleted", { code: code })) + "</p>"); },
+          function (err) { var data = err.data || {}; setSpecStatus(data.error === "Specification in use" ? T("spec.inUse", { number: data.number }) : err.message, "error"); });
     }
     if (e.target.closest("[data-spec-photo-del]")) {
       if (!confirm(T("form.variantPhotoRemove") + "?")) return;

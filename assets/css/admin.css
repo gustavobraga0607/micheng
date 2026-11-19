@@ -1051,3 +1051,5 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .spec-li .spec-tag { margin-top: 1px; }
 .admin .spec-list__tools input { min-width: 0; }
 .spec-list__tools .btn { flex: none; }
+.btn--danger-outline { color: #b42318 !important; border-color: #f0b4ad !important; }
+.btn--danger-outline:hover { background: #fdecea !important; }

@@ -827,6 +827,7 @@
       case "techAdded": return T("plog.c.techAdded", { n: c.n });
       case "techRemoved": return T("plog.c.techRemoved", { n: c.n });
       case "specAdded": return T("plog.c.specAdded", { code: c.code });
+      case "specRemoved": return T("plog.c.specRemoved", { code: c.code });
       case "specArchived": return T("plog.c.specArchived", { code: c.code });
       case "specRestored": return T("plog.c.specRestored", { code: c.code });
       case "specField": return T("plog.c.specField", { code: c.code, field: T("spec.f." + c.field), from: quoted(c.from), to: quoted(c.to) });

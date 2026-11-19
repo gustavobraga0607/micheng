@@ -1,6 +1,11 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "spec.delete": "Excluir",
+    "spec.deleteConfirm": "Excluir {code} definitivamente? Somem também o custo, o preço de tabela, a foto e os códigos de clientes desta especificação. O código {code} não será reutilizado.",
+    "spec.deleted": "{code} excluída.",
+    "spec.inUse": "Não dá para excluir: esta especificação está na proforma {number}.",
+    "plog.c.specRemoved": "Especificação excluída: {code}",
     "spec.createNowSingle": "Produto salvo. Agora informe os fornecedores e custos dele.",
     "spec.attrsSave": "Salvar características",
     "spec.attrsSaveHint": "Depois de salvar, crie as especificações com as opções novas.",
@@ -913,6 +918,11 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "spec.delete": "Delete",
+    "spec.deleteConfirm": "Delete {code} for good? Its cost, list price, photo and client codes go too. The code {code} will not be reused.",
+    "spec.deleted": "{code} deleted.",
+    "spec.inUse": "Cannot delete: this specification is on proforma {number}.",
+    "plog.c.specRemoved": "Specification deleted: {code}",
     "spec.createNowSingle": "Product saved. Now enter its suppliers and costs.",
     "spec.attrsSave": "Save characteristics",
     "spec.attrsSaveHint": "After saving, create the specifications with the new options.",
@@ -1825,6 +1835,11 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "spec.delete": "Eliminar",
+    "spec.deleteConfirm": "¿Eliminar {code} definitivamente? También se borran su costo, precio de lista, foto y códigos de clientes. El código {code} no se reutilizará.",
+    "spec.deleted": "{code} eliminada.",
+    "spec.inUse": "No se puede eliminar: esta especificación está en la proforma {number}.",
+    "plog.c.specRemoved": "Especificación eliminada: {code}",
     "spec.createNowSingle": "Producto guardado. Ahora indique sus proveedores y costos.",
     "spec.attrsSave": "Guardar características",
     "spec.attrsSaveHint": "Después de guardar, cree las especificaciones con las opciones nuevas.",
@@ -2737,6 +2752,11 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "spec.delete": "删除",
+    "spec.deleteConfirm": "永久删除 {code}？其成本、目录价、图片和客户编号也将删除。编号 {code} 不会再使用。",
+    "spec.deleted": "{code} 已删除。",
+    "spec.inUse": "无法删除：此规格在形式发票 {number} 中。",
+    "plog.c.specRemoved": "删除规格：{code}",
     "spec.createNowSingle": "产品已保存。现在填写它的供应商和成本。",
     "spec.attrsSave": "保存特征",
     "spec.attrsSaveHint": "保存后，用新选项创建规格。",
