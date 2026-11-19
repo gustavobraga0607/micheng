@@ -300,7 +300,8 @@ function sendPublic(res, products) {
   // Technical drawings are internal: not in the public list.
   // The site shows name, photo and description only: specifications and their
   // characteristics, codes and photos stay in the panel.
-  products = products.map(({ techImages, specs, variantSkus, variantSeq, variantImages, attributes, ...rest }) => rest);
+  // The site shows the characteristics with their options (no specifications, codes or costs).
+  products = products.map(({ techImages, specs, variantSkus, variantSeq, variantImages, ...rest }) => rest);
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=86400");
