@@ -1295,10 +1295,29 @@
     var needed = product ? (product.attributes || []).length : Object.keys(row.options).length;
     var chosen = Object.keys(row.options).filter(function (k) { return row.options[k]; }).length;
     if (chosen < needed) return T("pf.problem.options", { n: i + 1 });
+    if (product && needed) {
+      var key = rowKey(row, product);
+      if (!Object.prototype.hasOwnProperty.call(product.variantSkus || {}, key) || ((product.specs || {})[key] || {}).archived) return T("pf.problem.notSpec", { n: i + 1 });
+    }
     if (!(row.qty > 0)) return T("pf.problem.qty", { n: i + 1 });
     if (row.price == null) return T("pf.problem.price", { n: i + 1 });
     if (i in dups) return T("pf.problem.duplicate", { n: i + 1, of: dups[i] + 1 });
     return "";
+  }
+
+  // The specification key of a row: its chosen options that still exist on the product.
+  function rowKey(row, product) {
+    var current = {};
+    (product.attributes || []).forEach(function (a) { a.options.forEach(function (o) { current[o.id] = true; }); });
+    return Object.keys(row.options).map(function (k) { return row.options[k]; })
+      .filter(function (id) { return id && current[id]; }).sort().join(",");
+  }
+  // What the selected client asked for this specification (name it uses, requirements).
+  function clientSpec(row, product) {
+    var cid = form.elements.clientId.value;
+    var m = product && product.clientSpecs && product.clientSpecs[cid];
+    if (!m) return null;
+    return m[rowKey(row, product)] || m[""] || null;
   }
 
   function optionSummary(row, product) {
@@ -1324,6 +1343,7 @@
       '<div class="pf-row__info"><b>' + (skuOf(row) ? '<span class="sku">' + esc(skuOf(row)) + "</span> " : "") + esc(name) + "</b>" +
         (opts.length ? "<small>" + esc(opts.join(" · ")) + "</small>" : "") +
         (row.clientRef ? '<small class="pf-row__ref">' + esc(T("pf.clientRef")) + ": <b>" + esc(row.clientRef) + "</b></small>" : "") +
+        (function () { var cs = clientSpec(row, product); return cs && cs.requirements ? '<small class="pf-row__req internal">' + esc(T("cs.req", { text: cs.requirements })) + "</small>" : ""; })() +
         '<small class="internal">' + esc(T("pf.supplier")) + ": " + esc(supplier ? supplier.company : "—") +
           (row.cost != null ? " · " + esc(T("pf.cost")) + " " + esc(A.money(row.cost, cur)) : "") + "</small>" +
       "</div>" +
@@ -1355,6 +1375,7 @@
       (p.attributes || []).forEach(function (a) { a.options.forEach(function (o) { attrOf[o.id] = a.id; labelOf[o.id] = o; }); });
       Object.keys(p.variantSkus || {}).forEach(function (key) {
         var ids = key.split(",").filter(Boolean);
+        if (p.specs && p.specs[key] && p.specs[key].archived) return;
         if (!ids.length || ids.some(function (id) { return !attrOf[id]; })) return;
         var opts = {};
         ids.forEach(function (id) { opts[attrOf[id]] = id; });
@@ -1367,7 +1388,12 @@
   function entryLabel(e) {
     var row = { productId: e.productId, options: e.options };
     var opts = optionSummary(row, e.product);
-    return { sku: skuOf(row), name: pname(e.product), sub: opts.join(" · "), image: rowImage(row, e.product) };
+    var cid = form.elements.clientId.value, key = Object.keys(e.options).map(function (k) { return e.options[k]; }).sort().join(",");
+    var ref = cid && e.product.clientRefs && e.product.clientRefs[cid] ? e.product.clientRefs[cid][key] || "" : "";
+    var cs = cid && e.product.clientSpecs && e.product.clientSpecs[cid] ? e.product.clientSpecs[cid][key] : null;
+    var sub = opts.join(" · ");
+    if (ref || (cs && cs.name)) sub = [ref ? T("pf.clientRef") + " " + ref : "", cs && cs.name ? cs.name : ""].filter(Boolean).join(" · ") + (sub ? " — " + sub : "");
+    return { sku: skuOf(row), name: pname(e.product), sub: sub, image: rowImage(row, e.product) };
   }
   function searchProducts(q) {
     var list = buildIndex();
@@ -1391,7 +1417,7 @@
   function clientProducts() {
     var list = buildIndex();
     var seen = {};
-    return Object.keys(clientPrices).map(function (key) {
+    var bought = Object.keys(clientPrices).map(function (key) {
       var parts = key.split("|");
       var product = productById(parts[0]);
       if (!product) return null;
@@ -1404,8 +1430,19 @@
       if (!entry || seen[key]) return null;
       seen[key] = true;
       return { e: entry, memo: clientPrices[key] };
-    }).filter(Boolean).sort(function (a, b) { return String(b.memo.at || "").localeCompare(String(a.memo.at || "")); })
-      .slice(0, 30).map(function (x) { return Object.assign({ memo: x.memo }, x.e); });
+    }).filter(Boolean).sort(function (a, b) { return String(b.memo.at || "").localeCompare(String(a.memo.at || "")); });
+    // Then the specifications linked to the client (its code, its name for the item) not bought yet.
+    var cid = form.elements.clientId.value;
+    var linked = [];
+    if (cid) list.forEach(function (e) {
+      var p = e.product;
+      if (e.variant === undefined && (p.attributes || []).some(function (a) { return a.options.length; })) return;
+      var key = Object.keys(e.options).map(function (k) { return e.options[k]; }).sort().join(",");
+      var has = (p.clientRefs && p.clientRefs[cid] && Object.prototype.hasOwnProperty.call(p.clientRefs[cid], key)) ||
+        (p.clientSpecs && p.clientSpecs[cid] && p.clientSpecs[cid][key]);
+      if (has && !seen[p.id + "|" + key]) { seen[p.id + "|" + key] = true; linked.push({ e: e }); }
+    });
+    return bought.concat(linked).slice(0, 40).map(function (x) { return Object.assign({ memo: x.memo }, x.e); });
   }
 
   var search = null; // { input, list, results, active }
@@ -1415,7 +1452,7 @@
     var results = searchProducts(q);
     search = { input: input, list: list, results: results, active: results.length ? 0 : -1 };
     var cur = currency();
-    var head = !q.trim() ? '<li class="pf-search__head">' + esc(T(results.length ? "pf.searchClient" : (form.elements.clientId.value ? "pf.searchTypeNew" : "pf.searchType"))) + "</li>" : "";
+    var head = !q.trim() ? '<li class="pf-search__head">' + esc(T(results.length ? "pf.searchClientProducts" : (form.elements.clientId.value ? "pf.searchTypeNew" : "pf.searchType"))) + "</li>" : "";
     list.innerHTML = head + (results.length ? results.map(function (e, k) {
       var l = entryLabel(e);
       var memo = e.memo && e.memo.currency === cur ? '<em>' + esc(A.money(e.memo.price, e.memo.currency)) + "</em>" : "";

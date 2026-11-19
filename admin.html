@@ -70,7 +70,16 @@
 
     <main class="dash" id="products-view">
       <section class="panel" id="form-panel">
+        <button type="button" class="linkbtn ptabs__back" id="pback" hidden>← <span data-t="ptab.back">Voltar à lista de produtos</span></button>
         <h2 id="form-title" data-t="form.new">Novo produto</h2>
+        <nav class="otabs ptabs" id="ptabs" role="tablist" hidden>
+          <button type="button" class="otab is-active" role="tab" data-ptab="general"><span data-t="ptab.general">Geral (site)</span></button>
+          <button type="button" class="otab" role="tab" data-ptab="specs"><span data-t="ptab.specs">Especificações</span> <span class="count" id="ptab-specs-count">0</span></button>
+          <button type="button" class="otab" role="tab" data-ptab="clients"><span data-t="ptab.clients">Clientes</span> <span class="count" id="ptab-clients-count">0</span></button>
+          <button type="button" class="otab" role="tab" data-ptab="history"><span data-t="ptab.history">Histórico</span></button>
+        </nav>
+        <div class="ppane" id="specs-pane" hidden></div>
+        <div class="ppane" id="pclients-pane" hidden></div>
         <form id="product-form" novalidate>
           <input type="hidden" name="id" />
           <label><span data-t="form.name">Nome do produto *</span>
@@ -863,6 +872,11 @@
             </label>
           </fieldset>
           <fieldset class="group">
+            <legend data-t="set.checklist">Checklist das especificações por categoria</legend>
+            <p class="hint" data-t="set.checklistHint"></p>
+            <div class="set-check" id="set-checklist"></div>
+          </fieldset>
+          <fieldset class="group">
             <legend data-t="set.company">Empresa</legend>
             <div class="form-row">
               <label><span data-t="set.companyName">Nome</span><input type="text" name="companyName" maxlength="160" placeholder="Shenzhen Micheng International Trading Co., Ltd." /></label>
@@ -935,5 +949,6 @@
   <script src="assets/js/admin-finance.js?v=dev"></script>
   <script src="assets/js/admin-pricing.js?v=dev"></script>
   <script src="assets/js/admin-crm.js?v=dev"></script>
+  <script src="assets/js/admin-specs.js?v=dev"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ function combos(product) {
   return list.filter((c) => c.length).map(comboKey);
 }
 
-// Gives missing SKUs (oldest products first) and variant suffixes.
+// Gives missing SKUs (oldest products first).
 // Returns true when something changed and the products must be saved.
 export function assignSkus(products, priv) {
   let changed = false;
@@ -31,15 +31,11 @@ export function assignSkus(products, priv) {
   const byAge = products.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
   for (const p of byAge) {
     if (!p.sku) { p.sku = ++seq; changed = true; }
-    const keys = combos(p);
+    // Variants (specifications) are no longer every combination of the options:
+    // only those created on the Especificações tab exist (see addSpec). Their
+    // codes never change and are never reused.
     const variants = p.variantSkus || {};
-    let vseq = Math.max(Number(p.variantSeq) || 0, 0, ...Object.values(variants));
-    for (const k of Object.keys(variants)) {
-      if (!keys.includes(k)) { delete variants[k]; changed = true; } // combination no longer exists
-    }
-    for (const k of keys) {
-      if (!Object.hasOwn(variants, k)) { variants[k] = ++vseq; changed = true; }
-    }
+    const vseq = Math.max(Number(p.variantSeq) || 0, 0, ...Object.values(variants));
     if (!p.variantSkus || p.variantSeq !== vseq) changed = true;
     p.variantSkus = variants;
     p.variantSeq = vseq;
@@ -64,3 +60,13 @@ export function variantImage(product, optionIds) {
   const key = comboKey((optionIds || []).filter((id) => current.has(id)));
   return (product.variantImages && product.variantImages[key]) || product.image;
 }
+
+// A new specification of a product: its code suffix (next number, never reused).
+export function addSpec(product, key) {
+  const variants = product.variantSkus || (product.variantSkus = {});
+  if (Object.hasOwn(variants, key)) return variants[key];
+  product.variantSeq = Math.max(Number(product.variantSeq) || 0, ...Object.values(variants), 0) + 1;
+  variants[key] = product.variantSeq;
+  return variants[key];
+}
+export { combos };

@@ -420,6 +420,7 @@
   }
 
   function resetForm() {
+    if ($("#products-view").classList.contains("is-product-open")) setProductPage(false);
     duplicateOf = null;
     pendingTech = [];
     setTechStatus("");
@@ -442,7 +443,35 @@
     renderList();
   }
 
-  function editProduct(p) {
+  /* ----- Product page: tabs Geral | Especificações | Clientes | Histórico ----- */
+  function setProductPage(on) {
+    $("#products-view").classList.toggle("is-product-open", on);
+    $("#ptabs").hidden = !on;
+    $("#pback").hidden = !on;
+    if (!on) showPtab("general");
+  }
+  var currentPtab = "general";
+  function showPtab(name) {
+    currentPtab = name;
+    document.querySelectorAll("#ptabs [data-ptab]").forEach(function (b) {
+      var active = b.getAttribute("data-ptab") === name;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    form.hidden = name !== "general";
+    $("#specs-pane").hidden = name !== "specs";
+    $("#pclients-pane").hidden = name !== "clients";
+    var own = $("#plog-own");
+    if (name === "history") { own.hidden = false; own.open = true; } else own.hidden = true;
+    document.dispatchEvent(new CustomEvent("admin:ptab", { detail: { tab: name, productId: form.elements.id.value } }));
+  }
+  $("#ptabs").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-ptab]");
+    if (b) showPtab(b.getAttribute("data-ptab"));
+  });
+  $("#pback").addEventListener("click", function () { resetForm(); });
+
+  function editProduct(p, tab) {
     resetForm();
     form.elements.id.value = p.id;
     form.elements.name.value = p.source.name;
@@ -474,6 +503,9 @@
     renderList();
     loadOwnLog(p.id);
     renderTech();
+    setProductPage(true);
+    document.dispatchEvent(new CustomEvent("admin:product-open", { detail: p.id }));
+    showPtab(tab || "general");
     document.getElementById("form-panel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -536,7 +568,6 @@
       name: name,
       category: category,
       description: form.elements.description.value,
-      clientRefs: refState,
       supplierLinks: Array.from(selectedSuppliers, function (entry) {
         return { supplierId: entry[0], cost: entry[1].cost, variantCosts: entry[1].variants };
       }),
@@ -566,8 +597,15 @@
         if (id) products = products.map(function (x) { return x.id === id ? p : x; });
         else products.unshift(p);
         var queuedTech = !id ? pendingTech.slice() : [];
+        var stillOpen = id && form.elements.id.value === id ? currentPtab : null;
         resetForm();
         if (queuedTech.length) uploadTech(p.id, queuedTech, true);
+        if (!id && (p.attributes || []).some(function (a) { return a.options.length; })) {
+          // A new product with characteristics: next step, its specifications.
+          editProduct(p, "specs");
+          setStatus(T("spec.createNow"), "ok");
+          return;
+        }
         loadSuppliers(); // linked-product lists changed
         if (newVariants) {
           // The variants only now have codes: reopen so their prices and photos can be entered.
@@ -577,6 +615,7 @@
           setStatus(T("status.variantsCreated", { n: newVariants }), "ok");
           return;
         }
+        if (stillOpen) editProduct(p, stillOpen); // stays on the product page, on the tab in use
         setStatus(p.translationOk === false
           ? T("status.savedNoTr")
           : T("status.saved", { lang: langName(p.source.lang) }), p.translationOk === false ? "error" : "ok");
@@ -756,6 +795,11 @@
       case "variantCost": return T("plog.c.variantCost", { code: c.code, supplier: c.supplier, from: logMoney(c.from), to: logMoney(c.to) });
       case "techAdded": return T("plog.c.techAdded", { n: c.n });
       case "techRemoved": return T("plog.c.techRemoved", { n: c.n });
+      case "specAdded": return T("plog.c.specAdded", { code: c.code });
+      case "specArchived": return T("plog.c.specArchived", { code: c.code });
+      case "specRestored": return T("plog.c.specRestored", { code: c.code });
+      case "specField": return T("plog.c.specField", { code: c.code, field: T("spec.f." + c.field), from: quoted(c.from), to: quoted(c.to) });
+      case "clientSpec": return T("plog.c.clientSpec", { client: c.client, code: c.code, field: T("cs." + (c.field === "sampleDate" ? "sampleDate" : c.field === "sample" ? "sample" : c.field === "name" ? "name" : "requirements")), from: quoted(c.from), to: quoted(c.to) });
       case "price": return T("plog.c.price", { code: c.code, from: logMoney(c.from), to: logMoney(c.to) });
       case "clientRef": return T("plog.c.clientRef", { client: c.client + (c.code ? " · " + c.code : ""), from: quoted(c.from), to: quoted(c.to) });
       default: return c.t;
@@ -775,7 +819,7 @@
     api("/api/products?log=1&id=" + encodeURIComponent(id)).then(function (d) {
       if (form.elements.id.value !== id) return; // another product opened meanwhile
       var list = d.log || [];
-      $("#plog-own").hidden = !list.length;
+      $("#plog-own").hidden = !list.length || !document.querySelector('#ptabs [data-ptab="history"].is-active');
       $("#plog-own-list").innerHTML = list.map(function (e) { return logItemHtml(e, false); }).join("");
     }).catch(function () {});
   }
@@ -869,9 +913,12 @@
 
   /* ---------- SKU codes ---------- */
   // Variant codes of a product ("1001-1"), each with its option labels, in suffix order.
-  function variantCodes(p) {
+  // Specifications of a product (archived ones only when asked).
+  function variantCodes(p, withArchived) {
     var map = p.variantSkus || {};
-    return Object.keys(map).sort(function (a, b) { return map[a] - map[b]; }).map(function (key) {
+    var specs = p.specs || {};
+    return Object.keys(map).filter(function (key) { return withArchived || !(specs[key] && specs[key].archived); })
+      .sort(function (a, b) { return map[a] - map[b]; }).map(function (key) {
       var ids = key.split(",");
       // "Name: value" in the order of the characteristics (e.g. "Ângulo: 75° · Rosca: 3/4"").
       var label = (p.attributes || []).map(function (a) {
@@ -1818,6 +1865,7 @@
     renderList();
     settingsUpdatedAt = settings && settings.updatedAt;
     companySettings = settings || {};
+    if (!dirty) renderChecklist(companySettings.checklist);
     renderStamp();
     renderQr();
     renderSettingsUpdated();
@@ -1917,6 +1965,29 @@
       .catch(function (err) { setStampStatus(err.message, "error"); });
   });
 
+  var CHECK_CATS = ["sanitary", "building", "fitness", "general"];
+  var CHECK_FIELDS = ["details", "weight", "measures", "packaging", "perBox", "photo"];
+  function renderChecklist(c) {
+    var box = $("#set-checklist");
+    if (!box) return;
+    box.innerHTML = '<table><thead><tr><th></th>' + CHECK_FIELDS.map(function (f) { return "<th>" + escapeHtml(T("spec.f." + f)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+      CHECK_CATS.map(function (cat) {
+        var on = c && Array.isArray(c[cat]) ? c[cat] : ["details", "packaging"];
+        return "<tr><th>" + escapeHtml(T("cat." + cat)) + "</th>" + CHECK_FIELDS.map(function (f) {
+          return '<td><input type="checkbox" data-cat="' + cat + '" data-field="' + f + '"' + (on.indexOf(f) > -1 ? " checked" : "") +
+            ' aria-label="' + escapeHtml(T("cat." + cat) + " · " + T("spec.f." + f)) + '" /></td>';
+        }).join("") + "</tr>";
+      }).join("") + "</tbody></table>";
+  }
+  function readChecklist() {
+    var out = {};
+    CHECK_CATS.forEach(function (cat) { out[cat] = []; });
+    Array.prototype.forEach.call(document.querySelectorAll("#set-checklist input:checked"), function (el) { out[el.getAttribute("data-cat")].push(el.getAttribute("data-field")); });
+    return out;
+  }
+  document.addEventListener("admin:lang", function () { if (companySettings) renderChecklist(readChecklistOr()); });
+  function readChecklistOr() { return document.querySelector("#set-checklist input") ? readChecklist() : companySettings.checklist; }
+
   function loadSettings() {
     api("/api/settings").then(function (data) { fillSettings(data.settings); })
       .catch(function (e) { setSettingsStatus(e.message, "error"); });
@@ -1926,6 +1997,7 @@
     e.preventDefault();
     var body = {};
     SET_FIELDS.forEach(function (f) { body[f] = setForm.elements[f].value; });
+    if (document.querySelector("#set-checklist input")) body.checklist = readChecklist();
     var btn = $("#settings-save");
     btn.disabled = true;
     api("/api/settings", { method: "PUT", body: body })
@@ -1953,6 +2025,9 @@
     stampDataUrl: stampDataUrl,
     defaultCurrency: function () { return defaultCurrency; },
     variantCodes: variantCodes,
+    squareImage: resizeImage,
+    editProduct: function (id, tab) { var p = products.filter(function (x) { return x.id === id; })[0]; if (p) { showTab("products"); editProduct(p, tab); } },
+    openProductId: function () { return form.elements.id.value; },
     showTab: showTab,
     editClient: editClient,
     productName: function (p) { return (p.name && (p.name[current] || p.name.en || p.name.pt)) || (p.source && p.source.name) || ""; },

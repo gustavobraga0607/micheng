@@ -89,6 +89,16 @@
         r.registered = true;
       });
     });
+    // What the client asked for each specification (its name for it, requirements, sample)
+    A.products().forEach(function (p) {
+      var m = p.clientSpecs && p.clientSpecs[id];
+      if (!m) return;
+      Object.keys(m).forEach(function (key) {
+        var r = row(p.id, key, null);
+        r.registered = true;
+        r.spec = m[key];
+      });
+    });
     var list = Object.keys(rows).map(function (k) { return rows[k]; });
     list.forEach(function (r) {
       var same = r.prices.filter(function (x) { return r.last && x.currency === r.last.currency; }).map(function (x) { return x.price; });
@@ -164,7 +174,7 @@
       if (filter === "bought" && !r.bought) return false;
       if (filter === "quoted" && !r.quoted) return false;
       if (filter === "registered" && !(r.registered && !r.bought)) return false;
-      return !q || (r.code + " " + r.name + " " + r.label + " " + r.ref).toLowerCase().indexOf(q) > -1;
+      return !q || (r.code + " " + r.name + " " + r.label + " " + r.ref + " " + (r.spec ? r.spec.name + " " + r.spec.requirements : "")).toLowerCase().indexOf(q) > -1;
     });
     document.querySelectorAll(".crm-chip").forEach(function (b) {
       var k = b.getAttribute("data-crmf");
@@ -177,7 +187,10 @@
       var trend = r.min != null && r.max != null && r.max !== r.min ? A.money(r.min, r.last.currency) + " – " + A.money(r.max, r.last.currency) : "";
       var html = '<div class="crm-row" data-k="' + esc(r.k) + '">' +
         '<span class="crm-c crm-c--img">' + (r.image ? '<img src="' + esc(r.image) + '" alt="" loading="lazy" />' : "") + "</span>" +
-        '<span class="crm-c crm-c--prod"><b><span class="sku">' + esc(r.code) + "</span> " + esc(r.name) + "</b>" + (r.label ? "<small>" + esc(r.label) + "</small>" : "") + "</span>" +
+        '<span class="crm-c crm-c--prod"><b><span class="sku">' + esc(r.code) + "</span> " + esc(r.name) + "</b>" + (r.label ? "<small>" + esc(r.label) + "</small>" : "") +
+          (r.spec && r.spec.name ? '<small class="crm-cname">' + esc(r.spec.name) + "</small>" : "") +
+          (r.spec && r.spec.requirements ? '<small class="crm-req">' + esc(T("cs.req", { text: r.spec.requirements })) + "</small>" : "") +
+          (r.spec && r.spec.sample ? ' <em class="spec-tag ' + (r.spec.sample === "approved" ? "spec-tag--ok" : r.spec.sample === "rejected" ? "spec-tag--arch" : "spec-tag--miss") + '">' + esc(T("cs.sample") + " " + T("cs.sample." + r.spec.sample)) + "</em>" : "") + "</span>" +
         '<span class="crm-c">' + (r.ref ? '<span class="crm-ref">' + esc(r.ref) + "</span>" : "—") + "</span>" +
         '<span class="crm-c crm-c--num">' + (r.bought ? "<b>" + esc(qtyText(r.bought)) + "</b><small>" + esc(T("crm.inOrders", { n: r.orders })) + "</small>" : "—") + "</span>" +
         '<span class="crm-c crm-c--num">' + (r.last ? "<b>" + esc(A.money(r.last.price, r.last.currency)) + "</b><small>" + esc(fmtDate(r.last.date) + " · " + r.last.number) + "</small>" : "—") + "</span>" +

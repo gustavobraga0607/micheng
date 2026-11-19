@@ -3,7 +3,7 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError, appendProductLog, readProductLog, savePrivate } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
-import { assignSkus } from "./_lib/sku.js";
+import { assignSkus, addSpec, comboKey } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -244,12 +244,12 @@ function applySupplierLinks(priv, productId, body, product) {
   return links;
 }
 
-function withLinks(product, links, refs, prices) {
-  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId), clientRefs: refs || {}, listPrices: prices || {} };
+function withLinks(product, links, refs, prices, clientSpecs) {
+  return { ...product, supplierLinks: links, supplierIds: links.map((l) => l.supplierId), clientRefs: refs || {}, listPrices: prices || {}, clientSpecs: clientSpecs || {} };
 }
 
 function adminView(priv, product) {
-  return withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id], priv.productPrices[product.id]);
+  return withLinks(product, productLinks(priv, product.id), priv.clientRefs[product.id], priv.productPrices[product.id], (priv.clientSpecInfo || {})[product.id]);
 }
 
 // Client references (the client's own code for this product), one per variant
@@ -288,7 +288,7 @@ function prepareSkus(products, priv) {
     if (!byClient) continue;
     const hasVariants = Object.keys(p.variantSkus || {}).length > 0;
     for (const map of Object.values(byClient)) {
-      for (const key of Object.keys(map)) if (hasVariants ? !(Object.hasOwn(p.variantSkus, key)) : key !== "") delete map[key];
+      for (const key of Object.keys(map)) if (key !== "" && !(hasVariants && Object.hasOwn(p.variantSkus, key))) delete map[key];
     }
   }
   return stale;
@@ -298,7 +298,9 @@ function prepareSkus(products, priv) {
 // database each time (changes show up on the site within about a minute).
 function sendPublic(res, products) {
   // Technical drawings are internal: not in the public list.
-  products = products.map((p) => { if (!p.techImages) return p; const { techImages, ...rest } = p; return rest; });
+  // The site shows name, photo and description only: specifications and their
+  // characteristics, codes and photos stay in the panel.
+  products = products.map(({ techImages, specs, variantSkus, variantSeq, variantImages, attributes, ...rest }) => rest);
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=86400");
@@ -314,7 +316,7 @@ const short = (v, max = 300) => { const t = String(v == null ? "" : v); return t
 // Everything the log compares, from the product and its private data (suppliers, client codes).
 function logView(priv, product) {
   if (!product) return null;
-  return JSON.parse(JSON.stringify({ ...product, links: productLinks(priv, product.id), refs: priv.clientRefs[product.id] || {}, prices: priv.productPrices[product.id] || {} }));
+  return JSON.parse(JSON.stringify({ ...product, links: productLinks(priv, product.id), refs: priv.clientRefs[product.id] || {}, prices: priv.productPrices[product.id] || {}, cspecs: (priv.clientSpecInfo || {})[product.id] || {} }));
 }
 function variantCode(p, key) {
   const n = p.variantSkus && p.variantSkus[key];
@@ -373,6 +375,26 @@ function diffProduct(before, after, priv) {
       if (vo[k] !== vn[k]) out.push({ t: "variantCost", supplier: supName(sid), code: variantCode(after, k), from: vo[k] == null ? null : vo[k], to: vn[k] == null ? null : vn[k] });
     }
   }
+  // Specifications: created, archived / reactivated, details changed
+  const vb0 = before.variantSkus || {}, va0 = after.variantSkus || {};
+  for (const k of Object.keys(va0)) if (!Object.hasOwn(vb0, k)) out.push({ t: "specAdded", code: variantCode(after, k) });
+  const sb = before.specs || {}, sa = after.specs || {};
+  for (const k of new Set([...Object.keys(sb), ...Object.keys(sa)])) {
+    const x = sb[k] || {}, y = sa[k] || {};
+    if (Boolean(x.archived) !== Boolean(y.archived)) out.push({ t: y.archived ? "specArchived" : "specRestored", code: variantCode(after, k) });
+    for (const f of Object.keys(SPEC_FIELDS)) if ((x[f] || "") !== (y[f] || "")) out.push({ t: "specField", code: variantCode(after, k), field: f, from: short(x[f]), to: short(y[f]) });
+  }
+  // The client's data for a specification
+  const cb = before.cspecs || {}, ca = after.cspecs || {};
+  for (const cid of new Set([...Object.keys(cb), ...Object.keys(ca)])) {
+    const mb = cb[cid] || {}, ma = ca[cid] || {};
+    for (const k of new Set([...Object.keys(mb), ...Object.keys(ma)])) {
+      const x = mb[k] || {}, y = ma[k] || {};
+      for (const f of ["name", "requirements", "sample", "sampleDate"]) {
+        if ((x[f] || "") !== (y[f] || "")) out.push({ t: "clientSpec", client: cliName(cid), code: k ? variantCode(after, k) : String(after.sku || ""), field: f, from: short(x[f]), to: short(y[f]) });
+      }
+    }
+  }
   // List sale prices (pricing screen)
   const pb = before.prices || {}, pa = after.prices || {};
   for (const k of new Set([...Object.keys(pb), ...Object.keys(pa)])) {
@@ -397,6 +419,64 @@ async function writeLog(entries) {
   try { await appendProductLog(entries.filter(Boolean)); } catch (e) { console.error("Product log", e.message); }
 }
 
+/* ---------- Specifications ----------
+   A product's variants are now its specifications: only the option
+   combinations that were created exist (product.variantSkus), each with its
+   own code, details (product.specs[key]) and, per client, the client's code
+   (priv.clientRefs) and data (priv.clientSpecInfo). The key of a
+   specification is the sorted ids of its options (comboKey), as before. */
+const SPEC_FIELDS = { details: 2000, weight: 60, measures: 120, packaging: 300, perBox: 30 };
+const CHECKLIST_FIELDS = ["details", "weight", "measures", "packaging", "perBox", "photo"];
+const DEFAULT_CHECKLIST = ["details", "packaging"];
+
+// Keys of the specifications that are used somewhere (clients, costs, prices, photos, proformas).
+function usedSpecKeys(p, priv) {
+  const used = new Set();
+  for (const l of productLinks(priv, p.id)) for (const k of Object.keys(l.variantCosts || {})) used.add(k);
+  for (const k of Object.keys(priv.productPrices[p.id] || {})) used.add(k);
+  for (const m of Object.values(priv.clientRefs[p.id] || {})) for (const k of Object.keys(m)) used.add(k);
+  for (const k of Object.keys(p.variantImages || {})) used.add(k);
+  for (const pf of priv.proformas) for (const i of pf.items) if (i.productId === p.id) used.add(comboKey(i.options.map((o) => o.optionId)));
+  for (const prices of Object.values(priv.clientPrices || {})) for (const k of Object.keys(prices)) if (k.startsWith(p.id + "|")) used.add(k.slice(p.id.length + 1));
+  return used;
+}
+
+// One-time change: the generated combinations nobody used are archived (kept, not deleted).
+// A product whose combinations were all unused keeps them all.
+function migrateSpecs(products, priv) {
+  priv.migrations = priv.migrations || {};
+  if (priv.migrations.specsV1) return false;
+  for (const p of products) {
+    const keys = Object.keys(p.variantSkus || {});
+    if (!keys.length) continue;
+    const used = usedSpecKeys(p, priv);
+    if (!keys.some((k) => used.has(k))) continue;
+    p.specs = p.specs || {};
+    for (const k of keys) if (!used.has(k)) p.specs[k] = { ...(p.specs[k] || {}), archived: true, archivedBy: "migration" };
+  }
+  priv.migrations.specsV1 = new Date().toISOString();
+  return true;
+}
+
+function checklistFor(priv, category) {
+  const c = priv.settings && priv.settings.checklist;
+  const list = c && Array.isArray(c[category]) ? c[category] : DEFAULT_CHECKLIST;
+  return list.filter((f) => CHECKLIST_FIELDS.includes(f));
+}
+
+// Moves everything kept under a specification's key to its new key (its options changed).
+function rekeySpec(p, priv, from, to) {
+  const move = (obj) => { if (obj && Object.hasOwn(obj, from)) { obj[to] = obj[from]; delete obj[from]; } };
+  move(p.variantSkus); move(p.variantImages); move(p.specs);
+  for (const l of productLinks(priv, p.id)) move(l.variantCosts);
+  move(priv.productPrices[p.id]);
+  for (const m of Object.values(priv.clientRefs[p.id] || {})) move(m);
+  for (const m of Object.values((priv.clientSpecInfo || {})[p.id] || {})) move(m);
+  for (const prices of Object.values(priv.clientPrices || {}).concat(Object.values(priv.clientDeclared || {}))) {
+    if (Object.hasOwn(prices, p.id + "|" + from)) { prices[p.id + "|" + to] = prices[p.id + "|" + from]; delete prices[p.id + "|" + from]; }
+  }
+}
+
 async function handler(req, res) {
   const uploaded = []; // photos sent in this request: removed again if it fails
   try {
@@ -418,6 +498,98 @@ async function handler(req, res) {
     if (!session) return fail(res, 401, "Login required");
     if (req.method !== "DELETE" && !isJsonRequest(req)) return fail(res, 415, "Expected JSON");
     const id = queryParam(req, "id");
+
+    // A specification: created, changed (its options, details) or archived / reactivated.
+    // body: { key?: existing key, options: { attrId: optionId }, info: { details, weight, ... }, archived? }
+    if (req.method === "POST" && queryParam(req, "action") === "spec") {
+      const body = await readJson(req);
+      const result = await withDataLock(async () => {
+        const { products, priv } = await getAllData();
+        const product = products.find((p) => p.id === id);
+        if (!product) return { status: 404, error: "Product not found" };
+        const before = logView(priv, product);
+        const attrs = (product.attributes || []).filter((a) => a.options.length);
+        if (!attrs.length) return { status: 400, error: "Product without characteristics" };
+        const oldKey = body.key != null ? String(body.key) : null;
+        if (oldKey != null && !Object.hasOwn(product.variantSkus || {}, oldKey)) return { status: 404, error: "Specification not found" };
+        // Every characteristic must have one of its options.
+        const chosen = [];
+        const missing = [];
+        for (const a of attrs) {
+          const o = String((body.options || {})[a.id] || "");
+          if (!a.options.some((x) => x.id === o)) missing.push(a.source);
+          else chosen.push(o);
+        }
+        if (missing.length) return { status: 422, error: "Missing characteristics", missing };
+        const key = comboKey(chosen);
+        if (key !== oldKey && Object.hasOwn(product.variantSkus || {}, key)) {
+          return { status: 409, error: "Specification exists", code: product.sku + "-" + product.variantSkus[key] };
+        }
+        const info = { ...((product.specs || {})[oldKey != null ? oldKey : key] || {}) };
+        for (const [f, max] of Object.entries(SPEC_FIELDS)) {
+          if (body.info && Object.hasOwn(body.info, f)) info[f] = String(body.info[f] || "").replace(/\r\n/g, "\n").trim().slice(0, max);
+        }
+        if (Object.hasOwn(body, "archived")) { info.archived = Boolean(body.archived); delete info.archivedBy; }
+        // Mandatory fields of the category (not for an archived specification)
+        if (!info.archived) {
+          const need = checklistFor(priv, product.category).filter((f) =>
+            f === "photo" ? oldKey != null && !((product.variantImages || {})[oldKey]) : !String(info[f] || "").trim());
+          if (need.length) return { status: 422, error: "Checklist incomplete", fields: need };
+        }
+        if (oldKey == null) addSpec(product, key);
+        else if (key !== oldKey) rekeySpec(product, priv, oldKey, key);
+        product.specs = { ...(product.specs || {}), [key]: info };
+        product.updatedAt = new Date().toISOString();
+        await saveProductsAndPrivate(products, priv);
+        return { key, product, priv, entry: logEntry(session, "updated", product, diffProduct(before, logView(priv, product), priv)) };
+      });
+      if (result.error) return send(res, result.status, { error: result.error, missing: result.missing, fields: result.fields, code: result.code });
+      await writeLog([result.entry]);
+      return send(res, 200, { key: result.key, product: adminView(result.priv, result.product) });
+    }
+
+    // A client linked to a specification: the client's code, name for it, requirements
+    // and approved sample. body: { clientId, key, ref, name, requirements, sample, sampleDate, remove? }
+    if (req.method === "POST" && queryParam(req, "action") === "clientSpec") {
+      const body = await readJson(req);
+      const result = await withDataLock(async () => {
+        const { products, priv } = await getAllData();
+        const product = products.find((p) => p.id === id);
+        if (!product) return { status: 404, error: "Product not found" };
+        const clientId = String(body.clientId || "");
+        if (!priv.clients.some((c) => c.id === clientId)) return { status: 400, error: "Unknown client" };
+        const key = String(body.key || "");
+        const hasSpecs = Object.keys(product.variantSkus || {}).length > 0;
+        if (key ? !Object.hasOwn(product.variantSkus || {}, key) : hasSpecs) return { status: 400, error: "Unknown specification" };
+        const before = logView(priv, product);
+        priv.clientSpecInfo = priv.clientSpecInfo || {};
+        const refs = (priv.clientRefs[product.id] = priv.clientRefs[product.id] || {});
+        const infos = (priv.clientSpecInfo[product.id] = priv.clientSpecInfo[product.id] || {});
+        refs[clientId] = refs[clientId] || {};
+        infos[clientId] = infos[clientId] || {};
+        if (body.remove) {
+          delete refs[clientId][key]; delete infos[clientId][key];
+        } else {
+          const txt = (v, max) => String(v || "").replace(/\r\n/g, "\n").trim().slice(0, max);
+          const ref = txt(body.ref, 60);
+          if (ref) refs[clientId][key] = ref; else delete refs[clientId][key];
+          const sample = ["approved", "pending", "rejected"].includes(body.sample) ? body.sample : "";
+          const date = /^\d{4}-\d{2}-\d{2}$/.test(String(body.sampleDate || "")) ? body.sampleDate : "";
+          infos[clientId][key] = { name: txt(body.name, 160), requirements: txt(body.requirements, 1000), sample, sampleDate: sample ? date : "" };
+        }
+        for (const map of [refs, infos]) {
+          if (!Object.keys(map[clientId]).length) delete map[clientId];
+        }
+        if (!Object.keys(refs).length) delete priv.clientRefs[product.id];
+        if (!Object.keys(infos).length) delete priv.clientSpecInfo[product.id];
+        await savePrivate(priv);
+        const diff = diffProduct(before, logView(priv, product), priv);
+        return { product, priv, entry: diff.length ? logEntry(session, "updated", product, diff) : null };
+      });
+      if (result.error) return fail(res, result.status, result.error);
+      await writeLog([result.entry]);
+      return send(res, 200, { product: adminView(result.priv, result.product) });
+    }
 
     // Pricing screen: list prices and purchase prices of many variants at once.
     // changes: [{ productId, key ("" = no variants), price?, costs?: { supplierId: cost | null } }]
@@ -560,7 +732,7 @@ async function handler(req, res) {
         ? await saveImage(product.id, image.buffer, image.contentType)
         : await copyImage(copyFrom.image, product.id);
       uploaded.push(product.image);
-      const { links, refs, stale, prices, entry } = await withDataLock(async () => {
+      const { links, refs, stale, prices, cspecs, entry } = await withDataLock(async () => {
         const { products, priv } = await getAllData();
         products.unshift(product);
         const stale = prepareSkus(products, priv);
@@ -569,12 +741,12 @@ async function handler(req, res) {
         await saveProductsAndPrivate(products, priv);
         const after = logView(priv, product);
         const empty = { source: {}, name: {}, description: {}, attributes: [], links: [], refs: {}, variantImages: {}, image: after.image };
-        return { links, refs, stale, prices: priv.productPrices[product.id], entry: logEntry(session, body.copyImageFrom ? "duplicated" : "created", product, diffProduct(empty, after, priv)) };
+        return { links, refs, stale, prices: priv.productPrices[product.id], cspecs: (priv.clientSpecInfo || {})[product.id], entry: logEntry(session, body.copyImageFrom ? "duplicated" : "created", product, diffProduct(empty, after, priv)) };
       });
       uploaded.length = 0;
       await writeLog([entry]);
       await cleanup(stale);
-      return send(res, 201, { product: withLinks(product, links, refs, prices) });
+      return send(res, 201, { product: withLinks(product, links, refs, prices, cspecs) });
     }
 
     if (req.method === "PUT") {
@@ -603,7 +775,7 @@ async function handler(req, res) {
         // (codes, variant photos, the main photo when no new one was sent).
         const fresh = products[index];
         const before = logView(priv, fresh);
-        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "techImages", "image", "createdAt"]) {
+        for (const k of ["sku", "variantSkus", "variantSeq", "variantImages", "techImages", "specs", "image", "createdAt"]) {
           if (fresh[k] === undefined) delete product[k];
           else product[k] = fresh[k];
         }
@@ -616,7 +788,7 @@ async function handler(req, res) {
         const refs = applyClientRefs(priv, product, body);
         await saveProductsAndPrivate(products, priv);
         const changes = diffProduct(before, logView(priv, product), priv);
-        return { links, refs, prices: priv.productPrices[product.id], stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale,
+        return { links, refs, prices: priv.productPrices[product.id], cspecs: (priv.clientSpecInfo || {})[product.id], stale: newImage && oldImage !== newImage ? stale.concat(oldImage) : stale,
           entry: changes.length ? logEntry(session, "updated", product, changes) : null };
       });
       if (!result) { await cleanup(uploaded); return fail(res, 404, "Product not found"); }
@@ -624,7 +796,7 @@ async function handler(req, res) {
       uploaded.length = 0;
       await writeLog([result.entry]);
       await cleanup(result.stale);
-      return send(res, 200, { product: withLinks(product, result.links, result.refs, result.prices) });
+      return send(res, 200, { product: withLinks(product, result.links, result.refs, result.prices, result.cspecs) });
     }
 
     if (req.method === "DELETE") {
@@ -638,6 +810,7 @@ async function handler(req, res) {
         applyClientRefs(priv, gone, { clientRefs: {} });
         forgetPrices(priv, gone.id);
         delete priv.productPrices[gone.id];
+        if (priv.clientSpecInfo) delete priv.clientSpecInfo[gone.id];
         await saveProductsAndPrivate(products, priv);
         // Proformas show the product's photos: keep them while one still lists it.
         const inProforma = priv.proformas.some((pf) => pf.items.some((i) => i.productId === gone.id));
@@ -663,10 +836,11 @@ async function handler(req, res) {
 // Product list as the admin panel shows it (with supplier links and client
 // references). Products saved before SKUs existed get theirs here.
 export async function adminProducts(products, priv) {
-  if (assignSkus(products, priv)) {
+  const pending = (pr, pv) => assignSkus(pr, pv) | migrateSpecs(pr, pv);
+  if (pending(JSON.parse(JSON.stringify(products)), JSON.parse(JSON.stringify(priv)))) {
     ({ products, priv } = await withDataLock(async () => {
       const fresh = await getAllData();
-      if (assignSkus(fresh.products, fresh.priv)) await saveProductsAndPrivate(fresh.products, fresh.priv);
+      if (pending(fresh.products, fresh.priv)) await saveProductsAndPrivate(fresh.products, fresh.priv);
       return fresh;
     }));
   }

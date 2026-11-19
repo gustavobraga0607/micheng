@@ -928,3 +928,79 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 .crm-due { color: #a15c00; font-weight: 600; }
 .crm-ok { color: #1e6b33; font-weight: 600; }
 .pitem__actions .crm-open { font-weight: 700; }
+
+/* ---------- Product page (tabs) ---------- */
+#crefs, #vphotos { display: none !important; }
+.is-product-open { grid-template-columns: minmax(0, 1fr); }
+.is-product-open > section:not(#form-panel) { display: none; }
+.is-product-open #form-panel { position: static; }
+.is-product-open #product-form { max-width: 860px; }
+.ptabs__back { justify-self: start; margin-bottom: 8px; }
+.ptabs { margin: 4px 0 18px; }
+.ppane[hidden] { display: none; }
+.spec-layout { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+.spec-list { flex: 1 1 340px; max-width: 440px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+.spec-list__tools { display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid var(--line); }
+.admin .spec-list__tools input { flex: 1; width: auto; height: 36px; }
+.spec-list__items { max-height: 560px; overflow-y: auto; }
+.spec-li { width: 100%; display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 12px; border: 0; border-bottom: 1px solid #eef1f5; background: #fff; text-align: left; font: inherit; cursor: pointer; }
+.spec-li[hidden] { display: none; }
+.spec-li:hover { background: #f6f8fb; }
+.spec-li.is-active { background: #e8f1fd; }
+.spec-li__code { font-family: ui-monospace, monospace; font-weight: 700; font-size: 13px; color: var(--navy); }
+.spec-li__txt { min-width: 0; display: grid; gap: 2px; font-size: 13px; }
+.spec-li__txt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spec-li__txt small { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spec-tag { font-style: normal; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.spec-tag--ok { background: #e3f4e6; color: #1e6b33; }
+.spec-tag--miss { background: #fff2d6; color: #7a4e00; }
+.spec-tag--arch { background: #eef1f5; color: #5b6878; }
+.spec-list__arch { padding: 8px 12px; font-size: 13px; }
+.spec-hint { margin: 0; padding: 8px 12px 12px; }
+.spec-edit { flex: 999 1 520px; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 18px; background: #fff; display: grid; gap: 14px; }
+.spec-edit__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.spec-edit__head h3 { margin: 0; font-size: 19px; color: var(--navy); font-family: inherit; }
+.spec-edit__head small { color: var(--muted); font-size: 13px; }
+.spec-edit__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.spec-banner { margin: 0; padding: 9px 12px; border-radius: 8px; background: #fff8e8; color: #7a4e00; font-size: 13px; }
+.spec-banner--arch { background: #eef1f5; color: #3d4a5a; }
+.spec-block { display: grid; gap: 8px; }
+.spec-block > b { font-size: 13px; color: var(--navy); }
+.spec-block .hint { margin: 0; }
+.spec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.spec-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.spec-f { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--navy); min-width: 0; }
+.spec-f--wide { grid-column: 1 / -1; }
+.spec-f--wide2 { grid-column: span 2; }
+.admin .spec-f .is-need { border-color: #e0a63c; background: #fffaf0; }
+.spec-photo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spec-photo img { width: 84px; height: 84px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+.spec-photo__none { font-size: 13px; color: var(--muted); }
+.spec-costs { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; font-size: 13.5px; max-width: 460px; }
+.spec-costs b { text-align: right; }
+.spec-edit__foot { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+.spec-edit__foot .status { margin: 0 auto 0 0; }
+.spec-empty { color: var(--muted); font-size: 14px; padding: 12px; margin: 0; }
+.cs-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.cs-head .hint { margin: 0; }
+.cs-group { border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; background: #fff; margin-bottom: 12px; }
+.cs-group__head { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; background: #f6f8fb; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.cs-group__head small { color: var(--muted); }
+.cs-row { display: grid; grid-template-columns: 90px minmax(160px, 1.4fr) 110px minmax(140px, 1.2fr) minmax(140px, 1.2fr) 150px 120px; gap: 8px; align-items: center; padding: 9px 14px; border-top: 1px solid #eef1f5; font-size: 13.5px; min-width: 1000px; }
+.cs-code { font-family: ui-monospace, monospace; font-weight: 700; color: var(--navy); }
+.cs-model, .cs-txt { color: #3d4a5a; min-width: 0; overflow-wrap: anywhere; }
+.cs-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.cs-form { border: 1px solid #cfe0f5; border-radius: 10px; background: #f7fbff; padding: 14px; margin-bottom: 12px; display: grid; gap: 10px; }
+.cs-group .cs-form { margin: 8px; }
+@media (max-width: 760px) { .spec-grid, .spec-grid--4 { grid-template-columns: minmax(0, 1fr); } .spec-f--wide2 { grid-column: auto; } .spec-list { max-width: none; } }
+
+.set-check { overflow-x: auto; }
+.set-check table { border-collapse: collapse; font-size: 13px; min-width: 620px; }
+.set-check th, .set-check td { padding: 7px 10px; border-bottom: 1px solid #eef1f5; text-align: center; }
+.set-check tbody th { text-align: left; color: var(--navy); }
+.set-check thead th { font-size: 12px; color: var(--muted); font-weight: 600; }
+.admin .set-check input { width: 18px; height: 18px; }
+
+.pf-row__req, .crm-req { color: #7a4e00 !important; }
+.crm-cname { color: var(--navy) !important; font-weight: 600; }
+.crm-c--prod .spec-tag { justify-self: start; margin-top: 2px; }

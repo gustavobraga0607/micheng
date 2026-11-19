@@ -130,6 +130,14 @@ async function handler(req, res) {
       if (!CURRENCIES.includes(settings.currency)) settings.currency = "CNY"; // RMB by default
       settings.updatedAt = new Date().toISOString();
       settings.wechatQrAt = (priv.settings && priv.settings.wechatQrAt) || null;
+      // Fields every specification of a category must have (product registration).
+      const CATS = ["building", "sanitary", "fitness", "general"];
+      const CHECK = ["details", "weight", "measures", "packaging", "perBox", "photo"];
+      const old = (priv.settings && priv.settings.checklist) || null;
+      if (body.checklist && typeof body.checklist === "object") {
+        settings.checklist = {};
+        for (const c of CATS) settings.checklist[c] = Array.isArray(body.checklist[c]) ? CHECK.filter((f) => body.checklist[c].includes(f)) : ["details", "packaging"];
+      } else if (old) settings.checklist = old;
       priv.settings = settings;
       await savePrivate(priv);
       const contact = await getContact();

@@ -237,6 +237,8 @@ const emptyPrivate = () => ({
   proformaSeq: {}, // year -> last proforma number used
   clientRefs: {}, // productId -> clientId -> { comboKey ("" = no variants): client's reference }
   productPrices: {}, // productId -> { comboKey ("" = no variants): list sale price }, from the pricing screen
+  clientSpecInfo: {}, // productId -> clientId -> { comboKey: { name, requirements, sample, sampleDate } }: the client's own data for a specification
+  migrations: {}, // one-time data changes already applied
   pricing: { targetMargin: 0.3 }, // pricing screen: target margin (0-1)
 });
 
