@@ -50,6 +50,15 @@
     });
     return miss;
   }
+  // "Cor Cromada · Material Liga de Zinco" as small labelled pieces that wrap.
+  function attrsHtml(p, key) {
+    var ids = key ? key.split(",") : [];
+    var parts = attrsOf(p).map(function (a) {
+      var o = a.options.filter(function (x) { return ids.indexOf(x.id) > -1; })[0];
+      return o ? "<span><em>" + esc(attrName(a)) + "</em> " + esc(optLabel(o)) + "</span>" : "";
+    }).filter(Boolean);
+    return parts.length ? parts.join("") : "<span>—</span>";
+  }
   function clientsOfKey(p, key) {
     var names = [];
     var refs = p.clientRefs || {}, infos = p.clientSpecs || {};
@@ -86,7 +95,7 @@
       var cl = clientsOfKey(p, key);
       return '<button type="button" class="spec-li' + (current === key ? " is-active" : "") + '" data-spec="' + esc(key) + '">' +
         '<span class="spec-li__code">' + esc(codeOf(p, key)) + "</span>" +
-        '<span class="spec-li__txt"><span>' + esc(summary(p, key) || "—") + "</span><small>" + esc(cl.length ? cl.join(" · ") : T("spec.noClient")) + "</small></span>" +
+        '<span class="spec-li__txt"><span class="spec-li__attrs">' + attrsHtml(p, key) + "</span><small>" + esc(cl.length ? cl.join(" · ") : T("spec.noClient")) + "</small></span>" +
         '<span class="spec-tag spec-tag--' + tag[0] + '">' + esc(tag[1]) + "</span></button>";
     }).join("");
     box.innerHTML = '<div class="spec-layout">' +

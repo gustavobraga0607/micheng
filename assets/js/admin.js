@@ -414,6 +414,16 @@
       : T(editing ? "form.edit" : "form.new");
     var editingProduct = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];
     if (editingProduct && editingProduct.sku) $("#form-title").textContent += " · SKU " + editingProduct.sku;
+    // On the product page: its name, photo and characteristics, always in view above the tabs.
+    $("#phead").hidden = !editingProduct;
+    if (editingProduct) {
+      $("#phead-img").src = editingProduct.image || "";
+      $("#phead-img").hidden = !editingProduct.image;
+      $("#phead-name").textContent = productName(editingProduct.id);
+      $("#phead-attrs").textContent = (editingProduct.attributes || []).filter(function (a) { return a.options.length; }).map(function (a) {
+        return ((a.name && a.name[current]) || a.source) + ": " + a.options.map(function (o) { return (o.label && o.label[current]) || o.source; }).join(", ");
+      }).join("  ·  ");
+    }
     $("#save-btn").textContent = T(editing ? "form.saveChanges" : "form.save");
     $("#cancel-edit").hidden = !editing && !duplicateOf;
     var p = editing && products.filter(function (x) { return x.id === form.elements.id.value; })[0];

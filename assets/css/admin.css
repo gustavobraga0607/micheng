@@ -1032,3 +1032,22 @@ body.is-sorting, body.is-sorting * { cursor: grabbing !important; user-select: n
 #products-view .list-head .list-tools { margin-left: auto; }
 #products-view .list-head .mob-new { order: 3; height: 44px; padding: 0 18px; font-size: 14px; }
 @media (max-width: 980px) { #products-view .list-head .list-tools { margin-left: 0; order: 4; width: 100%; } }
+
+/* Product page header: name, photo and characteristics; spec list without cut text */
+.phead { display: flex; gap: 14px; align-items: center; margin: 6px 0 14px; }
+.phead[hidden] { display: none; }
+.phead img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex: none; }
+.phead img[hidden] { display: none; }
+.phead div { display: grid; gap: 3px; min-width: 0; }
+.phead b { font-size: 17px; color: var(--navy); overflow-wrap: anywhere; }
+.phead small { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.ptabs { overflow: visible; flex-wrap: wrap; }
+.spec-list { flex: 1 1 380px; max-width: 480px; }
+.spec-li { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start; padding: 10px 12px; }
+.spec-li__code { padding-top: 2px; }
+.spec-li__txt span, .spec-li__txt small { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.spec-li__attrs { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 13px; color: var(--ink, #1c2a3a); }
+.spec-li__attrs em { font-style: normal; color: var(--muted); font-size: 12px; }
+.spec-li .spec-tag { margin-top: 1px; }
+.admin .spec-list__tools input { min-width: 0; }
+.spec-list__tools .btn { flex: none; }
