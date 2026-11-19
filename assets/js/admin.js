@@ -489,7 +489,6 @@
     });
     form.hidden = name !== "general";
     $("#specs-pane").hidden = name !== "specs";
-    $("#pclients-pane").hidden = name !== "clients";
     var own = $("#plog-own");
     if (name === "history") { own.hidden = false; own.open = true; } else own.hidden = true;
     document.dispatchEvent(new CustomEvent("admin:ptab", { detail: { tab: name, productId: form.elements.id.value } }));

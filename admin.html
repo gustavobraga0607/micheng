@@ -76,14 +76,17 @@
         <nav class="otabs ptabs" id="ptabs" role="tablist" hidden>
           <button type="button" class="otab is-active" role="tab" data-ptab="general"><span data-t="ptab.general">Geral (site)</span></button>
           <button type="button" class="otab" role="tab" data-ptab="specs"><span data-t="ptab.specs">Especificações</span> <span class="count" id="ptab-specs-count">0</span></button>
-          <button type="button" class="otab" role="tab" data-ptab="clients"><span data-t="ptab.clients">Clientes</span> <span class="count" id="ptab-clients-count">0</span></button>
           <button type="button" class="otab" role="tab" data-ptab="history"><span data-t="ptab.history">Histórico</span></button>
         </nav>
         <div class="ppane" id="specs-pane" hidden>
+          <div class="spec-modes" id="spec-modes" role="group">
+            <button type="button" class="spec-mode is-active" data-smode="specs" aria-pressed="true"><span data-t="smode.specs">Por especificação</span></button>
+            <button type="button" class="spec-mode" data-smode="clients" aria-pressed="false"><span data-t="smode.clients">Por cliente</span> <span class="count" id="smode-clients-count"></span></button>
+          </div>
           <div id="specs-body"></div>
+          <div id="pclients-pane" hidden></div>
           <section class="spec-section" id="spec-tech-slot"></section>
         </div>
-        <div class="ppane" id="pclients-pane" hidden></div>
         <form id="product-form" novalidate>
           <input type="hidden" name="id" />
           <label><span data-t="form.name">Nome do produto *</span>

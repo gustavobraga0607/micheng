@@ -12,6 +12,8 @@
 
   var FIELDS = ["details", "weight", "measures", "packaging"];
   var DEFAULT_CHECKLIST = ["details"];
+  var mode = "specs";
+  var presetKey = null;     // specification chosen beforehand for a new client link      // "specs": list + editor; "clients": grouped by client
   var current = null;     // key of the specification open ("" = new)
   var draft = null;       // { options: {attrId: optId}, info: {...}, from: key|null }
   var showArchived = false;
@@ -153,6 +155,7 @@
           '<label class="btn btn--outline btn--sm fin-file-btn"><input type="file" accept="image/jpeg,image/png,image/webp" data-spec-photo hidden /><span>' + esc(T(photo ? "spec.changePhoto" : "spec.addPhoto")) + "</span></label>" +
           (photo ? '<button type="button" class="linkbtn danger" data-spec-photo-del>' + esc(T("spec.removePhoto")) + "</button>" : "") + "</div>") + "</div>" +
       commercialHtml(p, key, d) +
+      (isNew ? "" : specClientsHtml(p, key)) +
       '<div class="spec-edit__foot"><p class="status" id="spec-status" role="status" aria-live="polite"></p>' +
         (isNew ? '<button type="button" class="btn btn--outline" data-spec-cancel>' + esc(T("form.cancel")) + "</button>" : "") +
         '<button type="button" class="btn btn--primary" data-spec-save>' + esc(T(isNew ? "spec.create" : "spec.save")) + "</button></div>";
@@ -220,6 +223,36 @@
     return vals.filter(function (v) { return String(v || "").trim() && A.parseDecimal(v) == null; })[0];
   }
 
+  // The clients of one specification, inside its editor (managed in the "Por cliente" view).
+  function specClientsHtml(p, key) {
+    var refs = p.clientRefs || {}, infos = p.clientSpecs || {}, cur = A.defaultCurrency();
+    var rows = A.clients().filter(function (c) {
+      return (refs[c.id] && Object.prototype.hasOwnProperty.call(refs[c.id], key)) || (infos[c.id] && infos[c.id][key]);
+    }).map(function (c) {
+      var i = (infos[c.id] || {})[key] || {}, ref = (refs[c.id] || {})[key] || "";
+      return '<div class="spec-cl"><b>' + esc(c.name) + "</b>" +
+        '<span>' + (ref ? '<span class="crm-ref">' + esc(ref) + "</span> " : "") + esc(i.name || "") + "</span>" +
+        '<span class="spec-cl__cost">' + (i.supplierId ? esc((i.cost == null ? "—" : A.money(i.cost, cur)) + " · " + supName(i.supplierId)) : '<span class="muted">' + esc(T("cs.costDefault")) + "</span>") + "</span>" +
+        '<button type="button" class="linkbtn" data-goto-cs="' + esc(c.id) + '">' + esc(T("list.edit")) + "</button></div>";
+    });
+    return '<div class="spec-block"><b>' + esc(T("smode.specClients")) + "</b>" +
+      (rows.length ? '<div class="spec-cls">' + rows.join("") + "</div>" : '<p class="spec-empty">' + esc(T("spec.noClient")) + "</p>") +
+      '<button type="button" class="btn btn--outline btn--sm spec-cl__add" data-goto-cs-new>' + esc(T("smode.linkClient")) + "</button></div>";
+  }
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll("#spec-modes [data-smode]").forEach(function (b) {
+      var on = b.getAttribute("data-smode") === m;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    render();
+  }
+  $("#spec-modes").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-smode]");
+    if (b) { editingLink = null; setMode(b.getAttribute("data-smode")); }
+  });
+
   function setSpecStatus(msg, kind) { var el = $("#spec-status"); if (!el) return; el.textContent = msg || ""; el.className = "status" + (kind ? " is-" + kind : ""); }
 
   function saveSpec(extra) {
@@ -271,6 +304,9 @@
     if (!p) return;
     var li = e.target.closest("[data-spec]");
     if (li) { current = li.getAttribute("data-spec"); draft = null; return render(); }
+    var gc = e.target.closest("[data-goto-cs]");
+    if (gc) { editingLink = { clientId: gc.getAttribute("data-goto-cs"), key: current }; return setMode("clients"); }
+    if (e.target.closest("[data-goto-cs-new]")) { editingLink = "new"; presetKey = current; return setMode("clients"); }
     if (e.target.closest("[data-spec-new]")) {
       current = null;
       draft = Object.assign({ options: {}, info: {} }, comState(p, "", false));
@@ -366,22 +402,24 @@
       return { client: c, keys: Object.keys(keys) };
     }).filter(function (g) { return g.keys.length; });
     var nLinks = groups.reduce(function (t, g) { return t + g.keys.length; }, 0);
-    $("#ptab-clients-count").textContent = groups.length;
+    $("#smode-clients-count").textContent = groups.length || "";
     var sampleTxt = function (i) {
       if (!i.sample) return '<span class="muted">—</span>';
       return '<span class="spec-tag spec-tag--' + (i.sample === "approved" ? "ok" : i.sample === "pending" ? "miss" : "arch") + '">' + esc(T("cs.sample." + i.sample)) + (i.sampleDate ? " " + esc(new Date(i.sampleDate + "T00:00:00").toLocaleDateString(A.locale())) : "") + "</span>";
     };
     var html = '<div class="cs-head"><p class="hint">' + esc(T("cs.hint")) + '</p><button type="button" class="btn btn--primary btn--sm" data-cs-new>' + esc(T("cs.new")) + "</button></div>";
-    if (editingLink === "new") html += linkForm(p, null, null);
+    if (editingLink === "new") html += linkForm(p, null, null, presetKey);
     html += groups.length ? groups.map(function (g) {
       return '<section class="cs-group"><div class="cs-group__head"><b>' + esc(g.client.name) + "</b><small>" + esc(T("cs.count", { n: g.keys.length })) + "</small></div>" +
+        '<div class="cs-row cs-row--head"><span>' + esc(T("csh.code")) + "</span><span>" + esc(T("spec.attrs")) + "</span><span>" + esc(T("csh.ref")) + "</span><span>" + esc(T("csh.name")) + "</span><span>" +
+          esc(T("csh.req")) + "</span><span>" + esc(T("csh.cost")) + "</span><span>" + esc(T("cs.sample")) + "</span><span></span></div>" +
         g.keys.map(function (k) {
           var i = (infos[g.client.id] || {})[k] || {};
           var ref = (refs[g.client.id] || {})[k] || "";
           if (editingLink && editingLink !== "new" && editingLink.clientId === g.client.id && editingLink.key === k) return linkForm(p, g.client.id, k);
           var arch = (p.specs || {})[k] && p.specs[k].archived;
           return '<div class="cs-row">' +
-            '<span class="cs-code">' + esc(k ? codeOf(p, k) : T("cs.allSpecs")) + "</span>" +
+            (k ? '<button type="button" class="linkbtn cs-code" data-open-spec="' + esc(k) + '">' + esc(codeOf(p, k)) + "</button>" : '<span class="cs-code">' + esc(T("cs.allSpecs")) + "</span>") +
             '<span class="cs-model">' + esc(k ? summary(p, k) : T("cs.productLevel")) + (arch ? ' <em class="spec-tag spec-tag--arch">' + esc(T("spec.tagArchived")) + "</em>" : "") + "</span>" +
             '<span>' + (ref ? '<span class="crm-ref">' + esc(ref) + "</span>" : '<span class="muted">—</span>') + "</span>" +
             '<span class="cs-txt">' + esc(i.name || "—") + "</span>" +
@@ -392,12 +430,27 @@
             '<button type="button" class="linkbtn danger" data-cs-del="' + esc(g.client.id) + '" data-key="' + esc(k) + '">' + esc(T("cs.unlink")) + "</button></span></div>";
         }).join("") + "</section>";
     }).join("") : (editingLink === "new" ? "" : '<p class="spec-empty">' + esc(T("cs.none")) + "</p>");
+    // Active specifications no client is linked to yet
+    var linked = {};
+    groups.forEach(function (g) { g.keys.forEach(function (k) { linked[k] = true; }); });
+    var free = specKeys(p, false).filter(function (k) { return !linked[k]; });
+    if (free.length) {
+      html += '<section class="cs-group cs-group--free"><div class="cs-group__head"><b>' + esc(T("smode.noClient")) + "</b><small>" + esc(T("cs.count", { n: free.length })) + "</small></div>" +
+        free.map(function (k) {
+          return '<div class="cs-row cs-row--free"><button type="button" class="linkbtn cs-code" data-open-spec="' + esc(k) + '">' + esc(codeOf(p, k)) + "</button>" +
+            '<span class="cs-model">' + esc(summary(p, k)) + "</span>" +
+            '<span class="cs-actions"><button type="button" class="linkbtn" data-cs-add-key="' + esc(k) + '">' + esc(T("smode.linkClient")) + "</button></span></div>";
+        }).join("") + "</section>";
+    }
     if (!hasSpecs && attrsOf(p).length) html = '<p class="spec-banner">' + esc(T("cs.needSpecs")) + "</p>" + html;
     box.innerHTML = html + '<p class="status" id="cs-status" role="status" aria-live="polite"></p>';
+    var fm = box.querySelector("[data-cs-form]");
+    if (fm) fm.scrollIntoView({ block: "nearest", behavior: "smooth" });
     void nLinks;
   }
-  function linkForm(p, clientId, key) {
+  function linkForm(p, clientId, key, preset) {
     var isNew = clientId == null;
+    if (isNew && preset != null) key = preset;
     var i = isNew ? {} : ((p.clientSpecs || {})[clientId] || {})[key] || {};
     var ref = isNew ? "" : ((p.clientRefs || {})[clientId] || {})[key] || "";
     var keys = specKeys(p, false);
@@ -430,7 +483,11 @@
         function (err) { setCsStatus(err.message, "error"); });
   }
   $("#pclients-pane").addEventListener("click", function (e) {
-    if (e.target.closest("[data-cs-new]")) { editingLink = "new"; return render(); }
+    if (e.target.closest("[data-cs-new]")) { editingLink = "new"; presetKey = null; return render(); }
+    var add = e.target.closest("[data-cs-add-key]");
+    if (add) { editingLink = "new"; presetKey = add.getAttribute("data-cs-add-key"); return render(); }
+    var os = e.target.closest("[data-open-spec]");
+    if (os) { current = os.getAttribute("data-open-spec"); draft = null; editingLink = null; return setMode("specs"); }
     if (e.target.closest("[data-cs-cancel]")) { editingLink = null; return render(); }
     var ed = e.target.closest("[data-cs-edit]");
     if (ed) { editingLink = { clientId: ed.getAttribute("data-cs-edit"), key: ed.getAttribute("data-key") }; return render(); }
@@ -459,14 +516,18 @@
     $("#ptab-specs-count").textContent = specKeys(p, false).length;
     var tab = document.querySelector("#ptabs [data-ptab].is-active");
     tab = tab && tab.getAttribute("data-ptab");
-    if (tab === "specs") renderSpecs();
-    if (tab === "clients") renderClients();
-    if (tab !== "clients") renderClientsCount(p);
+    if (tab === "specs") {
+      $("#specs-body").hidden = mode !== "specs";
+      $("#spec-tech-slot").hidden = mode !== "specs";
+      $("#pclients-pane").hidden = mode !== "clients";
+      if (mode === "specs") renderSpecs(); else renderClients();
+    }
+    renderClientsCount(p);
   }
   function renderClientsCount(p) {
     var refs = p.clientRefs || {}, infos = p.clientSpecs || {};
     var n = A.clients().filter(function (c) { return Object.keys(refs[c.id] || {}).length || Object.keys(infos[c.id] || {}).length; }).length;
-    $("#ptab-clients-count").textContent = n;
+    $("#smode-clients-count").textContent = n || "";
   }
   document.addEventListener("admin:ptab", function (e) {
     if (!e.detail.productId) return;
@@ -474,6 +535,6 @@
     if (product() && current != null && !(product().variantSkus || {}).hasOwnProperty(current)) current = null;
     render();
   });
-  document.addEventListener("admin:product-open", function () { current = null; draft = null; editingLink = null; showArchived = false; render(); });
+  document.addEventListener("admin:product-open", function () { current = null; draft = null; editingLink = null; presetKey = null; showArchived = false; setMode("specs"); });
   document.addEventListener("admin:lang", function () { if (product()) render(); });
 })();

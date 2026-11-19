@@ -1,6 +1,16 @@
 /* Admin panel texts — Português (pt), English (en), Español (es), 中文 (zh). */
 window.ADMIN_I18N = {
   pt: {
+    "csh.code": "Código",
+    "csh.ref": "Cód. cliente",
+    "csh.name": "Nome do cliente",
+    "csh.req": "Exigências",
+    "csh.cost": "Custo · fornecedor",
+    "smode.specs": "Por especificação",
+    "smode.clients": "Por cliente",
+    "smode.specClients": "Clientes desta especificação",
+    "smode.noClient": "Sem cliente",
+    "smode.linkClient": "+ Ligar a um cliente",
     "cs.supplier": "Fornecedor para este cliente",
     "cs.supplierDefault": "Padrão (principal da especificação)",
     "cs.cost": "Custo para este cliente",
@@ -926,6 +936,16 @@ window.ADMIN_I18N = {
     "lang.unknown": "não identificado"
   },
   en: {
+    "csh.code": "Code",
+    "csh.ref": "Client code",
+    "csh.name": "Client's name",
+    "csh.req": "Requirements",
+    "csh.cost": "Cost · supplier",
+    "smode.specs": "By specification",
+    "smode.clients": "By client",
+    "smode.specClients": "Clients of this specification",
+    "smode.noClient": "No client",
+    "smode.linkClient": "+ Link to a client",
     "cs.supplier": "Supplier for this client",
     "cs.supplierDefault": "Default (the specification's main one)",
     "cs.cost": "Cost for this client",
@@ -1851,6 +1871,16 @@ window.ADMIN_I18N = {
     "lang.unknown": "not identified"
   },
   es: {
+    "csh.code": "Código",
+    "csh.ref": "Cód. cliente",
+    "csh.name": "Nombre del cliente",
+    "csh.req": "Exigencias",
+    "csh.cost": "Costo · proveedor",
+    "smode.specs": "Por especificación",
+    "smode.clients": "Por cliente",
+    "smode.specClients": "Clientes de esta especificación",
+    "smode.noClient": "Sin cliente",
+    "smode.linkClient": "+ Vincular a un cliente",
     "cs.supplier": "Proveedor para este cliente",
     "cs.supplierDefault": "Estándar (principal de la especificación)",
     "cs.cost": "Costo para este cliente",
@@ -2776,6 +2806,16 @@ window.ADMIN_I18N = {
     "lang.unknown": "no identificado"
   },
   zh: {
+    "csh.code": "编号",
+    "csh.ref": "客户编号",
+    "csh.name": "客户名称",
+    "csh.req": "要求",
+    "csh.cost": "成本 · 供应商",
+    "smode.specs": "按规格",
+    "smode.clients": "按客户",
+    "smode.specClients": "此规格的客户",
+    "smode.noClient": "无客户",
+    "smode.linkClient": "+ 关联客户",
     "cs.supplier": "该客户的供应商",
     "cs.supplierDefault": "默认（规格的主要供应商）",
     "cs.cost": "该客户的成本",
