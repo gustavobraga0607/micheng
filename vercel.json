@@ -3,8 +3,23 @@
   "functions": {
     "api/products.js": {
       "maxDuration": 60
+    },
+    "api/integration-cron.js": {
+      "maxDuration": 60
+    },
+    "api/integration.js": {
+      "maxDuration": 60
+    },
+    "api/integration-inbound.js": {
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/integration-cron",
+      "schedule": "* * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

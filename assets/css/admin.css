@@ -1523,3 +1523,22 @@ body.has-drawer { overflow: hidden; }
   .fin-filters > #fin-search { order: -1; }
   .fin-toolbar { gap: 10px; }
 }
+
+/* ---------- Integration with Soulglobal (settings) ---------- */
+.int-panel { margin-top: 24px; }
+.int-status { display: grid; gap: 6px; margin-bottom: 16px; font-size: 14px; }
+.int-status .int-line { color: var(--muted); overflow-wrap: anywhere; }
+.int-status code { font-size: 12.5px; background: var(--bg-soft); padding: 1px 6px; border-radius: 4px; }
+.int-status .int-warn { color: #8a5a00; }
+.int-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.int-h { font-size: 16px; margin: 28px 0 10px; }
+.int-doc-form { max-width: 720px; }
+.int-table td { vertical-align: top; }
+.int-table td.int-err { white-space: normal; max-width: 320px; color: #c62828; font-size: 13px; overflow-wrap: anywhere; }
+.int-table td.int-wrap { white-space: normal; overflow-wrap: anywhere; }
+.int-table .int-sub { display: block; color: var(--muted); font-size: 12px; }
+.badge--pending { background: #fff4e0; color: #8a5a00; }
+.badge--failed, .badge--rejected { background: #fde8e8; color: #c62828; }
+.badge--delivered, .badge--processed, .badge--on, .badge--APPROVED { background: #e3f4e8; color: #1b7f3b; }
+.badge--ignored, .badge--off, .badge--PENDING { background: #eef1f5; color: #5b6878; }
+.badge--REJECTED { background: #fde8e8; color: #c62828; }

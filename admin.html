@@ -984,6 +984,58 @@
           <p class="updated" id="settings-updated"></p>
         </form>
       </section>
+      <section class="panel int-panel" id="int-panel">
+        <h2 data-t="int.title">Integração com a Soulglobal</h2>
+        <p class="hint" data-t="int.hint">Pedidos fechados, invoices e documentos são enviados automaticamente ao sistema Soulglobal; o que a Soulglobal envia aparece aqui. Fornecedores, custos e margens nunca são enviados.</p>
+        <div class="int-status" id="int-status"></div>
+        <div id="int-on" hidden>
+          <div class="int-actions">
+            <button type="button" class="btn btn--outline btn--sm" id="int-ping" data-t="int.ping">Testar conexão</button>
+            <button type="button" class="btn btn--outline btn--sm" id="int-deliver" data-t="int.deliver">Enviar pendentes agora</button>
+            <button type="button" class="btn btn--outline btn--sm" id="int-retry-all" data-t="int.retryAll" hidden>Tentar de novo os que falharam</button>
+            <button type="button" class="linkbtn" id="int-refresh" data-t="int.refresh">Atualizar</button>
+          </div>
+          <p class="status" id="int-msg" role="status" aria-live="polite"></p>
+
+          <h3 class="int-h" data-t="int.sendDoc">Enviar documento</h3>
+          <form id="int-doc-form" class="crud-form int-doc-form" novalidate>
+            <div class="form-row">
+              <label><span data-t="int.docOrder">Pedido</span><select name="proformaId" id="int-doc-order"></select></label>
+              <label><span data-t="int.docType">Tipo</span><select name="type" id="int-doc-type"></select></label>
+            </div>
+            <label><span data-t="int.docFile">Arquivo</span><input type="file" name="file" id="int-doc-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.docx,.zip,application/pdf,image/jpeg,image/png,image/webp" /></label>
+            <label><span data-t="int.docNote">Observação</span><input type="text" name="note" maxlength="500" /></label>
+            <div class="form-actions">
+              <button type="submit" class="btn btn--primary btn--sm" id="int-doc-submit" data-t="int.docSubmit">Enviar à Soulglobal</button>
+            </div>
+            <p class="status" id="int-doc-msg" role="status" aria-live="polite"></p>
+          </form>
+
+          <h3 class="int-h" data-t="int.docs">Documentos compartilhados</h3>
+          <div class="pf-table-wrap">
+            <table class="pf-table int-table">
+              <thead><tr><th data-t="int.thDir">Sentido</th><th data-t="int.thType">Tipo</th><th data-t="int.thName">Arquivo</th><th data-t="int.thOrder">Pedido</th><th data-t="int.thDate">Data</th><th data-t="int.thReview">Revisão</th><th></th></tr></thead>
+              <tbody id="int-docs"></tbody>
+            </table>
+          </div>
+
+          <h3 class="int-h" data-t="int.sent">Eventos enviados</h3>
+          <div class="pf-table-wrap">
+            <table class="pf-table int-table">
+              <thead><tr><th data-t="int.thEvent">Evento</th><th data-t="int.thRef">Referência</th><th data-t="int.thDate">Data</th><th data-t="int.thStatus">Situação</th><th class="num" data-t="int.thAttempts">Tentativas</th><th data-t="int.thError">Último erro</th><th></th></tr></thead>
+              <tbody id="int-events"></tbody>
+            </table>
+          </div>
+
+          <h3 class="int-h" data-t="int.received">Eventos recebidos</h3>
+          <div class="pf-table-wrap">
+            <table class="pf-table int-table">
+              <thead><tr><th data-t="int.thEvent">Evento</th><th data-t="int.thDate">Data</th><th data-t="int.thStatus">Situação</th><th data-t="int.thError">Último erro</th></tr></thead>
+              <tbody id="int-inbound"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -996,5 +1048,6 @@
   <script src="assets/js/admin-pricing.js?v=dev"></script>
   <script src="assets/js/admin-crm.js?v=dev"></script>
   <script src="assets/js/admin-specs.js?v=dev"></script>
+  <script src="assets/js/admin-integration.js?v=dev"></script>
 </body>
 </html>

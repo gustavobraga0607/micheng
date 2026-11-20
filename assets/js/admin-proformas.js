@@ -620,9 +620,14 @@
     A.api("/api/proformas?id=" + encodeURIComponent(editing.id) + "&action=invoice", { method: "POST", body: body })
       .then(function (data) {
         accept(data.proforma);
-        return exportInvoice(data.proforma).then(function () {
+        return exportInvoice(data.proforma).then(function (out) {
+          return shareInvoice(data.proforma, out);
+        }).then(function (shared) {
           $("#inv-dlg").close();
-          setStatus(T("inv.generated", { number: data.proforma.number }), "ok");
+          var msg = T("inv.generated", { number: data.proforma.number });
+          if (shared === true) msg += " " + T("int.invShared");
+          else if (shared) return setStatus(msg + " " + T("int.invShareFail", { error: shared.message }), "error");
+          setStatus(msg, "ok");
         });
       })
       .catch(function (err) {
@@ -811,8 +816,20 @@
         doc.text((s.companyName || "Shenzhen Micheng International Trading") + " · " + p.number, M, 290);
         doc.text(L.page + " " + k + "/" + pages, W - M, 290, { align: "right" });
       }
-      doc.save(PD.safeName("Invoice " + p.number + (client.name ? " - " + client.name : ""), "pdf"));
+      var name = PD.safeName("Invoice " + p.number + (client.name ? " - " + client.name : ""), "pdf");
+      doc.save(name);
+      return { doc: doc, name: name };
     });
+  }
+
+  // With the Soulglobal integration on, the commercial invoice PDF also goes to
+  // Soulglobal (one document per order: a new save replaces the previous version).
+  function shareInvoice(p, out) {
+    if (!out || !window.Integration || !window.Integration.enabled()) return Promise.resolve(null);
+    return window.Integration.shareDocument({
+      proformaId: p.id, type: "COMMERCIAL_INVOICE", name: out.name, key: "invoice:" + p.id,
+      data: out.doc.output("datauristring").replace(/^data:application\/pdf;[^,]*,/, "data:application/pdf;base64,")
+    }).then(function () { return true; }, function (err) { return err; });
   }
   // Up to 3 decimals, in the document's language (1.85 in English, 1,85 in Portuguese).
   function fmt3(n, d) { return Number(n).toLocaleString(d.lang === "en" ? "en-US" : d.lang === "pt" ? "pt-BR" : "es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 3 }); }

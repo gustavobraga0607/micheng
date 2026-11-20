@@ -45,8 +45,23 @@ Sem as variáveis da Vercel, os produtos e fotos ficam na pasta `.data/` (ignora
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Criadas automaticamente ao ligar o banco Upstash Redis (onde ficam produtos, fornecedores, clientes, proformas e parâmetros). |
 | `DEEPL_API_KEY` | Opcional: usa o DeepL para traduzir (melhor qualidade, 500 mil caracteres/mês grátis). |
 | `MYMEMORY_EMAIL` | Opcional: sem DeepL, a tradução usa o MyMemory gratuito (cerca de 5 mil caracteres/dia); um e-mail aqui aumenta o limite para 50 mil/dia. |
+| `SOULGLOBAL_EVENTS_URL` | Integração com a Soulglobal: endereço que recebe os eventos da Micheng. |
+| `INTEGRATION_SECRET` | Integração: chave compartilhada (32+ caracteres). Para trocar sem perder eventos, use `nova,antiga` por um tempo. |
+| `PUBLIC_BASE_URL` | Integração: endereço público do site, usado nos links dos documentos (ex.: `https://micheng.vercel.app`). |
+| `SOULGLOBAL_FILE_HOSTS` | Opcional: hosts de onde a Micheng aceita baixar documentos da Soulglobal (padrão: o host dos eventos e `*.supabase.co`). |
+| `CRON_SECRET` | Recomendado: só a Vercel consegue acionar o reenvio de eventos (`/api/integration-cron`). |
 
 Se a tradução automática falhar (limite diário, por exemplo), o produto é salvo mesmo assim com o texto original e marcado como "Tradução automática pendente" no painel; basta editá-lo depois e marcar "Traduzir tudo de novo".
+
+## Integração com a Soulglobal
+
+A Micheng troca eventos e documentos com o sistema Soulglobal (`sg-imports`), cada um com o próprio banco. O contrato completo (assinatura, formatos, eventos, documentos) está em [`docs/integracao-soulglobal.md`](docs/integracao-soulglobal.md).
+
+- **Envio:** fechar, reabrir, alterar itens, salvar a invoice comercial ou excluir um pedido gera um evento, gravado junto com a mudança (nada se perde se a Soulglobal estiver fora do ar). Ele é entregue logo após a resposta e, se falhar, de novo pelo cron `/api/integration-cron` (a cada minuto), com esperas crescentes e sempre na ordem de cada pedido. Fornecedores, custos, margens e valores declarados nunca são enviados.
+- **Documentos:** a invoice comercial gerada no painel vai automaticamente; outros arquivos (packing list, B/L, certificado de origem…) são enviados em **Parâmetros → Integração com a Soulglobal**. A Soulglobal baixa cada arquivo por um link assinado e temporário (`/api/integration-file`).
+- **Recebimento:** `POST /api/integration-inbound` (assinado). A Soulglobal pode ligar um pedido ao embarque dela (`order.updated`), enviar documentos (`document.shared`) e aprovar ou recusar os enviados (`document.reviewed`).
+- **Painel:** em Parâmetros, a seção da integração mostra se está ligada, os eventos enviados e recebidos (com "Tentar de novo"), os documentos e um botão **Testar conexão**.
+- **Para ligar:** defina `SOULGLOBAL_EVENTS_URL`, `INTEGRATION_SECRET` (32+ caracteres, a mesma nos dois sistemas), `PUBLIC_BASE_URL` e, recomendado, `CRON_SECRET`, e faça um novo deploy. Sem as duas primeiras, a integração fica desligada e nada muda no uso do painel.
 
 ## Idiomas
 

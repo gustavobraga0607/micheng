@@ -212,7 +212,7 @@
       renderClients();
       renderClientRefs();
       fillSettings(data.settings, true);
-      document.dispatchEvent(new CustomEvent("admin:data", { detail: { proformas: data.proformas || [], finance: data.finance, pricing: data.pricing } }));
+      document.dispatchEvent(new CustomEvent("admin:data", { detail: { proformas: data.proformas || [], finance: data.finance, pricing: data.pricing, integration: data.integration } }));
     }).catch(function (e) { setStatus(e.message, "error"); })
       .then(function () { loadingAll = null; });
     return loadingAll;

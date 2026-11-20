@@ -240,6 +240,7 @@ const emptyPrivate = () => ({
   clientSpecInfo: {}, // productId -> clientId -> { comboKey: { name, requirements, sample, sampleDate } }: the client's own data for a specification
   migrations: {}, // one-time data changes already applied
   pricing: { targetMargin: 0.3 }, // pricing screen: target margin (0-1)
+  integrationDocs: [], // documents shared with / received from the Soulglobal system (see integration.js)
 });
 
 // Supplier links of a product, as [{ supplierId, cost }]. Links saved before
@@ -279,6 +280,190 @@ function decrypt(text) {
   decipher.setAuthTag(Buffer.from(box.tag, "base64"));
   const plain = Buffer.concat([decipher.update(Buffer.from(box.data, "base64")), decipher.final()]);
   return JSON.parse(plain.toString("utf8"));
+}
+
+// Saves the admin data and queues integration events in the same write (all or
+// nothing), so an event is never lost after its change was saved, nor sent for
+// a change that was not saved. Without events this is savePrivate.
+export async function savePrivateWithEvents(data, events) {
+  if (!events || !events.length) return savePrivate(data);
+  await numberEvents(events);
+  if (useRedis()) {
+    await redisTransaction([["SET", REDIS_PRIVATE, encrypt(data)], ...eventWrites(events)]);
+    return;
+  }
+  await savePrivate(data);
+  await localEventsWrite(events);
+}
+
+/* ---------- Integration: events to send (outbox) and received (inbox) ----------
+   Each event is kept encrypted (it carries client data) in a hash, with two
+   sorted sets by sequence number: all kept events (for the log) and the ones
+   still waiting to be delivered. */
+const REDIS_INT_EVENTS = "micheng:int:events";
+const REDIS_INT_ALL = "micheng:int:all";
+const REDIS_INT_PENDING = "micheng:int:pending";
+const REDIS_INT_SEQ = "micheng:int:seq";
+const REDIS_INT_INLOG = "micheng:int:inlog";
+const INT_KEEP = 2000; // delivered / failed events kept for the log
+const INLOG_MAX = 1000;
+
+async function readIntLocal() {
+  return { seq: 0, events: {}, inbox: {}, inlog: [], locks: {}, ...(await readLocal("integration.json", {})) };
+}
+
+async function numberEvents(events) {
+  if (useRedis()) {
+    const last = Number(await redis(["INCRBY", REDIS_INT_SEQ, String(events.length)]));
+    events.forEach((e, i) => (e.seq = last - events.length + 1 + i));
+    return;
+  }
+  const db = await readIntLocal();
+  events.forEach((e) => (e.seq = ++db.seq));
+  await writeLocal("integration.json", db);
+}
+
+function eventWrites(events) {
+  const writes = [["HSET", REDIS_INT_EVENTS, ...events.flatMap((e) => [e.id, encrypt(e)])],
+    ["ZADD", REDIS_INT_ALL, ...events.flatMap((e) => [String(e.seq), e.id])]];
+  const pending = events.filter((e) => e.status === "pending");
+  if (pending.length) writes.push(["ZADD", REDIS_INT_PENDING, ...pending.flatMap((e) => [String(e.seq), e.id])]);
+  return writes;
+}
+
+async function localEventsWrite(events) {
+  const db = await readIntLocal();
+  for (const e of events) db.events[e.id] = e;
+  await writeLocal("integration.json", db);
+}
+
+// Queues events that do not change the admin data (e.g. a connection test).
+export async function addEvents(events) {
+  if (!events.length) return;
+  await numberEvents(events);
+  if (useRedis()) return void (await redisTransaction(eventWrites(events)));
+  await localEventsWrite(events);
+}
+
+// Saves an event after a delivery attempt (pending ones stay in the queue).
+export async function updateEvent(event) {
+  if (useRedis()) {
+    await redisTransaction([["HSET", REDIS_INT_EVENTS, event.id, encrypt(event)],
+      event.status === "pending" ? ["ZADD", REDIS_INT_PENDING, String(event.seq), event.id] : ["ZREM", REDIS_INT_PENDING, event.id]]);
+    return;
+  }
+  await localEventsWrite([event]);
+}
+
+async function eventsByIds(ids) {
+  if (!ids.length) return [];
+  const values = await redis(["HMGET", REDIS_INT_EVENTS, ...ids]);
+  return values.filter(Boolean).map(decrypt);
+}
+
+// Events waiting to be delivered, oldest first.
+export async function pendingEvents() {
+  if (useRedis()) return eventsByIds((await redis(["ZRANGE", REDIS_INT_PENDING, "0", "-1"])) || []);
+  const db = await readIntLocal();
+  return Object.values(db.events).filter((e) => e.status === "pending").sort((a, b) => a.seq - b.seq);
+}
+
+// The newest events (any status), newest first.
+export async function recentEvents(limit) {
+  if (useRedis()) return eventsByIds((await redis(["ZREVRANGE", REDIS_INT_ALL, "0", String(limit - 1)])) || []);
+  const db = await readIntLocal();
+  return Object.values(db.events).sort((a, b) => b.seq - a.seq).slice(0, limit);
+}
+
+export async function getEvent(id) {
+  if (useRedis()) return (await eventsByIds([id]))[0] || null;
+  return (await readIntLocal()).events[id] || null;
+}
+
+// Drops the oldest events beyond INT_KEEP (never the ones still to deliver).
+export async function trimEvents() {
+  if (useRedis()) {
+    const total = Number(await redis(["ZCARD", REDIS_INT_ALL]));
+    if (total <= INT_KEEP) return;
+    const old = (await redis(["ZRANGE", REDIS_INT_ALL, "0", String(total - INT_KEEP - 1)])) || [];
+    const pending = new Set((await redis(["ZRANGE", REDIS_INT_PENDING, "0", "-1"])) || []);
+    const drop = old.filter((id) => !pending.has(id));
+    if (drop.length) await redisTransaction([["HDEL", REDIS_INT_EVENTS, ...drop], ["ZREM", REDIS_INT_ALL, ...drop]]);
+    return;
+  }
+  const db = await readIntLocal();
+  const done = Object.values(db.events).filter((e) => e.status !== "pending").sort((a, b) => a.seq - b.seq);
+  const extra = Object.keys(db.events).length - INT_KEEP;
+  if (extra <= 0) return;
+  done.slice(0, extra).forEach((e) => delete db.events[e.id]);
+  await writeLocal("integration.json", db);
+}
+
+// A short exclusive turn (e.g. one delivery run at a time). Returns a release
+// function, or null when someone else has the turn.
+export async function tryLock(name, ms) {
+  const key = "micheng:int:lock:" + name;
+  const token = crypto.randomUUID();
+  if (useRedis()) {
+    if ((await redis(["SET", key, token, "NX", "PX", String(ms)])) !== "OK") return null;
+    return () => redis(["EVAL", "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", "1", key, token])
+      .catch((e) => console.warn("Could not release lock", name, e.message));
+  }
+  const db = await readIntLocal();
+  if (db.locks[name] && db.locks[name] > Date.now()) return null;
+  db.locks[name] = Date.now() + ms;
+  await writeLocal("integration.json", db);
+  return async () => {
+    const d = await readIntLocal();
+    delete d.locks[name];
+    await writeLocal("integration.json", d);
+  };
+}
+
+// Received events: each id is handled once. claimInbox returns "new" (go
+// ahead), "done" (already handled) or "busy" (being handled right now).
+const inboxKey = (id) => "micheng:int:inbox:" + crypto.createHash("sha256").update(String(id)).digest("hex").slice(0, 40);
+const INBOX_DONE_S = 90 * 24 * 3600;
+
+export async function claimInbox(id) {
+  if (useRedis()) {
+    if ((await redis(["SET", inboxKey(id), "busy", "NX", "EX", "120"])) === "OK") return "new";
+    return (await redis(["GET", inboxKey(id)])) === "done" ? "done" : "busy";
+  }
+  const db = await readIntLocal();
+  const cur = db.inbox[id];
+  if (cur === "done") return "done";
+  if (cur && cur > Date.now()) return "busy";
+  db.inbox[id] = Date.now() + 120000;
+  await writeLocal("integration.json", db);
+  return "new";
+}
+
+export async function finishInbox(id, ok) {
+  if (useRedis()) {
+    if (ok) await redis(["SET", inboxKey(id), "done", "EX", String(INBOX_DONE_S)]);
+    else await redis(["DEL", inboxKey(id)]);
+    return;
+  }
+  const db = await readIntLocal();
+  if (ok) db.inbox[id] = "done"; else delete db.inbox[id];
+  await writeLocal("integration.json", db);
+}
+
+// Log of received events (newest first), for the panel.
+export async function appendInboundLog(entry) {
+  if (useRedis()) {
+    await redisTransaction([["LPUSH", REDIS_INT_INLOG, encrypt(entry)], ["LTRIM", REDIS_INT_INLOG, "0", String(INLOG_MAX - 1)]]);
+    return;
+  }
+  const db = await readIntLocal();
+  db.inlog = [entry].concat(db.inlog).slice(0, INLOG_MAX);
+  await writeLocal("integration.json", db);
+}
+
+export async function readInboundLog(limit) {
+  if (useRedis()) return ((await redis(["LRANGE", REDIS_INT_INLOG, "0", String(limit - 1)])) || []).map(decrypt);
+  return (await readIntLocal()).inlog.slice(0, limit);
 }
 
 /* ---------- Product change log (admin only, encrypted entry by entry) ----------

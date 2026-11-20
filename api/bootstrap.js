@@ -8,6 +8,7 @@ import { withProducts } from "./suppliers.js";
 import { settingsOut } from "./settings.js";
 import { proformaList } from "./proformas.js";
 import { accountOut, entryOut } from "./finance.js";
+import { integrationEnabled } from "./_lib/integration.js";
 
 export default async function handler(req, res) {
   try {
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
       pricing: priv.pricing || { targetMargin: 0.3 },
       proformas: proformaList(priv, products),
       finance: { accounts: fin.accounts.map(accountOut), entries: fin.entries.map(entryOut) },
+      integration: { enabled: integrationEnabled() },
     });
   } catch (e) {
     console.error(e);

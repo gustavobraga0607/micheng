@@ -41,3 +41,16 @@ export function queryParam(req, name) {
 export function isJsonRequest(req) {
   return String(req.headers["content-type"] || "").toLowerCase().startsWith("application/json");
 }
+
+// The request body exactly as sent (needed to check a signature). Only for
+// routes that never touch req.body: on Vercel reading req.body consumes it.
+export async function readRaw(req, maxBytes) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) throw Object.assign(new Error("Body too large"), { status: 413 });
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}

@@ -7,7 +7,8 @@ import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
 import { countryCode } from "./_lib/countries.js";
-import { getAllData, getPrivate, getFinance, savePrivate, oneChangeAtATime } from "./_lib/store.js";
+import { getAllData, getPrivate, getFinance, savePrivate, savePrivateWithEvents, oneChangeAtATime } from "./_lib/store.js";
+import { orderEvent, newEvent, deliverSoon } from "./_lib/integration.js";
 import { skuFor, variantImage } from "./_lib/sku.js";
 import { parseDecimal } from "./_lib/decimal.js";
 
@@ -221,6 +222,14 @@ function itemChanges(before, after) {
   return changes;
 }
 
+// Item changes as Soulglobal receives them (no internal ids of the log).
+function changesOut(changes) {
+  return changes.map((c) => ({
+    type: c.type, itemId: c.item.id, sku: c.item.sku, name: c.item.name,
+    qty: c.qty ?? null, price: c.price ?? null, from: c.from ?? null, to: c.to ?? null,
+  }));
+}
+
 // Sale prices (and the client's references) of an order are remembered for the client.
 function rememberPrices(priv, proforma, items, now) {
   const prices = (priv.clientPrices[proforma.clientId] = priv.clientPrices[proforma.clientId] || {});
@@ -329,6 +338,16 @@ export function proformaList(priv, products) {
   }));
 }
 
+// Saves the data with the event for Soulglobal (when the integration is on) in
+// the same write, then delivers it right after the response.
+async function saveWithEvent(priv, event) {
+  await savePrivateWithEvents(priv, event ? [event] : []);
+  if (event) deliverSoon();
+}
+
+// An order Soulglobal already heard about (it was closed at least once).
+const wasOrder = (p) => p.status === "closed" || Boolean(p.closedAt) || (p.log || []).some((e) => e.kind === "closed");
+
 async function handler(req, res) {
   try {
     const session = getSession(req);
@@ -396,7 +415,7 @@ async function handler(req, res) {
       proforma.items = loadDiscounts(priv, proforma, proforma.items);
       addLog(proforma, session.u, "closed", null);
       priv.proformas[index] = proforma;
-      await savePrivate(priv);
+      await saveWithEvent(priv, orderEvent("proforma.closed", proforma));
       return send(res, 200, { proforma });
     }
 
@@ -455,7 +474,7 @@ async function handler(req, res) {
       rememberPrices(priv, proforma, proforma.items.filter((i) => touched.has(i.id)), now);
       addLog(proforma, session.u, "items", changes);
       priv.proformas[index] = proforma;
-      await savePrivate(priv);
+      await saveWithEvent(priv, orderEvent("proforma.amended", proforma, { changes: changesOut(changes) }));
       return send(res, 200, { proforma });
     }
 
@@ -472,7 +491,7 @@ async function handler(req, res) {
       const proforma = { ...current, invoice: { ...inv, savedAt: now, savedBy: session.u }, updatedAt: now };
       addLog(proforma, session.u, first ? "invoice" : "invoiceUpdated", [{ type: "invoice", number: inv.number }]);
       priv.proformas[index] = proforma;
-      await savePrivate(priv);
+      await saveWithEvent(priv, orderEvent("proforma.invoice_saved", proforma, { first }));
       return send(res, 200, { proforma });
     }
 
@@ -523,7 +542,8 @@ async function handler(req, res) {
         addLog(proforma, session.u, "clientDiscarded", list);
       }
       priv.proformas[index] = proforma;
-      await savePrivate(priv);
+      const amended = body.apply && proforma.status === "closed" && list.length;
+      await saveWithEvent(priv, amended ? orderEvent("proforma.amended", proforma, { changes: changesOut(list), byClient: true }) : null);
       return send(res, 200, { proforma });
     }
 
@@ -541,13 +561,16 @@ async function handler(req, res) {
       const proforma = { ...current, status: "draft", closedAt: null, updatedAt: new Date().toISOString() };
       addLog(proforma, session.u, "reopened", null);
       priv.proformas[index] = proforma;
-      await savePrivate(priv);
+      await saveWithEvent(priv, current.status === "closed" ? orderEvent("proforma.reopened", proforma) : null);
       return send(res, 200, { proforma });
     }
 
     if (req.method === "DELETE") {
       priv.proformas.splice(index, 1);
-      await savePrivate(priv);
+      const gone = wasOrder(current)
+        ? newEvent("proforma.deleted", "proforma:" + current.id, { order: { id: current.id, number: current.number, status: "deleted" } })
+        : null;
+      await saveWithEvent(priv, gone);
       return send(res, 200, { ok: true });
     }
 
