@@ -56,6 +56,8 @@
     if (data.secretTooShort) lines.push('<div class="int-warn">' + esc(T("int.secretShort")) + "</div>");
     if (data.eventsUrl) lines.push('<div class="int-line">' + esc(T("int.endpoint")) + ": <code>" + esc(data.eventsUrl) + "</code></div>");
     lines.push('<div class="int-line">' + esc(T("int.inboundUrl")) + ": <code>" + esc(location.origin + "/api/integration-inbound") + "</code></div>");
+    if (data.enabled) lines.push('<div class="int-line">' + esc(T("int.lastSync", { t: data.lastSync ? fmtDateTime(data.lastSync) : "—" })) +
+      (data.syncPending ? " · " + esc(T("int.syncPending")) : "") + "</div>");
     if (data.enabled && !data.publicBaseUrl) lines.push('<div class="int-warn">' + esc(T("int.noBase")) + "</div>");
     if (data.enabled && !data.cronSecretSet) lines.push('<div class="int-warn">' + esc(T("int.noCron")) + "</div>");
     box.innerHTML = lines.join("");
@@ -152,6 +154,19 @@
       setMsg("#int-msg", runResult(r), "ok");
       return load();
     }).catch(function (e) { setMsg("#int-msg", e.message, "error"); }).then(function () { busy(btn, false); });
+  });
+
+  function sync(all, btn) {
+    busy(btn, true);
+    setMsg("#int-msg", T("int.syncing"));
+    return A.api("/api/integration?action=sync", { method: "POST", body: { all: all } }).then(function (r) {
+      setMsg("#int-msg", T("int.syncDone", { q: (r.sync && r.sync.queued) || 0 }) + " " + runResult(r), "ok");
+      return load();
+    }).catch(function (e) { setMsg("#int-msg", e.message, "error"); }).then(function () { busy(btn, false); });
+  }
+  $("#int-sync").addEventListener("click", function () { sync(false, this); });
+  $("#int-resync").addEventListener("click", function () {
+    if (window.confirm(T("int.resyncConfirm"))) sync(true, this);
   });
 
   function retry(body, btn) {

@@ -168,9 +168,11 @@ export function newEvent(type, subject, data) {
 
 // The body sent: the event plus fresh links for its documents.
 function envelope(event) {
-  const data = event.data && event.data.document
-    ? { ...event.data, document: { ...event.data.document, url: signedFileUrl(event.data.document.id) } }
-    : event.data;
+  let data = event.data;
+  if (data && data.document) data = { ...data, document: { ...data.document, url: signedFileUrl(data.document.id) } };
+  if (data && data.receivable && data.receivable.attachments && data.receivable.attachments.length) {
+    data = { ...data, receivable: { ...data.receivable, attachments: data.receivable.attachments.map((f) => ({ ...f, url: signedFileUrl("fin:" + f.id) })) } };
+  }
   return JSON.stringify({
     id: event.id,
     type: event.type,
@@ -219,34 +221,41 @@ export async function deliverPending({ budgetMs = 45000 } = {}) {
   if (!release) return { ...result, skipped: "busy" };
   const started = Date.now();
   try {
-    const blocked = new Set();
-    for (const event of await pendingEvents()) {
-      if (blocked.has(event.subject)) { result.waiting += 1; continue; }
-      if (event.nextAt > Date.now() || Date.now() - started > budgetMs) {
-        blocked.add(event.subject);
-        result.waiting += 1;
-        continue;
-      }
-      event.attempts += 1;
-      event.lastAttemptAt = new Date().toISOString();
-      try {
-        await send(event);
-        event.status = "delivered";
-        event.deliveredAt = new Date().toISOString();
-        event.lastError = null;
-        result.delivered += 1;
-      } catch (e) {
-        event.lastError = String(e.message || e).slice(0, 300);
-        if (event.attempts >= MAX_ATTEMPTS) {
-          event.status = "failed";
-          result.failed += 1;
-        } else {
-          event.nextAt = Date.now() + backoffMs(event.attempts);
+    // Passes over the queue until one sends nothing: events queued while this
+    // run was going (their own run found it busy) are sent too.
+    for (let progress = true; progress && Date.now() - started <= budgetMs;) {
+      progress = false;
+      result.waiting = 0;
+      const blocked = new Set();
+      for (const event of await pendingEvents()) {
+        if (blocked.has(event.subject)) { result.waiting += 1; continue; }
+        if (event.nextAt > Date.now() || Date.now() - started > budgetMs) {
+          blocked.add(event.subject);
           result.waiting += 1;
+          continue;
         }
-        blocked.add(event.subject);
+        event.attempts += 1;
+        event.lastAttemptAt = new Date().toISOString();
+        try {
+          await send(event);
+          event.status = "delivered";
+          event.deliveredAt = new Date().toISOString();
+          event.lastError = null;
+          result.delivered += 1;
+          progress = true;
+        } catch (e) {
+          event.lastError = String(e.message || e).slice(0, 300);
+          if (event.attempts >= MAX_ATTEMPTS) {
+            event.status = "failed";
+            result.failed += 1;
+          } else {
+            event.nextAt = Date.now() + backoffMs(event.attempts);
+            result.waiting += 1;
+          }
+          blocked.add(event.subject);
+        }
+        await updateEvent(event);
       }
-      await updateEvent(event);
     }
     await trimEvents();
   } finally {
@@ -255,11 +264,22 @@ export async function deliverPending({ budgetMs = 45000 } = {}) {
   return result;
 }
 
+// Waits for a run already going, then delivers (that run may have read the
+// queue before the new events). The cron job is the safety net.
+export async function deliverAfterTurn(budgetMs = 20000) {
+  for (let i = 0; i < 10; i++) {
+    const r = await deliverPending({ budgetMs });
+    if (r.skipped !== "busy") return r;
+    await new Promise((ok) => setTimeout(ok, 750));
+  }
+  return { skipped: "busy" };
+}
+
 // Delivers in the background after the response is sent (Vercel keeps the
 // function alive for it). Anything left is picked up by the cron job.
 export function deliverSoon() {
   if (!integrationEnabled()) return;
-  const run = deliverPending({ budgetMs: 20000 }).catch((e) => console.error("Integration delivery", e));
+  const run = deliverAfterTurn().catch((e) => console.error("Integration delivery", e));
   try { waitUntil(run); } catch (e) { /* outside Vercel: the promise just runs */ }
 }
 

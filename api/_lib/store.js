@@ -169,7 +169,10 @@ async function readLocal(file, fallback) {
 
 async function writeLocal(file, data) {
   await fs.mkdir(LOCAL_DIR, { recursive: true });
-  await fs.writeFile(path.join(LOCAL_DIR, file), JSON.stringify(data, null, 2));
+  // Written aside and renamed: a read at the same moment never sees half a file.
+  const tmp = path.join(LOCAL_DIR, file + "." + crypto.randomUUID() + ".tmp");
+  await fs.writeFile(tmp, JSON.stringify(data, null, 2));
+  await fs.rename(tmp, path.join(LOCAL_DIR, file));
 }
 
 /* ---------- Public contact (WhatsApp / WeChat buttons on the site) ----------
@@ -204,15 +207,15 @@ export async function getProducts() {
 }
 
 export async function saveProducts(products) {
-  if (useRedis()) return void (await redis(["SET", REDIS_PRODUCTS, JSON.stringify(products)]));
-  if (!useBlob()) return writeLocal("products.json", products);
+  if (useRedis()) return void (await redisTransaction([["SET", REDIS_PRODUCTS, JSON.stringify(products)], dirtyWrite()]));
+  if (!useBlob()) { await writeLocal("products.json", products); return markLocalDirty(); }
   await writeData(PRODUCTS_PREFIX, ".json", JSON.stringify(products), "application/json");
 }
 
 // Saves the product list and the admin data together (all or nothing).
 export async function saveProductsAndPrivate(products, priv) {
   if (useRedis()) {
-    await redisTransaction([["SET", REDIS_PRODUCTS, JSON.stringify(products)], ["SET", REDIS_PRIVATE, encrypt(priv)]]);
+    await redisTransaction([["SET", REDIS_PRODUCTS, JSON.stringify(products)], ["SET", REDIS_PRIVATE, encrypt(priv)], dirtyWrite()]);
     return;
   }
   await saveProducts(products);
@@ -312,15 +315,26 @@ async function readIntLocal() {
   return { seq: 0, events: {}, inbox: {}, inlog: [], locks: {}, ...(await readLocal("integration.json", {})) };
 }
 
+// Local development only: changes to integration.json take turns (one process).
+let intLocalChain = Promise.resolve();
+function changeIntLocal(change) {
+  const run = intLocalChain.then(async () => {
+    const db = await readIntLocal();
+    const out = await change(db);
+    await writeLocal("integration.json", db);
+    return out;
+  });
+  intLocalChain = run.catch(() => {});
+  return run;
+}
+
 async function numberEvents(events) {
   if (useRedis()) {
     const last = Number(await redis(["INCRBY", REDIS_INT_SEQ, String(events.length)]));
     events.forEach((e, i) => (e.seq = last - events.length + 1 + i));
     return;
   }
-  const db = await readIntLocal();
-  events.forEach((e) => (e.seq = ++db.seq));
-  await writeLocal("integration.json", db);
+  await changeIntLocal((db) => { events.forEach((e) => (e.seq = ++db.seq)); });
 }
 
 function eventWrites(events) {
@@ -332,9 +346,7 @@ function eventWrites(events) {
 }
 
 async function localEventsWrite(events) {
-  const db = await readIntLocal();
-  for (const e of events) db.events[e.id] = e;
-  await writeLocal("integration.json", db);
+  await changeIntLocal((db) => { for (const e of events) db.events[e.id] = e; });
 }
 
 // Queues events that do not change the admin data (e.g. a connection test).
@@ -391,12 +403,11 @@ export async function trimEvents() {
     if (drop.length) await redisTransaction([["HDEL", REDIS_INT_EVENTS, ...drop], ["ZREM", REDIS_INT_ALL, ...drop]]);
     return;
   }
-  const db = await readIntLocal();
-  const done = Object.values(db.events).filter((e) => e.status !== "pending").sort((a, b) => a.seq - b.seq);
-  const extra = Object.keys(db.events).length - INT_KEEP;
-  if (extra <= 0) return;
-  done.slice(0, extra).forEach((e) => delete db.events[e.id]);
-  await writeLocal("integration.json", db);
+  await changeIntLocal((db) => {
+    const done = Object.values(db.events).filter((e) => e.status !== "pending").sort((a, b) => a.seq - b.seq);
+    const extra = Object.keys(db.events).length - INT_KEEP;
+    if (extra > 0) done.slice(0, extra).forEach((e) => delete db.events[e.id]);
+  });
 }
 
 // A short exclusive turn (e.g. one delivery run at a time). Returns a release
@@ -409,15 +420,13 @@ export async function tryLock(name, ms) {
     return () => redis(["EVAL", "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", "1", key, token])
       .catch((e) => console.warn("Could not release lock", name, e.message));
   }
-  const db = await readIntLocal();
-  if (db.locks[name] && db.locks[name] > Date.now()) return null;
-  db.locks[name] = Date.now() + ms;
-  await writeLocal("integration.json", db);
-  return async () => {
-    const d = await readIntLocal();
-    delete d.locks[name];
-    await writeLocal("integration.json", d);
-  };
+  const got = await changeIntLocal((db) => {
+    if (db.locks[name] && db.locks[name] > Date.now()) return false;
+    db.locks[name] = Date.now() + ms;
+    return true;
+  });
+  if (!got) return null;
+  return () => changeIntLocal((db) => { delete db.locks[name]; });
 }
 
 // Received events: each id is handled once. claimInbox returns "new" (go
@@ -430,13 +439,13 @@ export async function claimInbox(id) {
     if ((await redis(["SET", inboxKey(id), "busy", "NX", "EX", "120"])) === "OK") return "new";
     return (await redis(["GET", inboxKey(id)])) === "done" ? "done" : "busy";
   }
-  const db = await readIntLocal();
-  const cur = db.inbox[id];
-  if (cur === "done") return "done";
-  if (cur && cur > Date.now()) return "busy";
-  db.inbox[id] = Date.now() + 120000;
-  await writeLocal("integration.json", db);
-  return "new";
+  return changeIntLocal((db) => {
+    const cur = db.inbox[id];
+    if (cur === "done") return "done";
+    if (cur && cur > Date.now()) return "busy";
+    db.inbox[id] = Date.now() + 120000;
+    return "new";
+  });
 }
 
 export async function finishInbox(id, ok) {
@@ -445,9 +454,7 @@ export async function finishInbox(id, ok) {
     else await redis(["DEL", inboxKey(id)]);
     return;
   }
-  const db = await readIntLocal();
-  if (ok) db.inbox[id] = "done"; else delete db.inbox[id];
-  await writeLocal("integration.json", db);
+  await changeIntLocal((db) => { if (ok) db.inbox[id] = "done"; else delete db.inbox[id]; });
 }
 
 // Log of received events (newest first), for the panel.
@@ -456,14 +463,80 @@ export async function appendInboundLog(entry) {
     await redisTransaction([["LPUSH", REDIS_INT_INLOG, encrypt(entry)], ["LTRIM", REDIS_INT_INLOG, "0", String(INLOG_MAX - 1)]]);
     return;
   }
-  const db = await readIntLocal();
-  db.inlog = [entry].concat(db.inlog).slice(0, INLOG_MAX);
-  await writeLocal("integration.json", db);
+  await changeIntLocal((db) => { db.inlog = [entry].concat(db.inlog).slice(0, INLOG_MAX); });
 }
 
 export async function readInboundLog(limit) {
   if (useRedis()) return ((await redis(["LRANGE", REDIS_INT_INLOG, "0", String(limit - 1)])) || []).map(decrypt);
   return (await readIntLocal()).inlog.slice(0, limit);
+}
+
+/* ---------- Integration: shared catalog and receivables ----------
+   What was last queued for each shared record (its hash), so only changes are
+   sent. Saving products or finance marks the data as changed ("dirty"). */
+const REDIS_INT_SYNCED = "micheng:int:synced";
+const REDIS_INT_DIRTY = "micheng:int:dirty";
+const REDIS_INT_LASTSYNC = "micheng:int:lastsync";
+
+function dirtyWrite() {
+  return ["SET", REDIS_INT_DIRTY, Date.now() + ":" + crypto.randomUUID()];
+}
+
+async function markLocalDirty() {
+  await changeIntLocal((db) => { db.dirty = Date.now() + ":" + crypto.randomUUID(); });
+}
+
+// { dirty: token or null, lastSync: ms or 0 }
+export async function syncState() {
+  if (useRedis()) {
+    const [dirty, last] = await redis(["MGET", REDIS_INT_DIRTY, REDIS_INT_LASTSYNC]);
+    return { dirty: dirty || null, lastSync: Number(last) || 0 };
+  }
+  const db = await readIntLocal();
+  return { dirty: db.dirty || null, lastSync: Number(db.lastSync) || 0 };
+}
+
+// { "product:<id>": hash, "receivable:<id>": hash, ... }
+export async function syncedHashes() {
+  if (useRedis()) {
+    const flat = (await redis(["HGETALL", REDIS_INT_SYNCED])) || [];
+    const out = {};
+    for (let i = 0; i < flat.length; i += 2) out[flat[i]] = flat[i + 1];
+    return out;
+  }
+  return { ...((await readIntLocal()).synced || {}) };
+}
+
+// Queues the events and records what was sent, together. The "dirty" mark is
+// cleared only if nothing changed meanwhile (dirtySeen) and the run was complete.
+export async function commitSync(events, setHashes, delKeys, { dirtySeen, complete }) {
+  if (events.length) await numberEvents(events);
+  if (useRedis()) {
+    const writes = events.length ? eventWrites(events) : [];
+    const pairs = Object.entries(setHashes);
+    if (pairs.length) writes.push(["HSET", REDIS_INT_SYNCED, ...pairs.flat()]);
+    if (delKeys.length) writes.push(["HDEL", REDIS_INT_SYNCED, ...delKeys]);
+    writes.push(["SET", REDIS_INT_LASTSYNC, String(Date.now())]);
+    if (complete && dirtySeen) writes.push(["EVAL", "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", "1", REDIS_INT_DIRTY, dirtySeen]);
+    await redisTransaction(writes);
+    return;
+  }
+  await changeIntLocal((db) => {
+    for (const e of events) db.events[e.id] = e;
+    db.synced = { ...(db.synced || {}), ...setHashes };
+    for (const k of delKeys) delete db.synced[k];
+    db.lastSync = Date.now();
+    if (complete && dirtySeen && db.dirty === dirtySeen) delete db.dirty;
+  });
+}
+
+// Forgets what was sent: the next run sends the whole catalog and receivables again.
+export async function resetSynced() {
+  if (useRedis()) return void (await redisTransaction([["DEL", REDIS_INT_SYNCED], dirtyWrite()]));
+  await changeIntLocal((db) => {
+    db.synced = {};
+    db.dirty = Date.now() + ":reset";
+  });
 }
 
 /* ---------- Product change log (admin only, encrypted entry by entry) ----------
@@ -526,8 +599,8 @@ export async function getFinance() {
 }
 
 export async function saveFinance(data) {
-  if (useRedis()) return void (await redis(["SET", REDIS_FINANCE, encrypt(data)]));
-  if (!useBlob()) return writeLocal("finance.json", data);
+  if (useRedis()) return void (await redisTransaction([["SET", REDIS_FINANCE, encrypt(data)], dirtyWrite()]));
+  if (!useBlob()) { await writeLocal("finance.json", data); return markLocalDirty(); }
   await writeData(financePath(), ".enc", encrypt(data), "application/octet-stream");
 }
 

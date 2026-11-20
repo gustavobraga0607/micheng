@@ -986,12 +986,14 @@
       </section>
       <section class="panel int-panel" id="int-panel">
         <h2 data-t="int.title">Integração com a Soulglobal</h2>
-        <p class="hint" data-t="int.hint">Pedidos fechados, invoices e documentos são enviados automaticamente ao sistema Soulglobal; o que a Soulglobal envia aparece aqui. Fornecedores, custos e margens nunca são enviados.</p>
+        <p class="hint" data-t="int.hint">Proformas (inclusive rascunhos), o catálogo de produtos (sem preços), os recebimentos dos pedidos e os documentos são enviados automaticamente ao sistema Soulglobal; o que a Soulglobal envia aparece aqui. Fornecedores, custos, margens, contas bancárias e pagamentos nunca são enviados.</p>
         <div class="int-status" id="int-status"></div>
         <div id="int-on" hidden>
           <div class="int-actions">
             <button type="button" class="btn btn--outline btn--sm" id="int-ping" data-t="int.ping">Testar conexão</button>
             <button type="button" class="btn btn--outline btn--sm" id="int-deliver" data-t="int.deliver">Enviar pendentes agora</button>
+            <button type="button" class="btn btn--outline btn--sm" id="int-sync" data-t="int.sync">Sincronizar catálogo e recebimentos</button>
+            <button type="button" class="btn btn--outline btn--sm" id="int-resync" data-t="int.resync">Reenviar tudo</button>
             <button type="button" class="btn btn--outline btn--sm" id="int-retry-all" data-t="int.retryAll" hidden>Tentar de novo os que falharam</button>
             <button type="button" class="linkbtn" id="int-refresh" data-t="int.refresh">Atualizar</button>
           </div>

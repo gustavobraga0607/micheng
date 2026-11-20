@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js";
 import { getSession } from "./_lib/auth.js";
+import { withSync } from "./_lib/integration-sync.js";
 import { getProducts, saveProducts, saveProductsAndPrivate, saveImage, copyImage, deleteImage, getPrivate, getAllData, productLinks, withDataLock, BusyError, appendProductLog, readProductLog, savePrivate } from "./_lib/store.js";
 import { translateAll, detectLanguage, LANGS } from "./_lib/translate.js";
 import { assignSkus, addSpec, comboKey, photoFor } from "./_lib/sku.js";
@@ -979,4 +980,5 @@ function forgetPrices(priv, productId) {
   }
 }
 
-export default handler;
+// Catalog changes reach Soulglobal (when the integration is on) in the background.
+export default withSync(handler);

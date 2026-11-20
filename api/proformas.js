@@ -381,7 +381,7 @@ async function handler(req, res) {
       if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
       proforma.number = nextNumber(priv, proforma);
       priv.proformas.unshift(proforma);
-      await savePrivate(priv);
+      await saveWithEvent(priv, orderEvent("proforma.created", proforma));
       return send(res, 201, { proforma });
     }
 
@@ -400,7 +400,7 @@ async function handler(req, res) {
       if (dups.length) return send(res, 422, { error: "Duplicate items", problems: dups });
       renumber(priv, proforma);
       priv.proformas[index] = proforma;
-      await savePrivate(priv);
+      await saveWithEvent(priv, orderEvent("proforma.updated", proforma));
       return send(res, 200, { proforma });
     }
 
@@ -542,8 +542,9 @@ async function handler(req, res) {
         addLog(proforma, session.u, "clientDiscarded", list);
       }
       priv.proformas[index] = proforma;
-      const amended = body.apply && proforma.status === "closed" && list.length;
-      await saveWithEvent(priv, amended ? orderEvent("proforma.amended", proforma, { changes: changesOut(list), byClient: true }) : null);
+      const applied = body.apply && list.length;
+      const type = proforma.status === "closed" ? "proforma.amended" : "proforma.updated";
+      await saveWithEvent(priv, applied ? orderEvent(type, proforma, { changes: changesOut(list), byClient: true }) : null);
       return send(res, 200, { proforma });
     }
 
@@ -567,9 +568,7 @@ async function handler(req, res) {
 
     if (req.method === "DELETE") {
       priv.proformas.splice(index, 1);
-      const gone = wasOrder(current)
-        ? newEvent("proforma.deleted", "proforma:" + current.id, { order: { id: current.id, number: current.number, status: "deleted" } })
-        : null;
+      const gone = newEvent("proforma.deleted", "proforma:" + current.id, { order: { id: current.id, number: current.number, status: "deleted", wasOrder: wasOrder(current) } });
       await saveWithEvent(priv, gone);
       return send(res, 200, { ok: true });
     }

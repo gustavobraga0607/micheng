@@ -8,7 +8,9 @@ Princípios:
 - Toda mensagem é **assinada** com uma chave compartilhada (HMAC-SHA256).
 - A entrega é **"pelo menos uma vez"**: o mesmo evento pode chegar mais de uma vez, e quem recebe ignora um `id` que já tratou.
 - Quem envia guarda o evento junto com a mudança que o gerou (outbox) e tenta de novo até receber confirmação.
-- Dados internos da Micheng (fornecedores, custos, margens, valores declarados, histórico interno) **nunca** saem da Micheng.
+- A **Micheng é a dona** de proformas, produtos e financeiro: esses dados são editados só na Micheng, e a Soulglobal recebe cópias atualizadas. A Soulglobal envia de volta apenas status, documentos e revisões (seção 4).
+- Dados compartilhados: **proformas** (rascunhos e pedidos), **catálogo de produtos** (como no site, com códigos e especificações, sem preços) e **recebimentos dos pedidos** (com comprovantes).
+- Nunca saem da Micheng: fornecedores, custos de compra, margens, lucro, preços de lista, valores declarados, contas bancárias, saldos, extratos, pagamentos a fornecedores, outros lançamentos e o histórico interno.
 
 ## 1. Configuração
 
@@ -95,14 +97,20 @@ Todos os eventos de pedido trazem em `data.order` o **estado completo** do pedid
 | Tipo | Quando |
 | --- | --- |
 | `ping` | Teste de conexão pelo painel. Responder 200. |
+| `proforma.created` | Uma proforma (rascunho) foi criada. |
+| `proforma.updated` | Um rascunho foi alterado (inclusive alterações pedidas pelo cliente e aplicadas, com `data.byClient: true`). |
 | `proforma.closed` | A proforma foi fechada (virou pedido). |
 | `proforma.reopened` | Um pedido fechado foi reaberto (deixa de ser firme até ser fechado de novo). |
 | `proforma.amended` | Itens de um pedido fechado foram alterados. `data.changes` lista as mudanças; `data.byClient: true` quando vieram de pedido do cliente. |
 | `proforma.invoice_saved` | A invoice comercial foi salva. `data.order.invoice` traz os dados; `data.first` indica a primeira vez. |
-| `proforma.deleted` | Um pedido que já foi fechado foi excluído. `data.order` tem só `id`, `number` e `status: "deleted"`. |
+| `proforma.deleted` | Uma proforma foi excluída. `data.order` tem só `id`, `number`, `status: "deleted"` e `wasOrder` (se já tinha sido fechada). |
 | `document.shared` | Um documento foi compartilhado (ver seção 5). |
+| `product.upserted` | Um produto do catálogo foi criado ou alterado (`data.product`, seção 3.1). |
+| `product.deleted` | Um produto foi excluído (`data.product.id`). |
+| `receivable.upserted` | Um recebimento de pedido foi criado ou alterado (`data.receivable`, seção 3.2). |
+| `receivable.deleted` | Um recebimento foi excluído ou deixou de estar ligado a um pedido (`data.receivable.id`). |
 
-Rascunhos não geram eventos.
+O status da proforma está em `data.order.status`: `draft` (rascunho) ou `closed` (pedido).
 
 ### `data.order`
 
@@ -129,6 +137,52 @@ Rascunhos não geram eventos.
 `invoice` (quando salva): `number, date, incoterm, transport, portLoading, portDischarge, originCountry, acquisitionCountry, provenanceCountry, paymentTerms, buyer, packagesQty, packagesKind, marks, grossWeight, netWeight, volumeM3, freight, insurance, otherCosts, otherCostsLabel, notes, units` (unidade por item), `savedAt`.
 
 Valores em `currency` do pedido (CNY, USD, EUR ou BRL). A conversão para BRL (PTAX) fica com a Soulglobal.
+
+### 3.1 Catálogo de produtos (`data.product`)
+
+O mesmo conteúdo do site, mais os códigos e as especificações; **sem preços**, fornecedores, dados de clientes ou desenhos técnicos.
+
+```json
+{
+  "id": "…", "sku": "2432",
+  "name": { "pt": "Mesa", "en": "Table", "es": "Mesa", "zh": "桌" },
+  "description": { "pt": "…", "en": "…", "es": "…", "zh": "…" },
+  "category": "general", "image": "https://…", "gallery": [{ "url": "https://…", "optionId": null }],
+  "attributes": [{ "id": "…", "name": { "pt": "Cor" }, "options": [{ "id": "…", "label": { "pt": "Preto" } }] }],
+  "specifications": [{
+    "key": "<ids das opções>", "sku": "2432-1", "optionIds": ["…"], "image": "https://…",
+    "details": "…", "weight": "12 kg", "measures": "120 x 60 x 75 cm", "packaging": "caixa de papelão"
+  }],
+  "createdAt": "…", "updatedAt": "…"
+}
+```
+
+O `sku` de um item de proforma (`data.order.items[].sku`) é o `sku` do produto ou de uma especificação, então a Soulglobal pode ligar os itens dos pedidos ao catálogo.
+
+### 3.2 Recebimentos dos pedidos (`data.receivable`)
+
+Lançamentos **a receber** do financeiro que estão ligados a uma proforma/pedido. Lançamentos a pagar e os não ligados a pedido não são enviados.
+
+```json
+{
+  "id": "…", "proformaId": "…", "proformaNumber": "BR-2026-016",
+  "description": "Sinal 30%", "category": "…", "client": "Cliente BR",
+  "amount": 1500, "currency": "USD", "dueDate": "2026-12-01",
+  "status": "paid", "paidDate": "2026-11-28", "document": "…",
+  "attachments": [{ "id": "…", "name": "comprovante.pdf", "contentType": "application/pdf", "size": 52311, "url": "https://…" }],
+  "createdAt": "…", "updatedAt": "…"
+}
+```
+
+`status`: `open` (em aberto) ou `paid` (recebido). Cada comprovante tem um link assinado e temporário (48 horas, refeito a cada envio), como os documentos da seção 5.
+
+### 3.3 Como o catálogo e os recebimentos são enviados
+
+A Micheng guarda uma impressão digital (hash) do último envio de cada produto e recebimento. A cada mudança, e a cada minuto pelo cron, ela compara e envia só o que mudou. Por isso:
+
+- ao ligar a integração, o **catálogo inteiro e todos os recebimentos** são enviados na primeira execução (em lotes de até 300 eventos por execução);
+- cada evento traz o **registro completo**, então a Soulglobal pode simplesmente substituir a cópia dela;
+- o botão **Reenviar tudo** (painel da Micheng) envia tudo de novo, por exemplo se a Soulglobal precisar refazer a cópia.
 
 ## 4. Eventos que a Micheng recebe
 
@@ -173,7 +227,7 @@ A invoice comercial é enviada automaticamente quando é gerada no painel (com a
 ## 6. O que a Soulglobal precisa implementar (próxima etapa)
 
 1. Rota `POST /api/webhooks/micheng`: lê o corpo bruto, verifica a assinatura, grava em `webhook_events` (`provider: 'MICHENG'`, `externalId = id`, único) e responde 200; um job Inngest processa.
-2. Processamento: `proforma.*` cria/atualiza o pedido (cotação/embarque) da organização ligada à Micheng; `document.shared` baixa e grava em `shipment_documents`.
+2. Processamento: `proforma.*` cria/atualiza a proforma/pedido da organização ligada à Micheng (rascunhos como cotação, `closed` como pedido firme); `product.*` mantém uma cópia do catálogo da Micheng (ligada à organização dela, pelo `id`/`sku`); `receivable.*` mantém os recebimentos de cada pedido (e baixa os comprovantes); `document.shared` baixa e grava em `shipment_documents`. Como a Micheng é a dona desses dados, a Soulglobal não deve editá-los, só ler.
 3. Envio para a Micheng (`order.updated`, `document.shared`, `document.reviewed`) por uma função Inngest com novas tentativas, assinando como na seção 2.
 4. Variáveis `MICHENG_EVENTS_URL` e `MICHENG_INTEGRATION_SECRET`.
 

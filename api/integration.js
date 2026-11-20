@@ -5,8 +5,9 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import {
   getPrivate, savePrivateWithEvents, withDataLock, BusyError, saveSecretFile, readSecretFile, deleteSecretFile,
-  recentEvents, getEvent, updateEvent, readInboundLog,
+  recentEvents, getEvent, updateEvent, readInboundLog, syncState, resetSynced,
 } from "./_lib/store.js";
+import { syncShared } from "./_lib/integration-sync.js";
 import {
   integrationEnabled, integrationStatus, deliverPending, deliverSoon, retryEvent, queuePing, newEvent,
   documentOut, validDocument, cleanFileName, DOCUMENT_TYPES,
@@ -20,7 +21,9 @@ function eventOut(e) {
   return {
     id: e.id, type: e.type, subject: e.subject, seq: e.seq, status: e.status, attempts: e.attempts,
     lastError: e.lastError, createdAt: e.createdAt, deliveredAt: e.deliveredAt, nextAt: e.nextAt || null,
-    label: (d.order && d.order.number) || (d.document && d.document.name) || null,
+    label: (d.order && d.order.number) || (d.document && d.document.name) ||
+      (d.product && [d.product.sku, d.product.name && (d.product.name.pt || d.product.name.en)].filter(Boolean).join(" · ")) ||
+      (d.receivable && [d.receivable.proformaNumber, d.receivable.description].filter(Boolean).join(" · ")) || null,
     proformaId: (d.order && d.order.id) || (d.document && d.document.proformaId) || null,
   };
 }
@@ -40,8 +43,11 @@ export async function statusOut() {
   const [events, inbound] = await Promise.all([recentEvents(150), readInboundLog(100)]);
   const counts = { pending: 0, failed: 0, delivered: 0 };
   for (const e of events) counts[e.status] = (counts[e.status] || 0) + 1;
+  const sync = await syncState();
   return {
     ...integrationStatus(),
+    lastSync: sync.lastSync || null,
+    syncPending: Boolean(sync.dirty),
     counts,
     events: events.map(eventOut),
     inbound,
@@ -134,6 +140,15 @@ export default async function handler(req, res) {
       for (const e of targets) if (e.status !== "delivered") await updateEvent(retryEvent(e));
       const run = await deliverPending({ budgetMs: 20000 });
       return send(res, 200, { retried: targets.length, run });
+    }
+
+    // Compares the catalog and the receivables now and sends what changed.
+    // With { all: true }, sends everything again (e.g. after Soulglobal reset its copy).
+    if (action === "sync") {
+      if (body.all) await resetSynced();
+      const sync = await syncShared({ force: true });
+      const run = await deliverPending({ budgetMs: 20000 });
+      return send(res, 200, { sync, run });
     }
 
     if (action === "document") {

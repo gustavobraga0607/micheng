@@ -7,6 +7,7 @@ import { send, fail, readJson, queryParam, isJsonRequest } from "./_lib/http.js"
 import { getSession } from "./_lib/auth.js";
 import { getFinance, saveFinance, getPrivate, oneChangeAtATime, saveSecretFile, readSecretFile, deleteSecretFile } from "./_lib/store.js";
 import { parseDecimal } from "./_lib/decimal.js";
+import { withSync } from "./_lib/integration-sync.js";
 
 const CURRENCIES = ["CNY", "USD", "EUR", "BRL"];
 const MAX_REPEAT = 60;
@@ -336,4 +337,5 @@ async function handler(req, res) {
   }
 }
 
-export default oneChangeAtATime(handler);
+// Receivables of orders reach Soulglobal (when the integration is on) in the background.
+export default withSync(oneChangeAtATime(handler));
